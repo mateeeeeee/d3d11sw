@@ -1,0 +1,13 @@
+build/
+out/
+.vs/
+.vscode/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.db
+*.opendb
+CMakeSettings.json
+CMakeUserPresets.json
+.DS_Store

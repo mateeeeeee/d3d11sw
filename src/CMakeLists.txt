@@ -1,0 +1,61 @@
+set(MARS_SOURCES
+    exports/dllmain.cpp
+    exports/exports.cpp
+
+    device/device.cpp
+    device/device1.cpp
+    device/device2.cpp
+    device/device3.cpp
+    device/device4.cpp
+    device/device5.cpp
+
+    context/context.cpp
+    context/context1.cpp
+    context/context2.cpp
+    context/context3.cpp
+    context/context4.cpp
+
+    resources/buffer.cpp
+    resources/texture1d.cpp
+    resources/texture2d.cpp
+    resources/texture3d.cpp
+
+    views/render_target_view.cpp
+    views/depth_stencil_view.cpp
+    views/shader_resource_view.cpp
+    views/unordered_access_view.cpp
+
+    shaders/vertex_shader.cpp
+    shaders/pixel_shader.cpp
+    shaders/geometry_shader.cpp
+    shaders/hull_shader.cpp
+    shaders/domain_shader.cpp
+    shaders/compute_shader.cpp
+
+    states/rasterizer_state.cpp
+    states/blend_state.cpp
+    states/depth_stencil_state.cpp
+    states/sampler_state.cpp
+
+    misc/input_layout.cpp
+    misc/query.cpp
+    misc/command_list.cpp
+    misc/class_linkage.cpp
+    misc/fence.cpp
+    misc/multithread.cpp
+
+    dxgi/factory.cpp
+    dxgi/adapter.cpp
+    dxgi/swapchain.cpp
+    dxgi/device.cpp
+)
+
+add_library(d3d11 SHARED ${MARS_SOURCES})
+
+target_include_directories(d3d11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(d3d11 PRIVATE dxguid)
+
+set_target_properties(d3d11 PROPERTIES
+    OUTPUT_NAME "d3d11"
+    MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/mars.def"
+)
