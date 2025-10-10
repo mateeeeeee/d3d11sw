@@ -43,7 +43,7 @@ set(D3D11SW_SOURCES
     dxgi/device.cpp
 )
 
-add_library(d3d11 SHARED ${D3D11SW_SOURCES})
+add_library(d3d11 SHARED ${D3D11SW_SOURCES} exports/d3d11sw.def)
 
 target_include_directories(d3d11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(d3d11 PRIVATE dxguid)
