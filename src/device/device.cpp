@@ -1,20 +1,23 @@
 #include "device.h"
 #include "context/context.h"
 
-MarsDevice::MarsDevice()
+namespace d3d11sw {
+
+
+Direct3D11DeviceSW::Direct3D11DeviceSW()
 {
 }
 
-MarsDevice::~MarsDevice()
+Direct3D11DeviceSW::~Direct3D11DeviceSW()
 {
 }
 
-void MarsDevice::SetImmediateContext(MarsDeviceContext* ctx)
+void Direct3D11DeviceSW::SetImmediateContext(Direct3D11DeviceContextSW* ctx)
 {
     m_immediateContext = ctx;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateBuffer(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateBuffer(
     const D3D11_BUFFER_DESC* pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Buffer** ppBuffer)
@@ -22,7 +25,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateBuffer(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateTexture1D(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateTexture1D(
     const D3D11_TEXTURE1D_DESC* pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture1D** ppTexture1D)
@@ -30,7 +33,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateTexture1D(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateTexture2D(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateTexture2D(
     const D3D11_TEXTURE2D_DESC* pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture2D** ppTexture2D)
@@ -38,7 +41,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateTexture2D(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateTexture3D(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateTexture3D(
     const D3D11_TEXTURE3D_DESC* pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture3D** ppTexture3D)
@@ -46,7 +49,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateTexture3D(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateShaderResourceView(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateShaderResourceView(
     ID3D11Resource* pResource,
     const D3D11_SHADER_RESOURCE_VIEW_DESC* pDesc,
     ID3D11ShaderResourceView** ppSRView)
@@ -54,7 +57,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateShaderResourceView(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateUnorderedAccessView(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateUnorderedAccessView(
     ID3D11Resource* pResource,
     const D3D11_UNORDERED_ACCESS_VIEW_DESC* pDesc,
     ID3D11UnorderedAccessView** ppUAView)
@@ -62,7 +65,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateUnorderedAccessView(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateRenderTargetView(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateRenderTargetView(
     ID3D11Resource* pResource,
     const D3D11_RENDER_TARGET_VIEW_DESC* pDesc,
     ID3D11RenderTargetView** ppRTView)
@@ -70,7 +73,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateRenderTargetView(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateDepthStencilView(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDepthStencilView(
     ID3D11Resource* pResource,
     const D3D11_DEPTH_STENCIL_VIEW_DESC* pDesc,
     ID3D11DepthStencilView** ppDepthStencilView)
@@ -78,7 +81,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateDepthStencilView(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateInputLayout(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateInputLayout(
     const D3D11_INPUT_ELEMENT_DESC* pInputElementDescs,
     UINT NumElements,
     const void* pShaderBytecodeWithInputSignature,
@@ -88,7 +91,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateInputLayout(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateVertexShader(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateVertexShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -97,7 +100,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateVertexShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateGeometryShader(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateGeometryShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -106,7 +109,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateGeometryShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateGeometryShaderWithStreamOutput(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateGeometryShaderWithStreamOutput(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     const D3D11_SO_DECLARATION_ENTRY* pSODeclaration,
@@ -120,7 +123,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateGeometryShaderWithStreamOutput(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreatePixelShader(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreatePixelShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -129,7 +132,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreatePixelShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateHullShader(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateHullShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -138,7 +141,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateHullShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateDomainShader(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDomainShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -147,7 +150,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateDomainShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateComputeShader(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateComputeShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -156,69 +159,69 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CreateComputeShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateClassLinkage(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateClassLinkage(
     ID3D11ClassLinkage** ppLinkage)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateBlendState(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateBlendState(
     const D3D11_BLEND_DESC* pBlendStateDesc,
     ID3D11BlendState** ppBlendState)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateDepthStencilState(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDepthStencilState(
     const D3D11_DEPTH_STENCIL_DESC* pDepthStencilDesc,
     ID3D11DepthStencilState** ppDepthStencilState)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateRasterizerState(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateRasterizerState(
     const D3D11_RASTERIZER_DESC* pRasterizerDesc,
     ID3D11RasterizerState** ppRasterizerState)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateSamplerState(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateSamplerState(
     const D3D11_SAMPLER_DESC* pSamplerDesc,
     ID3D11SamplerState** ppSamplerState)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateQuery(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateQuery(
     const D3D11_QUERY_DESC* pQueryDesc,
     ID3D11Query** ppQuery)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreatePredicate(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreatePredicate(
     const D3D11_QUERY_DESC* pPredicateDesc,
     ID3D11Predicate** ppPredicate)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateCounter(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateCounter(
     const D3D11_COUNTER_DESC* pCounterDesc,
     ID3D11Counter** ppCounter)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CreateDeferredContext(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDeferredContext(
     UINT ContextFlags,
     ID3D11DeviceContext** ppDeferredContext)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::OpenSharedResource(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::OpenSharedResource(
     HANDLE hResource,
     REFIID ReturnedInterface,
     void** ppResource)
@@ -226,14 +229,14 @@ HRESULT STDMETHODCALLTYPE MarsDevice::OpenSharedResource(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CheckFormatSupport(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CheckFormatSupport(
     DXGI_FORMAT Format,
     UINT* pFormatSupport)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CheckMultisampleQualityLevels(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CheckMultisampleQualityLevels(
     DXGI_FORMAT Format,
     UINT SampleCount,
     UINT* pNumQualityLevels)
@@ -241,12 +244,12 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CheckMultisampleQualityLevels(
     return E_NOTIMPL;
 }
 
-void STDMETHODCALLTYPE MarsDevice::CheckCounterInfo(
+void STDMETHODCALLTYPE Direct3D11DeviceSW::CheckCounterInfo(
     D3D11_COUNTER_INFO* pCounterInfo)
 {
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CheckCounter(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CheckCounter(
     const D3D11_COUNTER_DESC* pDesc,
     D3D11_COUNTER_TYPE* pType,
     UINT* pActiveCounters,
@@ -260,7 +263,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CheckCounter(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::CheckFeatureSupport(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CheckFeatureSupport(
     D3D11_FEATURE Feature,
     void* pFeatureSupportData,
     UINT FeatureSupportDataSize)
@@ -268,7 +271,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::CheckFeatureSupport(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::GetPrivateData(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::GetPrivateData(
     REFGUID guid,
     UINT* pDataSize,
     void* pData)
@@ -276,7 +279,7 @@ HRESULT STDMETHODCALLTYPE MarsDevice::GetPrivateData(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::SetPrivateData(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::SetPrivateData(
     REFGUID guid,
     UINT DataSize,
     const void* pData)
@@ -284,29 +287,29 @@ HRESULT STDMETHODCALLTYPE MarsDevice::SetPrivateData(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::SetPrivateDataInterface(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::SetPrivateDataInterface(
     REFGUID guid,
     const IUnknown* pData)
 {
     return E_NOTIMPL;
 }
 
-D3D_FEATURE_LEVEL STDMETHODCALLTYPE MarsDevice::GetFeatureLevel()
+D3D_FEATURE_LEVEL STDMETHODCALLTYPE Direct3D11DeviceSW::GetFeatureLevel()
 {
     return D3D_FEATURE_LEVEL_11_1;
 }
 
-UINT STDMETHODCALLTYPE MarsDevice::GetCreationFlags()
+UINT STDMETHODCALLTYPE Direct3D11DeviceSW::GetCreationFlags()
 {
     return 0;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::GetDeviceRemovedReason()
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::GetDeviceRemovedReason()
 {
     return S_OK;
 }
 
-void STDMETHODCALLTYPE MarsDevice::GetImmediateContext(
+void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext(
     ID3D11DeviceContext** ppImmediateContext)
 {
     if (ppImmediateContext && m_immediateContext)
@@ -316,13 +319,163 @@ void STDMETHODCALLTYPE MarsDevice::GetImmediateContext(
     }
 }
 
-HRESULT STDMETHODCALLTYPE MarsDevice::SetExceptionMode(
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::SetExceptionMode(
     UINT RaiseFlags)
 {
     return S_OK;
 }
 
-UINT STDMETHODCALLTYPE MarsDevice::GetExceptionMode()
+UINT STDMETHODCALLTYPE Direct3D11DeviceSW::GetExceptionMode()
 {
     return 0;
+}
+
+// ---- ID3D11Device1 ----
+
+void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext1(ID3D11DeviceContext1** ppImmediateContext)
+{
+    if (ppImmediateContext && m_immediateContext)
+    {
+        *ppImmediateContext = static_cast<ID3D11DeviceContext1*>(m_immediateContext);
+        m_immediateContext->AddRef();
+    }
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDeferredContext1(UINT ContextFlags, ID3D11DeviceContext1** ppDeferredContext)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateBlendState1(const D3D11_BLEND_DESC1* pBlendStateDesc, ID3D11BlendState1** ppBlendState)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateRasterizerState1(const D3D11_RASTERIZER_DESC1* pRasterizerDesc, ID3D11RasterizerState1** ppRasterizerState)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDeviceContextState(UINT Flags, const D3D_FEATURE_LEVEL* pFeatureLevels, UINT FeatureLevels, UINT SDKVersion, REFIID EmulatedInterface, D3D_FEATURE_LEVEL* pChosenFeatureLevel, ID3DDeviceContextState** ppContextState)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::OpenSharedResource1(HANDLE hResource, REFIID returnedInterface, void** ppResource)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::OpenSharedResourceByName(LPCWSTR lpName, DWORD dwDesiredAccess, REFIID returnedInterface, void** ppResource)
+{
+    return E_NOTIMPL;
+}
+
+// ---- ID3D11Device2 ----
+
+void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext2(ID3D11DeviceContext2** ppImmediateContext)
+{
+    if (ppImmediateContext && m_immediateContext)
+    {
+        *ppImmediateContext = static_cast<ID3D11DeviceContext2*>(m_immediateContext);
+        m_immediateContext->AddRef();
+    }
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDeferredContext2(UINT ContextFlags, ID3D11DeviceContext2** ppDeferredContext)
+{
+    return E_NOTIMPL;
+}
+
+void STDMETHODCALLTYPE Direct3D11DeviceSW::GetResourceTiling(ID3D11Resource* pTiledResource, UINT* pNumTilesForEntireResource, D3D11_PACKED_MIP_DESC* pPackedMipDesc, D3D11_TILE_SHAPE* pStandardTileShapeForNonPackedMips, UINT* pNumSubresourceTilings, UINT FirstSubresourceTilingToGet, D3D11_SUBRESOURCE_TILING* pSubresourceTilingsForNonPackedMips)
+{
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CheckMultisampleQualityLevels1(DXGI_FORMAT Format, UINT SampleCount, UINT Flags, UINT* pNumQualityLevels)
+{
+    return E_NOTIMPL;
+}
+
+// ---- ID3D11Device3 ----
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateTexture2D1(const D3D11_TEXTURE2D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture2D1** ppTexture2D)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateTexture3D1(const D3D11_TEXTURE3D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture3D1** ppTexture3D)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateRasterizerState2(const D3D11_RASTERIZER_DESC2* pRasterizerDesc, ID3D11RasterizerState2** ppRasterizerState)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateShaderResourceView1(ID3D11Resource* pResource, const D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc, ID3D11ShaderResourceView1** ppSRView)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateUnorderedAccessView1(ID3D11Resource* pResource, const D3D11_UNORDERED_ACCESS_VIEW_DESC1* pDesc, ID3D11UnorderedAccessView1** ppUAView)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateRenderTargetView1(ID3D11Resource* pResource, const D3D11_RENDER_TARGET_VIEW_DESC1* pDesc, ID3D11RenderTargetView1** ppRTView)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateQuery1(const D3D11_QUERY_DESC1* pQueryDesc, ID3D11Query1** ppQuery)
+{
+    return E_NOTIMPL;
+}
+
+void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext3(ID3D11DeviceContext3** ppImmediateContext)
+{
+    if (ppImmediateContext && m_immediateContext)
+    {
+        *ppImmediateContext = static_cast<ID3D11DeviceContext3*>(m_immediateContext);
+        m_immediateContext->AddRef();
+    }
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateDeferredContext3(UINT ContextFlags, ID3D11DeviceContext3** ppDeferredContext)
+{
+    return E_NOTIMPL;
+}
+
+void STDMETHODCALLTYPE Direct3D11DeviceSW::WriteToSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
+{
+}
+
+void STDMETHODCALLTYPE Direct3D11DeviceSW::ReadFromSubresource(void* pDstData, UINT DstRowPitch, UINT DstDepthPitch, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox)
+{
+}
+
+// ---- ID3D11Device4 ----
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::RegisterDeviceRemovedEvent(HANDLE hEvent, DWORD* pdwCookie)
+{
+    return E_NOTIMPL;
+}
+
+void STDMETHODCALLTYPE Direct3D11DeviceSW::UnregisterDeviceRemoved(DWORD dwCookie)
+{
+}
+
+// ---- ID3D11Device5 ----
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::OpenSharedFence(HANDLE hFence, REFIID ReturnedInterface, void** ppFence)
+{
+    return E_NOTIMPL;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateFence(UINT64 InitialValue, D3D11_FENCE_FLAG Flags, REFIID ReturnedInterface, void** ppFence)
+{
+    return E_NOTIMPL;
+}
+
 }

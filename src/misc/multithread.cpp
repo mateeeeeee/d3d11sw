@@ -1,19 +1,24 @@
 #include "misc/multithread.h"
 
-void STDMETHODCALLTYPE MarsMultithread::Enter()
+namespace d3d11sw {
+
+
+void STDMETHODCALLTYPE Direct3D11MultithreadSW::Enter()
 {
 }
 
-void STDMETHODCALLTYPE MarsMultithread::Leave()
+void STDMETHODCALLTYPE Direct3D11MultithreadSW::Leave()
 {
 }
 
-BOOL STDMETHODCALLTYPE MarsMultithread::SetMultithreadProtected(BOOL bMTProtect)
+BOOL STDMETHODCALLTYPE Direct3D11MultithreadSW::SetMultithreadProtected(BOOL bMTProtect)
 {
     return FALSE;
 }
 
-BOOL STDMETHODCALLTYPE MarsMultithread::GetMultithreadProtected()
+BOOL STDMETHODCALLTYPE Direct3D11MultithreadSW::GetMultithreadProtected()
 {
     return FALSE;
+}
+
 }

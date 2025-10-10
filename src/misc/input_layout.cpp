@@ -1,4 +1,9 @@
 #include "misc/input_layout.h"
 
-MarsInputLayout::MarsInputLayout(ID3D11Device* device)
+namespace d3d11sw {
+
+
+Direct3D11InputLayoutSW::Direct3D11InputLayoutSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
+
+}

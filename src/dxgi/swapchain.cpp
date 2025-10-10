@@ -1,60 +1,63 @@
 #include "dxgi/swapchain.h"
 
-MarsDXGISwapChain::MarsDXGISwapChain(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc)
+namespace d3d11sw {
+
+
+DXGISwapChainSW::DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc)
     : m_device(device), m_desc(desc)
 {
     if (m_device) m_device->AddRef();
 }
 
-MarsDXGISwapChain::~MarsDXGISwapChain()
+DXGISwapChainSW::~DXGISwapChainSW()
 {
     if (m_device) m_device->Release();
 }
 
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetParent(REFIID riid, void** ppParent)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetParent(REFIID riid, void** ppParent)
 {
     return E_NOTIMPL;
 }
 
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetDevice(REFIID riid, void** ppDevice)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDevice(REFIID riid, void** ppDevice)
 {
     return m_device->QueryInterface(riid, ppDevice);
 }
 
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::Present(UINT SyncInterval, UINT Flags)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present(UINT SyncInterval, UINT Flags)
 {
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetBuffer(UINT Buffer, REFIID riid, void** ppSurface)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetBuffer(UINT Buffer, REFIID riid, void** ppSurface)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::SetFullscreenState(BOOL Fullscreen, IDXGIOutput* pTarget)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetFullscreenState(BOOL Fullscreen, IDXGIOutput* pTarget)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetFullscreenState(BOOL* pFullscreen, IDXGIOutput** ppTarget)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetFullscreenState(BOOL* pFullscreen, IDXGIOutput** ppTarget)
 {
     if (pFullscreen)
     {
@@ -63,7 +66,7 @@ HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetFullscreenState(BOOL* pFullscree
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetDesc(DXGI_SWAP_CHAIN_DESC* pDesc)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDesc(DXGI_SWAP_CHAIN_DESC* pDesc)
 {
     if (!pDesc)
     {
@@ -73,27 +76,27 @@ HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetDesc(DXGI_SWAP_CHAIN_DESC* pDesc
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::ResizeBuffers(UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::ResizeBuffers(UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::ResizeTarget(const DXGI_MODE_DESC* pNewTargetParameters)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::ResizeTarget(const DXGI_MODE_DESC* pNewTargetParameters)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetContainingOutput(IDXGIOutput** ppOutput)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetContainingOutput(IDXGIOutput** ppOutput)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetFrameStatistics(DXGI_FRAME_STATISTICS* pStats)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetFrameStatistics(DXGI_FRAME_STATISTICS* pStats)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetLastPresentCount(UINT* pLastPresentCount)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetLastPresentCount(UINT* pLastPresentCount)
 {
     if (pLastPresentCount)
     {
@@ -103,17 +106,17 @@ HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetLastPresentCount(UINT* pLastPres
 }
 
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetDesc1(DXGI_SWAP_CHAIN_DESC1* pDesc)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDesc1(DXGI_SWAP_CHAIN_DESC1* pDesc)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetFullscreenDesc(DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pDesc)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetFullscreenDesc(DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pDesc)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetHwnd(HWND* pHwnd)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetHwnd(HWND* pHwnd)
 {
     if (pHwnd)
     {
@@ -122,42 +125,44 @@ HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetHwnd(HWND* pHwnd)
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetCoreWindow(REFIID refiid, void** ppUnk)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetCoreWindow(REFIID refiid, void** ppUnk)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::Present1(UINT SyncInterval, UINT PresentFlags, const DXGI_PRESENT_PARAMETERS* pPresentParameters)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present1(UINT SyncInterval, UINT PresentFlags, const DXGI_PRESENT_PARAMETERS* pPresentParameters)
 {
     return S_OK;
 }
 
-BOOL STDMETHODCALLTYPE MarsDXGISwapChain::IsTemporaryMonoSupported()
+BOOL STDMETHODCALLTYPE DXGISwapChainSW::IsTemporaryMonoSupported()
 {
     return FALSE;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetRestrictToOutput(IDXGIOutput** ppRestrictToOutput)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetRestrictToOutput(IDXGIOutput** ppRestrictToOutput)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::SetBackgroundColor(const DXGI_RGBA* pColor)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetBackgroundColor(const DXGI_RGBA* pColor)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetBackgroundColor(DXGI_RGBA* pColor)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetBackgroundColor(DXGI_RGBA* pColor)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::SetRotation(DXGI_MODE_ROTATION Rotation)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetRotation(DXGI_MODE_ROTATION Rotation)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE MarsDXGISwapChain::GetRotation(DXGI_MODE_ROTATION* pRotation)
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetRotation(DXGI_MODE_ROTATION* pRotation)
 {
     return E_NOTIMPL;
+}
+
 }

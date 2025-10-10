@@ -2,7 +2,10 @@
 
 #include "common/unknown_impl.h"
 
-class MarsMultithread : public UnknownImpl<ID3D11Multithread>
+namespace d3d11sw {
+
+
+class Direct3D11MultithreadSW : public UnknownImpl<ID3D11Multithread>
 {
 public:
     void STDMETHODCALLTYPE Enter() override;
@@ -10,3 +13,5 @@ public:
     BOOL STDMETHODCALLTYPE SetMultithreadProtected(BOOL bMTProtect) override;
     BOOL STDMETHODCALLTYPE GetMultithreadProtected() override;
 };
+
+}

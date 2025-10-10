@@ -2,14 +2,17 @@
 
 #include "common/unknown_impl.h"
 
-class MarsDXGISwapChain : public UnknownImpl<IDXGISwapChain1, IDXGISwapChain, IDXGIDeviceSubObject, IDXGIObject>
+namespace d3d11sw {
+
+
+class DXGISwapChainSW : public UnknownImpl<IDXGISwapChain1, IDXGISwapChain, IDXGIDeviceSubObject, IDXGIObject>
 {
     ID3D11Device*       m_device;
     DXGI_SWAP_CHAIN_DESC m_desc;
 
 public:
-    MarsDXGISwapChain(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc);
-    ~MarsDXGISwapChain();
+    DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc);
+    ~DXGISwapChainSW();
 
     HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
     HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;
@@ -41,3 +44,5 @@ public:
     HRESULT STDMETHODCALLTYPE SetRotation(DXGI_MODE_ROTATION Rotation) override;
     HRESULT STDMETHODCALLTYPE GetRotation(DXGI_MODE_ROTATION* pRotation) override;
 };
+
+}

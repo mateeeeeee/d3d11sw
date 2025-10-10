@@ -11,4 +11,4 @@
 #include <atomic>
 #include <cstdio>
 
-#define MARS_LOG(fmt, ...) fprintf(stderr, "[MARS] " fmt "\n", ##__VA_ARGS__)
+#define D3D11SW_LOG(fmt, ...) fprintf(stderr, "[d3d11sw] " fmt "\n", ##__VA_ARGS__)

@@ -2,11 +2,14 @@
 
 #include "common/unknown_impl.h"
 
-class MarsDXGIAdapter : public UnknownImpl<IDXGIAdapter1, IDXGIAdapter, IDXGIObject>
+namespace d3d11sw {
+
+
+class DXGIAdapterSW : public UnknownImpl<IDXGIAdapter1, IDXGIAdapter, IDXGIObject>
 {
 public:
-    MarsDXGIAdapter();
-    ~MarsDXGIAdapter();
+    DXGIAdapterSW();
+    ~DXGIAdapterSW();
 
     HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
     HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;
@@ -19,3 +22,5 @@ public:
 
     HRESULT STDMETHODCALLTYPE GetDesc1(DXGI_ADAPTER_DESC1* pDesc) override;
 };
+
+}

@@ -1,19 +1,33 @@
 #include "states/rasterizer_state.h"
 
-MarsRasterizerState::MarsRasterizerState(ID3D11Device* device)
+namespace d3d11sw {
+
+
+Direct3D11RasterizerStateSW::Direct3D11RasterizerStateSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-void STDMETHODCALLTYPE MarsRasterizerState::GetDesc(D3D11_RASTERIZER_DESC* pDesc)
+void STDMETHODCALLTYPE Direct3D11RasterizerStateSW::GetDesc(D3D11_RASTERIZER_DESC* pDesc)
 {
-    if (pDesc) *pDesc = {};
+    if (pDesc) 
+    {
+        *pDesc = {};
+    }
 }
 
-void STDMETHODCALLTYPE MarsRasterizerState::GetDesc1(D3D11_RASTERIZER_DESC1* pDesc)
+void STDMETHODCALLTYPE Direct3D11RasterizerStateSW::GetDesc1(D3D11_RASTERIZER_DESC1* pDesc)
 {
-    if (pDesc) *pDesc = {};
+    if (pDesc) 
+    {
+        *pDesc = {};
+    }
 }
 
-void STDMETHODCALLTYPE MarsRasterizerState::GetDesc2(D3D11_RASTERIZER_DESC2* pDesc)
+void STDMETHODCALLTYPE Direct3D11RasterizerStateSW::GetDesc2(D3D11_RASTERIZER_DESC2* pDesc)
 {
-    if (pDesc) *pDesc = {};
+    if (pDesc) 
+    {
+        *pDesc = {};
+    }
+}
+
 }

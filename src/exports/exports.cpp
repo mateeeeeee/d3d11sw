@@ -1,9 +1,11 @@
 #include "common/common.h"
-#include "device/device5.h"
-#include "context/context4.h"
+#include "device/device.h"
+#include "context/context.h"
 #include "dxgi/swapchain.h"
 #include "dxgi/factory.h"
 #include "dxgi/adapter.h"
+
+using namespace d3d11sw;
 
 extern "C" 
 {
@@ -20,15 +22,15 @@ HRESULT WINAPI D3D11CreateDevice(
     D3D_FEATURE_LEVEL* pFeatureLevel,
     ID3D11DeviceContext** ppImmediateContext)
 {
-    MARS_LOG("D3D11CreateDevice called");
+    D3D11SW_LOG("D3D11CreateDevice called");
 
     if (!ppDevice && !ppImmediateContext) 
     {
         return S_FALSE;
     }
 
-    MarsDevice5* device = new MarsDevice5();
-    MarsDeviceContext4* context = new MarsDeviceContext4(device);
+    Direct3D11DeviceSW* device = new Direct3D11DeviceSW();
+    Direct3D11DeviceContextSW* context = new Direct3D11DeviceContextSW(device);
     device->SetImmediateContext(context);
 
     if (pFeatureLevel)
@@ -71,10 +73,10 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
     D3D_FEATURE_LEVEL* pFeatureLevel,
     ID3D11DeviceContext** ppImmediateContext)
 {
-    MARS_LOG("D3D11CreateDeviceAndSwapChain called");
+    D3D11SW_LOG("D3D11CreateDeviceAndSwapChain called");
 
-    MarsDevice5* device = new MarsDevice5();
-    MarsDeviceContext4* context = new MarsDeviceContext4(device);
+    Direct3D11DeviceSW* device = new Direct3D11DeviceSW();
+    Direct3D11DeviceContextSW* context = new Direct3D11DeviceContextSW(device);
     device->SetImmediateContext(context);
 
     if (pFeatureLevel) 
@@ -90,7 +92,7 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
             context->Release();
             return DXGI_ERROR_INVALID_CALL;
         }
-        auto* swapChain = new MarsDXGISwapChain(device, *pSwapChainDesc);
+        DXGISwapChainSW* swapChain = new DXGISwapChainSW(device, *pSwapChainDesc);
         *ppSwapChain = swapChain;
     }
 

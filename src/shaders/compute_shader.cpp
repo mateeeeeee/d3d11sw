@@ -1,3 +1,8 @@
 #include "shaders/compute_shader.h"
 
-MarsComputeShader::MarsComputeShader(ID3D11Device* device) : DeviceChildImpl(device) {}
+namespace d3d11sw {
+
+
+Direct3D11ComputeShaderSW::Direct3D11ComputeShaderSW(ID3D11Device* device) : DeviceChildImpl(device) {}
+
+}

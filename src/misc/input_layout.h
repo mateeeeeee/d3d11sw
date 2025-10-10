@@ -2,8 +2,13 @@
 
 #include "common/device_child_impl.h"
 
-class MarsInputLayout : public DeviceChildImpl<ID3D11InputLayout, ID3D11DeviceChild>
+namespace d3d11sw {
+
+
+class Direct3D11InputLayoutSW : public DeviceChildImpl<ID3D11InputLayout, ID3D11DeviceChild>
 {
 public:
-    MarsInputLayout(ID3D11Device* device);
+    explicit Direct3D11InputLayoutSW(ID3D11Device* device);
 };
+
+}

@@ -1,19 +1,24 @@
 #include "misc/fence.h"
 
-MarsFence::MarsFence(ID3D11Device* device)
+namespace d3d11sw {
+
+
+Direct3D11FenceSW::Direct3D11FenceSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-HRESULT STDMETHODCALLTYPE MarsFence::CreateSharedHandle(const SECURITY_ATTRIBUTES* pAttributes, DWORD dwAccess, LPCWSTR lpName, HANDLE* pHandle)
+HRESULT STDMETHODCALLTYPE Direct3D11FenceSW::CreateSharedHandle(const SECURITY_ATTRIBUTES* pAttributes, DWORD dwAccess, LPCWSTR lpName, HANDLE* pHandle)
 {
     return E_NOTIMPL;
 }
 
-UINT64 STDMETHODCALLTYPE MarsFence::GetCompletedValue()
+UINT64 STDMETHODCALLTYPE Direct3D11FenceSW::GetCompletedValue()
 {
     return 0;
 }
 
-HRESULT STDMETHODCALLTYPE MarsFence::SetEventOnCompletion(UINT64 Value, HANDLE hEvent)
+HRESULT STDMETHODCALLTYPE Direct3D11FenceSW::SetEventOnCompletion(UINT64 Value, HANDLE hEvent)
 {
     return E_NOTIMPL;
+}
+
 }

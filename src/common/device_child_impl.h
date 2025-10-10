@@ -2,6 +2,9 @@
 
 #include "unknown_impl.h"
 
+namespace d3d11sw {
+
+
 template <typename... Interfaces>
 class DeviceChildImpl : public UnknownImpl<Interfaces...> 
 {
@@ -30,3 +33,5 @@ public:
 protected:
     ID3D11Device* m_device;
 };
+
+}

@@ -2,13 +2,16 @@
 
 #include "common/unknown_impl.h"
 
-class MarsDXGIDevice : public UnknownImpl<IDXGIDevice1, IDXGIDevice, IDXGIObject>
+namespace d3d11sw {
+
+
+class DXGIDeviceSW : public UnknownImpl<IDXGIDevice1, IDXGIDevice, IDXGIObject>
 {
     ID3D11Device* m_device;
 
 public:
-    MarsDXGIDevice(ID3D11Device* device);
-    ~MarsDXGIDevice();
+    DXGIDeviceSW(ID3D11Device* device);
+    ~DXGIDeviceSW();
 
     HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
     HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;
@@ -24,3 +27,5 @@ public:
     HRESULT STDMETHODCALLTYPE SetMaximumFrameLatency(UINT MaxLatency) override;
     HRESULT STDMETHODCALLTYPE GetMaximumFrameLatency(UINT* pMaxLatency) override;
 };
+
+}

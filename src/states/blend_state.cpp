@@ -1,14 +1,25 @@
 #include "states/blend_state.h"
 
-MarsBlendState::MarsBlendState(ID3D11Device* device)
+namespace d3d11sw {
+
+
+Direct3D11BlendStateSW::Direct3D11BlendStateSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-void STDMETHODCALLTYPE MarsBlendState::GetDesc(D3D11_BLEND_DESC* pDesc)
+void STDMETHODCALLTYPE Direct3D11BlendStateSW::GetDesc(D3D11_BLEND_DESC* pDesc)
 {
-    if (pDesc) *pDesc = {};
+    if (pDesc) 
+    {
+        *pDesc = {};
+    }
 }
 
-void STDMETHODCALLTYPE MarsBlendState::GetDesc1(D3D11_BLEND_DESC1* pDesc)
+void STDMETHODCALLTYPE Direct3D11BlendStateSW::GetDesc1(D3D11_BLEND_DESC1* pDesc)
 {
-    if (pDesc) *pDesc = {};
+    if (pDesc) 
+    {
+        *pDesc = {};
+    }
+}
+
 }

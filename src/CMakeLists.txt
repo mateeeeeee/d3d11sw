@@ -1,19 +1,10 @@
-set(MARS_SOURCES
+set(D3D11SW_SOURCES
     exports/dllmain.cpp
     exports/exports.cpp
 
     device/device.cpp
-    device/device1.cpp
-    device/device2.cpp
-    device/device3.cpp
-    device/device4.cpp
-    device/device5.cpp
 
     context/context.cpp
-    context/context1.cpp
-    context/context2.cpp
-    context/context3.cpp
-    context/context4.cpp
 
     resources/buffer.cpp
     resources/texture1d.cpp
@@ -50,12 +41,12 @@ set(MARS_SOURCES
     dxgi/device.cpp
 )
 
-add_library(d3d11 SHARED ${MARS_SOURCES})
+add_library(d3d11 SHARED ${D3D11SW_SOURCES})
 
 target_include_directories(d3d11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(d3d11 PRIVATE dxguid)
 
 set_target_properties(d3d11 PROPERTIES
     OUTPUT_NAME "d3d11"
-    MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/mars.def"
+    MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/d3d11sw.def"
 )

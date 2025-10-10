@@ -2,8 +2,13 @@
 #include "common/common.h"
 #include "common/device_child_impl.h"
 
-class MarsComputeShader : public DeviceChildImpl<ID3D11ComputeShader, ID3D11DeviceChild>
+namespace d3d11sw {
+
+
+class Direct3D11ComputeShaderSW : public DeviceChildImpl<ID3D11ComputeShader, ID3D11DeviceChild>
 {
 public:
-    MarsComputeShader(ID3D11Device* device);
+    explicit Direct3D11ComputeShaderSW(ID3D11Device* device);
 };
+
+}

@@ -1,3 +1,8 @@
 #include "shaders/geometry_shader.h"
 
-MarsGeometryShader::MarsGeometryShader(ID3D11Device* device) : DeviceChildImpl(device) {}
+namespace d3d11sw {
+
+
+Direct3D11GeometryShaderSW::Direct3D11GeometryShaderSW(ID3D11Device* device) : DeviceChildImpl(device) {}
+
+}

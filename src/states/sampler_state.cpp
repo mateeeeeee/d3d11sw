@@ -1,9 +1,17 @@
 #include "states/sampler_state.h"
 
-MarsSamplerState::MarsSamplerState(ID3D11Device* device)
+namespace d3d11sw {
+
+
+Direct3D11SamplerStateSW::Direct3D11SamplerStateSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-void STDMETHODCALLTYPE MarsSamplerState::GetDesc(D3D11_SAMPLER_DESC* pDesc)
+void STDMETHODCALLTYPE Direct3D11SamplerStateSW::GetDesc(D3D11_SAMPLER_DESC* pDesc)
 {
-    if (pDesc) *pDesc = {};
+    if (pDesc) 
+    {
+        *pDesc = {};
+    }
+}
+
 }

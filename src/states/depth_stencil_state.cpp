@@ -1,9 +1,17 @@
 #include "states/depth_stencil_state.h"
 
-MarsDepthStencilState::MarsDepthStencilState(ID3D11Device* device)
+namespace d3d11sw {
+
+
+Direct3D11DepthStencilStateSW::Direct3D11DepthStencilStateSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-void STDMETHODCALLTYPE MarsDepthStencilState::GetDesc(D3D11_DEPTH_STENCIL_DESC* pDesc)
+void STDMETHODCALLTYPE Direct3D11DepthStencilStateSW::GetDesc(D3D11_DEPTH_STENCIL_DESC* pDesc)
 {
-    if (pDesc) *pDesc = {};
+    if (pDesc) 
+    {
+        *pDesc = {};
+    }
+}
+
 }

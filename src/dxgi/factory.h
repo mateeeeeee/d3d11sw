@@ -2,11 +2,14 @@
 
 #include "common/unknown_impl.h"
 
-class MarsDXGIFactory : public UnknownImpl<IDXGIFactory2, IDXGIFactory1, IDXGIFactory, IDXGIObject>
+namespace d3d11sw {
+
+
+class DXGIFactorySW : public UnknownImpl<IDXGIFactory2, IDXGIFactory1, IDXGIFactory, IDXGIObject>
 {
 public:
-    MarsDXGIFactory();
-    ~MarsDXGIFactory();
+    DXGIFactorySW();
+    ~DXGIFactorySW();
 
     HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
     HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;
@@ -34,3 +37,5 @@ public:
     void    STDMETHODCALLTYPE UnregisterOcclusionStatus(DWORD dwCookie) override;
     HRESULT STDMETHODCALLTYPE CreateSwapChainForComposition(IUnknown* pDevice, const DXGI_SWAP_CHAIN_DESC1* pDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) override;
 };
+
+}

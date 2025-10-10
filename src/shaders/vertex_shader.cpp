@@ -1,3 +1,8 @@
 #include "shaders/vertex_shader.h"
 
-MarsVertexShader::MarsVertexShader(ID3D11Device* device) : DeviceChildImpl(device) {}
+namespace d3d11sw {
+
+
+Direct3D11VertexShaderSW::Direct3D11VertexShaderSW(ID3D11Device* device) : DeviceChildImpl(device) {}
+
+}

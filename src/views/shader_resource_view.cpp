@@ -1,22 +1,33 @@
 #include "views/shader_resource_view.h"
 
-MarsShaderResourceView::MarsShaderResourceView(ID3D11Device* device)
+namespace d3d11sw {
+
+
+Direct3D11ShaderResourceViewSW::Direct3D11ShaderResourceViewSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-void STDMETHODCALLTYPE MarsShaderResourceView::GetResource(ID3D11Resource** ppResource)
+void STDMETHODCALLTYPE Direct3D11ShaderResourceViewSW::GetResource(ID3D11Resource** ppResource)
 {
     if (ppResource)
+    {
         *ppResource = nullptr;
+    }
 }
 
-void STDMETHODCALLTYPE MarsShaderResourceView::GetDesc(D3D11_SHADER_RESOURCE_VIEW_DESC* pDesc)
+void STDMETHODCALLTYPE Direct3D11ShaderResourceViewSW::GetDesc(D3D11_SHADER_RESOURCE_VIEW_DESC* pDesc)
 {
     if (pDesc)
-        *pDesc = {};
+    {
+         *pDesc = {};
+    }
 }
 
-void STDMETHODCALLTYPE MarsShaderResourceView::GetDesc1(D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc)
+void STDMETHODCALLTYPE Direct3D11ShaderResourceViewSW::GetDesc1(D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc)
 {
     if (pDesc)
-        *pDesc = {};
+    {
+         *pDesc = {};
+    }
+}
+
 }

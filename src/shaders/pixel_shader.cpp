@@ -1,3 +1,8 @@
 #include "shaders/pixel_shader.h"
 
-MarsPixelShader::MarsPixelShader(ID3D11Device* device) : DeviceChildImpl(device) {}
+namespace d3d11sw {
+
+
+Direct3D11PixelShaderSW::Direct3D11PixelShaderSW(ID3D11Device* device) : DeviceChildImpl(device) {}
+
+}

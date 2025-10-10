@@ -1,47 +1,52 @@
 #pragma once
 #include "common.h"
 
-template <typename First, typename... Rest>
-struct FirstOf 
-{ 
-    using type = First;
+namespace d3d11sw {
+
+
+template <typename Type, typename... Rest>
+struct FirstOf
+{
+    using type = Type;
 };
 
+template <typename... Ts>
+using FirstOfT = typename FirstOf<Ts...>::type;
 
 
 template <typename... Interfaces>
-class UnknownImpl : public FirstOf<Interfaces...>::type 
+class UnknownImpl : public FirstOfT<Interfaces...>
 {
 public:
     virtual ~UnknownImpl() = default;
 
-    ULONG STDMETHODCALLTYPE AddRef() override 
+    ULONG STDMETHODCALLTYPE AddRef() override
     {
         return m_refCount.fetch_add(1, std::memory_order_relaxed) + 1;
     }
 
-    ULONG STDMETHODCALLTYPE Release() override 
+    ULONG STDMETHODCALLTYPE Release() override
     {
         ULONG count = m_refCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
-        if (count == 0) 
+        if (count == 0)
         {
             delete this;
         }
         return count;
     }
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override 
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override
     {
-        if (!ppv) 
+        if (!ppv)
         {
             return E_POINTER;
         }
         *ppv = nullptr;
 
-        if (riid == __uuidof(IUnknown)) 
+        if (riid == __uuidof(IUnknown))
         {
             *ppv = static_cast<IUnknown*>(
-                static_cast<typename FirstOf<Interfaces...>::type*>(this));
+                static_cast<FirstOfT<Interfaces...>*>(this));
             AddRef();
             return S_OK;
         }
@@ -70,3 +75,5 @@ private:
         return false;
     }
 };
+
+}
