@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/log.h"
 #include "device/device.h"
 #include "context/context.h"
 #include "dxgi/swapchain.h"
@@ -22,7 +23,7 @@ HRESULT WINAPI D3D11CreateDevice(
     D3D_FEATURE_LEVEL* pFeatureLevel,
     ID3D11DeviceContext** ppImmediateContext)
 {
-    D3D11SW_LOG("D3D11CreateDevice called");
+    D3D11SW_INFO("D3D11CreateDevice called");
 
     if (!ppDevice && !ppImmediateContext) 
     {
@@ -73,7 +74,7 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
     D3D_FEATURE_LEVEL* pFeatureLevel,
     ID3D11DeviceContext** ppImmediateContext)
 {
-    D3D11SW_LOG("D3D11CreateDeviceAndSwapChain called");
+    D3D11SW_INFO("D3D11CreateDeviceAndSwapChain called");
 
     Direct3D11DeviceSW* device = new Direct3D11DeviceSW();
     Direct3D11DeviceContextSW* context = new Direct3D11DeviceContextSW(device);

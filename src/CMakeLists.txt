@@ -2,6 +2,8 @@ set(D3D11SW_SOURCES
     exports/dllmain.cpp
     exports/exports.cpp
 
+    common/log.cpp
+
     device/device.cpp
 
     context/context.cpp
@@ -45,6 +47,11 @@ add_library(d3d11 SHARED ${D3D11SW_SOURCES})
 
 target_include_directories(d3d11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(d3d11 PRIVATE dxguid)
+
+target_compile_options(d3d11 PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/FIcommon/types.h /FIcommon/macros.h>
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-include common/types.h -include common/macros.h>
+)
 
 set_target_properties(d3d11 PROPERTIES
     OUTPUT_NAME "d3d11"

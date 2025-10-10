@@ -9,6 +9,3 @@
 #include <d3d11_4.h>
 #include <dxgi1_2.h>
 #include <atomic>
-#include <cstdio>
-
-#define D3D11SW_LOG(fmt, ...) fprintf(stderr, "[d3d11sw] " fmt "\n", ##__VA_ARGS__)
