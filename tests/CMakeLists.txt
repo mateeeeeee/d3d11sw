@@ -1,9 +1,11 @@
-add_executable(test_device_creation test_device_creation.cpp)
+include(GoogleTest)
 
-target_link_libraries(test_device_creation PRIVATE d3d11)
-target_include_directories(test_device_creation PRIVATE ${CMAKE_SOURCE_DIR}/src)
+macro(add_gtest name file)
+  add_executable(${name} ${file})
+  target_link_libraries(${name} PRIVATE d3d11 GTest::gtest_main)
+  target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  gtest_discover_tests(${name})
+endmacro()
 
-add_executable(test_com test_com.cpp)
-
-target_link_libraries(test_com PRIVATE d3d11)
-target_include_directories(test_com PRIVATE ${CMAKE_SOURCE_DIR}/src)
+add_gtest(test_com             test_com.cpp)
+add_gtest(test_device_creation test_device_creation.cpp)

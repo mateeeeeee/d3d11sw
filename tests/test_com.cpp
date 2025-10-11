@@ -1,176 +1,163 @@
+#include <gtest/gtest.h>
 #include <d3d11_4.h>
-#include <cassert>
-#include <cstdio>
 
 #include "resources/resource_sw.h"
 
-static void pass(const char* name) { printf("  [PASS] %s\n", name); }
-
-int main()
+struct ComTests : ::testing::Test
 {
     ID3D11Device*        device  = nullptr;
     ID3D11DeviceContext* context = nullptr;
-    D3D_FEATURE_LEVEL    featureLevel;
+    ID3D11Buffer*        buffer  = nullptr;
 
-    HRESULT hr = D3D11CreateDevice(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0,
-        nullptr, 0, D3D11_SDK_VERSION,
-        &device, &featureLevel, &context);
-
-    assert(SUCCEEDED(hr) && device && context);
-
-    // --- Device: IUnknown identity ---
-    // IUnknown pointer from any interface on the same object must be identical
+    void SetUp() override
     {
-        IUnknown* a = nullptr;
-        IUnknown* b = nullptr;
+        D3D_FEATURE_LEVEL featureLevel;
+        HRESULT hr = D3D11CreateDevice(
+            nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0,
+            nullptr, 0, D3D11_SDK_VERSION,
+            &device, &featureLevel, &context);
+        ASSERT_TRUE(SUCCEEDED(hr) && device && context);
 
-        hr = device->QueryInterface(__uuidof(IUnknown), (void**)&a);
-        assert(SUCCEEDED(hr));
+        D3D11_BUFFER_DESC desc = {};
+        desc.ByteWidth = 64;
+        desc.Usage     = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
-        ID3D11Device5* d5 = nullptr;
-        hr = device->QueryInterface(__uuidof(ID3D11Device5), (void**)&d5);
-        assert(SUCCEEDED(hr));
-        hr = d5->QueryInterface(__uuidof(IUnknown), (void**)&b);
-        assert(SUCCEEDED(hr));
-
-        assert(a == b);
-
-        a->Release(); b->Release(); d5->Release();
-        pass("device IUnknown identity");
+        hr = device->CreateBuffer(&desc, nullptr, &buffer);
+        ASSERT_TRUE(SUCCEEDED(hr) && buffer);
     }
 
-    // --- Device: E_NOINTERFACE ---
+    void TearDown() override
     {
-        static const GUID bogus = {0x11111111,0,0,{0,0,0,0,0,0,0,1}};
-        void* p = (void*)0xdeadbeef;
-        hr = device->QueryInterface(bogus, &p);
-        assert(hr == E_NOINTERFACE);
-        assert(p == nullptr);
-        pass("device E_NOINTERFACE + ppv zeroed");
+        if (buffer)  { buffer->Release();  buffer  = nullptr; }
+        if (context) { context->Release(); context = nullptr; }
+        if (device)  { device->Release();  device  = nullptr; }
     }
+};
 
-    // --- Device: E_POINTER ---
-    {
-        hr = device->QueryInterface(__uuidof(IUnknown), nullptr);
-        assert(hr == E_POINTER);
-        pass("device E_POINTER");
-    }
+TEST_F(ComTests, DeviceIUnknownIdentity)
+{
+    IUnknown* a = nullptr;
+    IUnknown* b = nullptr;
 
-    // Create a buffer for all buffer COM tests
-    D3D11_BUFFER_DESC desc = {};
-    desc.ByteWidth = 64;
-    desc.Usage     = D3D11_USAGE_DEFAULT;
-    desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    HRESULT hr = device->QueryInterface(__uuidof(IUnknown), (void**)&a);
+    ASSERT_TRUE(SUCCEEDED(hr));
 
-    ID3D11Buffer* buffer = nullptr;
-    hr = device->CreateBuffer(&desc, nullptr, &buffer);
-    assert(SUCCEEDED(hr) && buffer);
+    ID3D11Device5* d5 = nullptr;
+    hr = device->QueryInterface(__uuidof(ID3D11Device5), (void**)&d5);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    hr = d5->QueryInterface(__uuidof(IUnknown), (void**)&b);
+    ASSERT_TRUE(SUCCEEDED(hr));
 
-    // --- Buffer: IUnknown identity via ID3D11Resource ---
-    {
-        IUnknown* a = nullptr;
-        IUnknown* b = nullptr;
+    EXPECT_EQ(a, b);
 
-        hr = buffer->QueryInterface(__uuidof(IUnknown), (void**)&a);
-        assert(SUCCEEDED(hr));
+    a->Release(); b->Release(); d5->Release();
+}
 
-        ID3D11Resource* res = nullptr;
-        hr = buffer->QueryInterface(__uuidof(ID3D11Resource), (void**)&res);
-        assert(SUCCEEDED(hr));
-        hr = res->QueryInterface(__uuidof(IUnknown), (void**)&b);
-        assert(SUCCEEDED(hr));
+TEST_F(ComTests, DeviceENoInterface)
+{
+    static const GUID bogus = {0x11111111,0,0,{0,0,0,0,0,0,0,1}};
+    void* p = (void*)0xdeadbeef;
+    HRESULT hr = device->QueryInterface(bogus, &p);
+    EXPECT_EQ(hr, E_NOINTERFACE);
+    EXPECT_EQ(p, nullptr);
+}
 
-        assert(a == b);
+TEST_F(ComTests, DeviceEPointer)
+{
+    HRESULT hr = device->QueryInterface(__uuidof(IUnknown), nullptr);
+    EXPECT_EQ(hr, E_POINTER);
+}
 
-        a->Release(); b->Release(); res->Release();
-        pass("buffer IUnknown identity (via ID3D11Resource)");
-    }
+TEST_F(ComTests, BufferIUnknownIdentityViaResource)
+{
+    IUnknown* a = nullptr;
+    IUnknown* b = nullptr;
 
-    // --- Buffer: IUnknown identity via ID3D11DeviceChild ---
-    {
-        IUnknown* a = nullptr;
-        IUnknown* b = nullptr;
+    HRESULT hr = buffer->QueryInterface(__uuidof(IUnknown), (void**)&a);
+    ASSERT_TRUE(SUCCEEDED(hr));
 
-        hr = buffer->QueryInterface(__uuidof(IUnknown), (void**)&a);
-        assert(SUCCEEDED(hr));
+    ID3D11Resource* res = nullptr;
+    hr = buffer->QueryInterface(__uuidof(ID3D11Resource), (void**)&res);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    hr = res->QueryInterface(__uuidof(IUnknown), (void**)&b);
+    ASSERT_TRUE(SUCCEEDED(hr));
 
-        ID3D11DeviceChild* child = nullptr;
-        hr = buffer->QueryInterface(__uuidof(ID3D11DeviceChild), (void**)&child);
-        assert(SUCCEEDED(hr));
-        hr = child->QueryInterface(__uuidof(IUnknown), (void**)&b);
-        assert(SUCCEEDED(hr));
+    EXPECT_EQ(a, b);
 
-        assert(a == b);
+    a->Release(); b->Release(); res->Release();
+}
 
-        a->Release(); b->Release(); child->Release();
-        pass("buffer IUnknown identity (via ID3D11DeviceChild)");
-    }
+TEST_F(ComTests, BufferIUnknownIdentityViaDeviceChild)
+{
+    IUnknown* a = nullptr;
+    IUnknown* b = nullptr;
 
-    // --- Buffer: IUnknown identity via ISWResource ---
-    {
-        d3d11sw::IResourceSW* sw = nullptr;
-        hr = buffer->QueryInterface(__uuidof(d3d11sw::IResourceSW), (void**)&sw);
-        assert(SUCCEEDED(hr) && sw);
-        assert(sw->GetDataPtr() != nullptr);
+    HRESULT hr = buffer->QueryInterface(__uuidof(IUnknown), (void**)&a);
+    ASSERT_TRUE(SUCCEEDED(hr));
 
-        IUnknown* a = nullptr;
-        IUnknown* b = nullptr;
+    ID3D11DeviceChild* child = nullptr;
+    hr = buffer->QueryInterface(__uuidof(ID3D11DeviceChild), (void**)&child);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    hr = child->QueryInterface(__uuidof(IUnknown), (void**)&b);
+    ASSERT_TRUE(SUCCEEDED(hr));
 
-        hr = buffer->QueryInterface(__uuidof(IUnknown), (void**)&a);
-        assert(SUCCEEDED(hr));
-        hr = sw->QueryInterface(__uuidof(IUnknown), (void**)&b);
-        assert(SUCCEEDED(hr));
+    EXPECT_EQ(a, b);
 
-        assert(a == b);
+    a->Release(); b->Release(); child->Release();
+}
 
-        a->Release(); b->Release(); sw->Release();
-        pass("buffer IUnknown identity (via ISWResource)");
-    }
+TEST_F(ComTests, BufferIUnknownIdentityViaISWResource)
+{
+    d3d11sw::IResourceSW* sw = nullptr;
+    HRESULT hr = buffer->QueryInterface(__uuidof(d3d11sw::IResourceSW), (void**)&sw);
+    ASSERT_TRUE(SUCCEEDED(hr) && sw);
+    ASSERT_NE(sw->GetDataPtr(), nullptr);
 
-    // --- Buffer: QI reflexivity — same interface, same pointer ---
-    {
-        ID3D11Buffer* buf2 = nullptr;
-        hr = buffer->QueryInterface(__uuidof(ID3D11Buffer), (void**)&buf2);
-        assert(SUCCEEDED(hr));
-        assert(buf2 == buffer);
-        buf2->Release();
-        pass("buffer QI reflexivity");
-    }
+    IUnknown* a = nullptr;
+    IUnknown* b = nullptr;
 
-    // --- Buffer: E_NOINTERFACE + ppv zeroed ---
-    {
-        static const GUID bogus = {0x22222222,0,0,{0,0,0,0,0,0,0,2}};
-        void* p = (void*)0xdeadbeef;
-        hr = buffer->QueryInterface(bogus, &p);
-        assert(hr == E_NOINTERFACE);
-        assert(p == nullptr);
-        pass("buffer E_NOINTERFACE + ppv zeroed");
-    }
+    hr = buffer->QueryInterface(__uuidof(IUnknown), (void**)&a);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    hr = sw->QueryInterface(__uuidof(IUnknown), (void**)&b);
+    ASSERT_TRUE(SUCCEEDED(hr));
 
-    // --- Buffer: ref counting ---
-    {
-        ULONG r;
-        r = buffer->AddRef();  assert(r == 2);
-        r = buffer->AddRef();  assert(r == 3);
-        r = buffer->Release(); assert(r == 2);
-        r = buffer->Release(); assert(r == 1);
-        pass("buffer ref counting");
-    }
+    EXPECT_EQ(a, b);
 
-    // --- GetDevice returns the same device ---
-    {
-        ID3D11Device* dev2 = nullptr;
-        buffer->GetDevice(&dev2);
-        assert(dev2 == device);
-        dev2->Release();
-        pass("GetDevice returns parent device");
-    }
+    a->Release(); b->Release(); sw->Release();
+}
 
-    buffer->Release();
-    context->Release();
-    device->Release();
+TEST_F(ComTests, BufferQIReflexivity)
+{
+    ID3D11Buffer* buf2 = nullptr;
+    HRESULT hr = buffer->QueryInterface(__uuidof(ID3D11Buffer), (void**)&buf2);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_EQ(buf2, buffer);
+    buf2->Release();
+}
 
-    printf("\nd3d11sw: All COM tests passed!\n");
-    return 0;
+TEST_F(ComTests, BufferENoInterface)
+{
+    static const GUID bogus = {0x22222222,0,0,{0,0,0,0,0,0,0,2}};
+    void* p = (void*)0xdeadbeef;
+    HRESULT hr = buffer->QueryInterface(bogus, &p);
+    EXPECT_EQ(hr, E_NOINTERFACE);
+    EXPECT_EQ(p, nullptr);
+}
+
+TEST_F(ComTests, BufferRefCounting)
+{
+    ULONG r;
+    r = buffer->AddRef();  EXPECT_EQ(r, 2u);
+    r = buffer->AddRef();  EXPECT_EQ(r, 3u);
+    r = buffer->Release(); EXPECT_EQ(r, 2u);
+    r = buffer->Release(); EXPECT_EQ(r, 1u);
+}
+
+TEST_F(ComTests, GetDeviceReturnsParent)
+{
+    ID3D11Device* dev2 = nullptr;
+    buffer->GetDevice(&dev2);
+    EXPECT_EQ(dev2, device);
+    dev2->Release();
 }
