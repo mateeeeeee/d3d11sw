@@ -5,12 +5,12 @@
 namespace d3d11sw {
 
 
-class Direct3D11RasterizerStateSW : public DeviceChildImpl<ID3D11RasterizerState2>
+class D3D11RasterizerStateSW final : public DeviceChildImpl<ID3D11RasterizerState2>
 {
 public:
-    explicit Direct3D11RasterizerStateSW(ID3D11Device* device);
+    explicit D3D11RasterizerStateSW(ID3D11Device* device);
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     void STDMETHODCALLTYPE GetDesc(D3D11_RASTERIZER_DESC* pDesc) override;
     void STDMETHODCALLTYPE GetDesc1(D3D11_RASTERIZER_DESC1* pDesc) override;

@@ -30,8 +30,8 @@ HRESULT WINAPI D3D11CreateDevice(
         return S_FALSE;
     }
 
-    Direct3D11DeviceSW* device = new Direct3D11DeviceSW();
-    Direct3D11DeviceContextSW* context = new Direct3D11DeviceContextSW(device);
+    D3D11DeviceSW* device = new D3D11DeviceSW();
+    D3D11DeviceContextSW* context = new D3D11DeviceContextSW(device);
     device->SetImmediateContext(context);
 
     if (pFeatureLevel)
@@ -76,8 +76,8 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
 {
     D3D11SW_INFO("D3D11CreateDeviceAndSwapChain called");
 
-    Direct3D11DeviceSW* device = new Direct3D11DeviceSW();
-    Direct3D11DeviceContextSW* context = new Direct3D11DeviceContextSW(device);
+    D3D11DeviceSW* device = new D3D11DeviceSW();
+    D3D11DeviceContextSW* context = new D3D11DeviceContextSW(device);
     device->SetImmediateContext(context);
 
     if (pFeatureLevel) 

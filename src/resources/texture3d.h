@@ -5,12 +5,12 @@
 namespace d3d11sw {
 
 
-class Direct3D11Texture3DSW : public DeviceChildImpl<ID3D11Texture3D1>
+class D3D11Texture3DSW final : public DeviceChildImpl<ID3D11Texture3D1>
 {
 public:
-    explicit Direct3D11Texture3DSW(ID3D11Device* device);
+    explicit D3D11Texture3DSW(ID3D11Device* device);
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     void STDMETHODCALLTYPE GetType(D3D11_RESOURCE_DIMENSION* pResourceDimension) override;
     void STDMETHODCALLTYPE SetEvictionPriority(UINT EvictionPriority) override;

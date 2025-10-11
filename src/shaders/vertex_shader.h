@@ -5,12 +5,12 @@
 namespace d3d11sw {
 
 
-class Direct3D11VertexShaderSW : public DeviceChildImpl<ID3D11VertexShader>
+class D3D11VertexShaderSW final : public DeviceChildImpl<ID3D11VertexShader>
 {
 public:
-    explicit Direct3D11VertexShaderSW(ID3D11Device* device);
+    explicit D3D11VertexShaderSW(ID3D11Device* device);
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 };
 
 }

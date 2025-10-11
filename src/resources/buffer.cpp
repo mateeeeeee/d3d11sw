@@ -3,33 +3,44 @@
 namespace d3d11sw {
 
 
-HRESULT STDMETHODCALLTYPE Direct3D11BufferSW::QueryInterface(REFIID riid, void** ppv)
+HRESULT STDMETHODCALLTYPE D3D11BufferSW::QueryInterface(REFIID riid, void** ppv)
 {
     if (!ppv)
+    {
         return E_POINTER;
+    }
 
     *ppv = nullptr;
-
     if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Buffer))
+    {
         *ppv = static_cast<ID3D11Buffer*>(this);
+    }
     else if (riid == __uuidof(ID3D11Resource))
+    {
         *ppv = static_cast<ID3D11Resource*>(this);
+    }
     else if (riid == __uuidof(ID3D11DeviceChild))
+    {
         *ppv = static_cast<ID3D11DeviceChild*>(this);
-    else if (riid == __uuidof(ISWResource))
-        *ppv = static_cast<ISWResource*>(this);
+    }
+    else if (riid == __uuidof(IResourceSW))
+    {
+        *ppv = static_cast<IResourceSW*>(this);
+    }
     else
+    {
         return E_NOINTERFACE;
+    }
 
     AddRef();
     return S_OK;
 }
 
 
-Direct3D11BufferSW::Direct3D11BufferSW(ID3D11Device* device)
+D3D11BufferSW::D3D11BufferSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-HRESULT Direct3D11BufferSW::Init(
+HRESULT D3D11BufferSW::Init(
     const D3D11_BUFFER_DESC*        pDesc,
     const D3D11_SUBRESOURCE_DATA*   pInitialData)
 {
@@ -50,7 +61,7 @@ HRESULT Direct3D11BufferSW::Init(
 }
 
 
-void STDMETHODCALLTYPE Direct3D11BufferSW::GetType(D3D11_RESOURCE_DIMENSION* pResourceDimension)
+void STDMETHODCALLTYPE D3D11BufferSW::GetType(D3D11_RESOURCE_DIMENSION* pResourceDimension)
 {
     if (pResourceDimension)
     {
@@ -58,14 +69,14 @@ void STDMETHODCALLTYPE Direct3D11BufferSW::GetType(D3D11_RESOURCE_DIMENSION* pRe
     }
 }
 
-void STDMETHODCALLTYPE Direct3D11BufferSW::SetEvictionPriority(UINT EvictionPriority) {}
+void STDMETHODCALLTYPE D3D11BufferSW::SetEvictionPriority(UINT EvictionPriority) {}
 
-UINT STDMETHODCALLTYPE Direct3D11BufferSW::GetEvictionPriority()
+UINT STDMETHODCALLTYPE D3D11BufferSW::GetEvictionPriority()
 {
     return 0;
 }
 
-void STDMETHODCALLTYPE Direct3D11BufferSW::GetDesc(D3D11_BUFFER_DESC* pDesc)
+void STDMETHODCALLTYPE D3D11BufferSW::GetDesc(D3D11_BUFFER_DESC* pDesc)
 {
     if (pDesc)
     {

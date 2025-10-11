@@ -6,19 +6,19 @@
 namespace d3d11sw {
 
 
-class Direct3D11DeviceContextSW;
+class D3D11DeviceContextSW;
 
-class Direct3D11DeviceSW : public ID3D11Device5, private UnknownBase
+class D3D11DeviceSW final : public ID3D11Device5, private UnknownBase
 {
 public:
-    Direct3D11DeviceSW();
-    ~Direct3D11DeviceSW() override;
+    D3D11DeviceSW();
+    ~D3D11DeviceSW() override;
 
     ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
     ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
-    void SetImmediateContext(Direct3D11DeviceContextSW* ctx);
+    void SetImmediateContext(D3D11DeviceContextSW* ctx);
 
     // ID3D11Device
     HRESULT STDMETHODCALLTYPE CreateBuffer(const D3D11_BUFFER_DESC* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Buffer** ppBuffer) override;
@@ -99,7 +99,7 @@ public:
     HRESULT STDMETHODCALLTYPE CreateFence(UINT64 InitialValue, D3D11_FENCE_FLAG Flags, REFIID ReturnedInterface, void** ppFence) override;
 
 private:
-    Direct3D11DeviceContextSW* _immediateContext = nullptr;
+    D3D11DeviceContextSW* _immediateContext = nullptr;
 
 private:
     template<typename T, typename... ArgsT>

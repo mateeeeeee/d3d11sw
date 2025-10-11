@@ -2,7 +2,7 @@
 #include <cassert>
 #include <cstdio>
 
-#include "resources/sw_resource.h"
+#include "resources/resource_sw.h"
 
 static void pass(const char* name) { printf("  [PASS] %s\n", name); }
 
@@ -109,8 +109,8 @@ int main()
 
     // --- Buffer: IUnknown identity via ISWResource ---
     {
-        d3d11sw::ISWResource* sw = nullptr;
-        hr = buffer->QueryInterface(__uuidof(d3d11sw::ISWResource), (void**)&sw);
+        d3d11sw::IResourceSW* sw = nullptr;
+        hr = buffer->QueryInterface(__uuidof(d3d11sw::IResourceSW), (void**)&sw);
         assert(SUCCEEDED(hr) && sw);
         assert(sw->GetDataPtr() != nullptr);
 

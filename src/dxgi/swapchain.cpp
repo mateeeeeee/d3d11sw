@@ -6,32 +6,49 @@ namespace d3d11sw {
 DXGISwapChainSW::DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc)
     : _device(device), _desc(desc)
 {
-    if (_device) _device->AddRef();
+    if (_device)
+    {
+        _device->AddRef();
+    }
 }
 
 DXGISwapChainSW::~DXGISwapChainSW()
 {
-    if (_device) _device->Release();
+    if (_device)
+    {
+        _device->Release();
+    }
 }
 
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::QueryInterface(REFIID riid, void** ppv)
 {
     if (!ppv)
+    {
         return E_POINTER;
+    }
 
     *ppv = nullptr;
-
     if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGISwapChain1))
+    {
         *ppv = static_cast<IDXGISwapChain1*>(this);
+    }
     else if (riid == __uuidof(IDXGISwapChain))
+    {
         *ppv = static_cast<IDXGISwapChain*>(this);
+    }
     else if (riid == __uuidof(IDXGIDeviceSubObject))
+    {
         *ppv = static_cast<IDXGIDeviceSubObject*>(this);
+    }
     else if (riid == __uuidof(IDXGIObject))
+    {
         *ppv = static_cast<IDXGIObject*>(this);
+    }
     else
+    {
         return E_NOINTERFACE;
+    }
 
     AddRef();
     return S_OK;

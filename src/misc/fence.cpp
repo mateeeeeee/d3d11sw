@@ -3,38 +3,45 @@
 namespace d3d11sw {
 
 
-HRESULT STDMETHODCALLTYPE Direct3D11FenceSW::QueryInterface(REFIID riid, void** ppv)
+HRESULT STDMETHODCALLTYPE D3D11FenceSW::QueryInterface(REFIID riid, void** ppv)
 {
     if (!ppv)
+    {
         return E_POINTER;
+    }
 
     *ppv = nullptr;
-
     if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Fence))
+    {
         *ppv = static_cast<ID3D11Fence*>(this);
+    }
     else if (riid == __uuidof(ID3D11DeviceChild))
-        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    {
+		*ppv = static_cast<ID3D11DeviceChild*>(this);
+    }
     else
+    {
         return E_NOINTERFACE;
+    }
 
     AddRef();
     return S_OK;
 }
 
-Direct3D11FenceSW::Direct3D11FenceSW(ID3D11Device* device)
+D3D11FenceSW::D3D11FenceSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
-HRESULT STDMETHODCALLTYPE Direct3D11FenceSW::CreateSharedHandle(const SECURITY_ATTRIBUTES* pAttributes, DWORD dwAccess, LPCWSTR lpName, HANDLE* pHandle)
+HRESULT STDMETHODCALLTYPE D3D11FenceSW::CreateSharedHandle(const SECURITY_ATTRIBUTES* pAttributes, DWORD dwAccess, LPCWSTR lpName, HANDLE* pHandle)
 {
     return E_NOTIMPL;
 }
 
-UINT64 STDMETHODCALLTYPE Direct3D11FenceSW::GetCompletedValue()
+UINT64 STDMETHODCALLTYPE D3D11FenceSW::GetCompletedValue()
 {
     return 0;
 }
 
-HRESULT STDMETHODCALLTYPE Direct3D11FenceSW::SetEventOnCompletion(UINT64 Value, HANDLE hEvent)
+HRESULT STDMETHODCALLTYPE D3D11FenceSW::SetEventOnCompletion(UINT64 Value, HANDLE hEvent)
 {
     return E_NOTIMPL;
 }

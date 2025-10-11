@@ -5,12 +5,12 @@
 namespace d3d11sw {
 
 
-class Direct3D11PixelShaderSW : public DeviceChildImpl<ID3D11PixelShader>
+class D3D11PixelShaderSW final : public DeviceChildImpl<ID3D11PixelShader>
 {
 public:
-    explicit Direct3D11PixelShaderSW(ID3D11Device* device);
+    explicit D3D11PixelShaderSW(ID3D11Device* device);
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 };
 
 }

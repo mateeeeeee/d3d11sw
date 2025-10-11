@@ -1,22 +1,22 @@
 #pragma once
 #include <vector>
-#include "sw_resource.h"
+#include "resource_sw.h"
 #include "common/device_child_impl.h"
 
 namespace d3d11sw {
 
 
-class Direct3D11BufferSW : public DeviceChildImpl<ID3D11Buffer>, public ISWResource
+class D3D11BufferSW final : public DeviceChildImpl<ID3D11Buffer>, public IResourceSW
 {
 public:
-    explicit Direct3D11BufferSW(ID3D11Device* device);
+    explicit D3D11BufferSW(ID3D11Device* device);
 
     HRESULT Init(const D3D11_BUFFER_DESC* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData);
 
     ULONG STDMETHODCALLTYPE AddRef() override  { return DeviceChildImpl::AddRef(); }
     ULONG STDMETHODCALLTYPE Release() override { return DeviceChildImpl::Release(); }
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     void STDMETHODCALLTYPE GetType(D3D11_RESOURCE_DIMENSION* pResourceDimension) override;
     void STDMETHODCALLTYPE SetEvictionPriority(UINT EvictionPriority) override;

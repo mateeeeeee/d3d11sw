@@ -5,12 +5,12 @@
 namespace d3d11sw {
 
 
-class Direct3D11DeviceContextSW : public DeviceChildImpl<ID3D11DeviceContext4>
+class D3D11DeviceContextSW final : public DeviceChildImpl<ID3D11DeviceContext4>
 {
 public:
-    explicit Direct3D11DeviceContextSW(ID3D11Device* device);
+    explicit D3D11DeviceContextSW(ID3D11Device* device);
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     void STDMETHODCALLTYPE VSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers) override;
     void STDMETHODCALLTYPE PSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews) override;

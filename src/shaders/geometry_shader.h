@@ -5,12 +5,12 @@
 namespace d3d11sw {
 
 
-class Direct3D11GeometryShaderSW : public DeviceChildImpl<ID3D11GeometryShader>
+class D3D11GeometryShaderSW final : public DeviceChildImpl<ID3D11GeometryShader>
 {
 public:
-    explicit Direct3D11GeometryShaderSW(ID3D11Device* device);
+    explicit D3D11GeometryShaderSW(ID3D11Device* device);
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 };
 
 }

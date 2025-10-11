@@ -5,12 +5,12 @@
 namespace d3d11sw {
 
 
-class Direct3D11DomainShaderSW : public DeviceChildImpl<ID3D11DomainShader>
+class D3D11DomainShaderSW final : public DeviceChildImpl<ID3D11DomainShader>
 {
 public:
-    explicit Direct3D11DomainShaderSW(ID3D11Device* device);
+    explicit D3D11DomainShaderSW(ID3D11Device* device);
 
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 };
 
 }

@@ -7,31 +7,44 @@ DXGIDeviceSW::DXGIDeviceSW(ID3D11Device* device)
     : _device(device)
 {
     if (_device)
+    {
         _device->AddRef();
+    }
 }
 
 DXGIDeviceSW::~DXGIDeviceSW()
 {
     if (_device)
+    {
         _device->Release();
+    }
 }
 
 
 HRESULT STDMETHODCALLTYPE DXGIDeviceSW::QueryInterface(REFIID riid, void** ppv)
 {
     if (!ppv)
+    {
         return E_POINTER;
+    }
 
     *ppv = nullptr;
-
     if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIDevice1))
+    {
         *ppv = static_cast<IDXGIDevice1*>(this);
+    }
     else if (riid == __uuidof(IDXGIDevice))
+    {
         *ppv = static_cast<IDXGIDevice*>(this);
+    }
     else if (riid == __uuidof(IDXGIObject))
+    {
         *ppv = static_cast<IDXGIObject*>(this);
+    }
     else
+    {
         return E_NOINTERFACE;
+    }
 
     AddRef();
     return S_OK;

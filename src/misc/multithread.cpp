@@ -3,20 +3,20 @@
 namespace d3d11sw {
 
 
-void STDMETHODCALLTYPE Direct3D11MultithreadSW::Enter()
+void STDMETHODCALLTYPE D3D11MultithreadSW::Enter()
 {
 }
 
-void STDMETHODCALLTYPE Direct3D11MultithreadSW::Leave()
+void STDMETHODCALLTYPE D3D11MultithreadSW::Leave()
 {
 }
 
-BOOL STDMETHODCALLTYPE Direct3D11MultithreadSW::SetMultithreadProtected(BOOL bMTProtect)
+BOOL STDMETHODCALLTYPE D3D11MultithreadSW::SetMultithreadProtected(BOOL bMTProtect)
 {
     return FALSE;
 }
 
-BOOL STDMETHODCALLTYPE Direct3D11MultithreadSW::GetMultithreadProtected()
+BOOL STDMETHODCALLTYPE D3D11MultithreadSW::GetMultithreadProtected()
 {
     return FALSE;
 }

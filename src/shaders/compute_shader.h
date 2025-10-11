@@ -5,10 +5,10 @@
 namespace d3d11sw {
 
 
-class Direct3D11ComputeShaderSW : public DeviceChildImpl<ID3D11ComputeShader>
+class D3D11ComputeShaderSW : public DeviceChildImpl<ID3D11ComputeShader>
 {
 public:
-    explicit Direct3D11ComputeShaderSW(ID3D11Device* device);
+    explicit D3D11ComputeShaderSW(ID3D11Device* device);
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
 };
