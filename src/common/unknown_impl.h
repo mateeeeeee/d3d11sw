@@ -22,12 +22,12 @@ public:
 
     ULONG STDMETHODCALLTYPE AddRef() override
     {
-        return m_refCount.fetch_add(1, std::memory_order_relaxed) + 1;
+        return _refCount.fetch_add(1, std::memory_order_relaxed) + 1;
     }
 
     ULONG STDMETHODCALLTYPE Release() override
     {
-        ULONG count = m_refCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
+        ULONG count = _refCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
         if (count == 0)
         {
             delete this;
@@ -60,7 +60,7 @@ public:
     }
 
 private:
-    std::atomic<ULONG> m_refCount{1};
+    std::atomic<ULONG> _refCount{1};
 
 private:
     template <typename T>

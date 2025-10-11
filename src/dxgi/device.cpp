@@ -4,14 +4,20 @@ namespace d3d11sw {
 
 
 DXGIDeviceSW::DXGIDeviceSW(ID3D11Device* device)
-    : m_device(device)
+    : _device(device)
 {
-    if (m_device) m_device->AddRef();
+    if (_device) 
+    {
+        _device->AddRef();
+    }
 }
 
 DXGIDeviceSW::~DXGIDeviceSW()
 {
-    if (m_device) m_device->Release();
+    if (_device) 
+    {
+        _device->Release();
+    }
 }
 
 
@@ -69,7 +75,10 @@ HRESULT STDMETHODCALLTYPE DXGIDeviceSW::SetMaximumFrameLatency(UINT MaxLatency)
 
 HRESULT STDMETHODCALLTYPE DXGIDeviceSW::GetMaximumFrameLatency(UINT* pMaxLatency)
 {
-    if (pMaxLatency) *pMaxLatency = 1;
+    if (pMaxLatency) 
+    {
+        *pMaxLatency = 1;
+    }
     return S_OK;
 }
 

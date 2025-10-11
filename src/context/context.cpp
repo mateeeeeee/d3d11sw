@@ -1,4 +1,5 @@
 #include "context.h"
+#include "resources/sw_resource.h"
 
 namespace d3d11sw {
 
@@ -202,7 +203,33 @@ void STDMETHODCALLTYPE Direct3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer*
 
 HRESULT STDMETHODCALLTYPE Direct3D11DeviceContextSW::Map(ID3D11Resource* pResource, UINT Subresource, D3D11_MAP MapType, UINT MapFlags, D3D11_MAPPED_SUBRESOURCE* pMappedResource)
 {
-    return E_NOTIMPL;
+    ISWResource* swRes = nullptr;
+    HRESULT hr = pResource->QueryInterface(__uuidof(ISWResource), (void**)&swRes);
+    if (FAILED(hr))
+    {
+        return E_NOTIMPL;
+    }
+
+    D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+    pResource->GetType(&dim);
+    if (dim == D3D11_RESOURCE_DIMENSION_BUFFER)
+    {
+        ID3D11Buffer* d3d11_buffer = nullptr;
+        pResource->QueryInterface(__uuidof(ID3D11Buffer), (void**)&d3d11_buffer);
+
+        D3D11_BUFFER_DESC desc;
+        d3d11_buffer->GetDesc(&desc);
+        pMappedResource->pData = swRes->GetDataPtr();
+        pMappedResource->RowPitch = desc.ByteWidth;
+        pMappedResource->DepthPitch = desc.ByteWidth;
+
+        d3d11_buffer->Release();
+    }
+    else
+    {
+        return E_NOTIMPL;
+    }
+    return S_OK;
 }
 
 void STDMETHODCALLTYPE Direct3D11DeviceContextSW::Unmap(ID3D11Resource* pResource, UINT Subresource)

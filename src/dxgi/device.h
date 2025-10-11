@@ -7,8 +7,6 @@ namespace d3d11sw {
 
 class DXGIDeviceSW : public UnknownImpl<IDXGIDevice1, IDXGIDevice, IDXGIObject>
 {
-    ID3D11Device* m_device;
-
 public:
     DXGIDeviceSW(ID3D11Device* device);
     ~DXGIDeviceSW();
@@ -26,6 +24,9 @@ public:
 
     HRESULT STDMETHODCALLTYPE SetMaximumFrameLatency(UINT MaxLatency) override;
     HRESULT STDMETHODCALLTYPE GetMaximumFrameLatency(UINT* pMaxLatency) override;
+
+private:
+    ID3D11Device* _device;
 };
 
 }

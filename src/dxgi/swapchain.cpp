@@ -4,14 +4,14 @@ namespace d3d11sw {
 
 
 DXGISwapChainSW::DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc)
-    : m_device(device), m_desc(desc)
+    : _device(device), _desc(desc)
 {
-    if (m_device) m_device->AddRef();
+    if (_device) _device->AddRef();
 }
 
 DXGISwapChainSW::~DXGISwapChainSW()
 {
-    if (m_device) m_device->Release();
+    if (_device) _device->Release();
 }
 
 
@@ -38,7 +38,7 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetParent(REFIID riid, void** ppParen
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDevice(REFIID riid, void** ppDevice)
 {
-    return m_device->QueryInterface(riid, ppDevice);
+    return _device->QueryInterface(riid, ppDevice);
 }
 
 
@@ -72,7 +72,7 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDesc(DXGI_SWAP_CHAIN_DESC* pDesc)
     {
         return E_INVALIDARG;
     }
-    *pDesc = m_desc;
+    *pDesc = _desc;
     return S_OK;
 }
 
@@ -120,7 +120,7 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetHwnd(HWND* pHwnd)
 {
     if (pHwnd)
     {
-        *pHwnd = m_desc.OutputWindow;
+        *pHwnd = _desc.OutputWindow;
     }
     return S_OK;
 }

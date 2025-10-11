@@ -1,8 +1,25 @@
+#include <new>
 #include "device.h"
 #include "context/context.h"
+#include "resources/buffer.h"
 
 namespace d3d11sw {
 
+
+template<typename T, typename... ArgsT>
+HRESULT Direct3D11DeviceSW::MakeAndInit(T** ppOut, ArgsT&&... args)
+{
+	try
+	{
+		T* obj = new T(this);
+		HRESULT hr = obj->Init(std::forward<ArgsT>(args)...);
+		if (FAILED(hr)) { delete obj; return hr; }
+		*ppOut = obj;
+		return S_OK;
+	}
+	catch (const std::bad_alloc&) { return E_OUTOFMEMORY; }
+	catch (...) { return E_FAIL; }
+}
 
 Direct3D11DeviceSW::Direct3D11DeviceSW()
 {
@@ -14,17 +31,30 @@ Direct3D11DeviceSW::~Direct3D11DeviceSW()
 
 void Direct3D11DeviceSW::SetImmediateContext(Direct3D11DeviceContextSW* ctx)
 {
-    m_immediateContext = ctx;
+    _immediateContext = ctx;
 }
 
 HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateBuffer(
-    const D3D11_BUFFER_DESC* pDesc,
+    const D3D11_BUFFER_DESC*      pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
-    ID3D11Buffer** ppBuffer)
+    ID3D11Buffer**                ppBuffer)
 {
-    return E_NOTIMPL;
-}
+    if (!ppBuffer) 
+    {
+        return S_FALSE;
+    }
+    *ppBuffer = nullptr;
 
+    Direct3D11BufferSW* buf = nullptr;
+    HRESULT hr = MakeAndInit(&buf, pDesc, pInitialData);
+    if (FAILED(hr)) 
+    {
+        return hr;
+    }
+
+    *ppBuffer = buf;
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateTexture1D(
     const D3D11_TEXTURE1D_DESC* pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
@@ -312,10 +342,10 @@ HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::GetDeviceRemovedReason()
 void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext(
     ID3D11DeviceContext** ppImmediateContext)
 {
-    if (ppImmediateContext && m_immediateContext)
+    if (ppImmediateContext && _immediateContext)
     {
-        *ppImmediateContext = static_cast<ID3D11DeviceContext*>(m_immediateContext);
-        m_immediateContext->AddRef();
+        *ppImmediateContext = static_cast<ID3D11DeviceContext*>(_immediateContext);
+        _immediateContext->AddRef();
     }
 }
 
@@ -334,10 +364,10 @@ UINT STDMETHODCALLTYPE Direct3D11DeviceSW::GetExceptionMode()
 
 void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext1(ID3D11DeviceContext1** ppImmediateContext)
 {
-    if (ppImmediateContext && m_immediateContext)
+    if (ppImmediateContext && _immediateContext)
     {
-        *ppImmediateContext = static_cast<ID3D11DeviceContext1*>(m_immediateContext);
-        m_immediateContext->AddRef();
+        *ppImmediateContext = static_cast<ID3D11DeviceContext1*>(_immediateContext);
+        _immediateContext->AddRef();
     }
 }
 
@@ -375,10 +405,10 @@ HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::OpenSharedResourceByName(LPCWSTR l
 
 void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext2(ID3D11DeviceContext2** ppImmediateContext)
 {
-    if (ppImmediateContext && m_immediateContext)
+    if (ppImmediateContext && _immediateContext)
     {
-        *ppImmediateContext = static_cast<ID3D11DeviceContext2*>(m_immediateContext);
-        m_immediateContext->AddRef();
+        *ppImmediateContext = static_cast<ID3D11DeviceContext2*>(_immediateContext);
+        _immediateContext->AddRef();
     }
 }
 
@@ -435,10 +465,10 @@ HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::CreateQuery1(const D3D11_QUERY_DES
 
 void STDMETHODCALLTYPE Direct3D11DeviceSW::GetImmediateContext3(ID3D11DeviceContext3** ppImmediateContext)
 {
-    if (ppImmediateContext && m_immediateContext)
+    if (ppImmediateContext && _immediateContext)
     {
-        *ppImmediateContext = static_cast<ID3D11DeviceContext3*>(m_immediateContext);
-        m_immediateContext->AddRef();
+        *ppImmediateContext = static_cast<ID3D11DeviceContext3*>(_immediateContext);
+        _immediateContext->AddRef();
     }
 }
 

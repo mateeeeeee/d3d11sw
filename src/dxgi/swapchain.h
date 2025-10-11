@@ -7,9 +7,6 @@ namespace d3d11sw {
 
 class DXGISwapChainSW : public UnknownImpl<IDXGISwapChain1, IDXGISwapChain, IDXGIDeviceSubObject, IDXGIObject>
 {
-    ID3D11Device*       m_device;
-    DXGI_SWAP_CHAIN_DESC m_desc;
-
 public:
     DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc);
     ~DXGISwapChainSW();
@@ -43,6 +40,10 @@ public:
     HRESULT STDMETHODCALLTYPE GetBackgroundColor(DXGI_RGBA* pColor) override;
     HRESULT STDMETHODCALLTYPE SetRotation(DXGI_MODE_ROTATION Rotation) override;
     HRESULT STDMETHODCALLTYPE GetRotation(DXGI_MODE_ROTATION* pRotation) override;
+
+private:
+    ID3D11Device*        _device;
+    DXGI_SWAP_CHAIN_DESC _desc;
 };
 
 }

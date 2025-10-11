@@ -94,8 +94,12 @@ public:
     HRESULT STDMETHODCALLTYPE OpenSharedFence(HANDLE hFence, REFIID ReturnedInterface, void** ppFence) override;
     HRESULT STDMETHODCALLTYPE CreateFence(UINT64 InitialValue, D3D11_FENCE_FLAG Flags, REFIID ReturnedInterface, void** ppFence) override;
 
-protected:
-    Direct3D11DeviceContextSW* m_immediateContext = nullptr;
+private:
+    Direct3D11DeviceContextSW* _immediateContext = nullptr;
+
+private:
+    template<typename T, typename... ArgsT>
+    HRESULT MakeAndInit(T** ppOut, ArgsT&&... args);
 };
 
 }
