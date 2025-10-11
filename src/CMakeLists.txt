@@ -1,49 +1,94 @@
 set(D3D11SW_SOURCES
     exports/dllmain.cpp
     exports/exports.cpp
+    exports/d3d11sw.def
 
     common/log.cpp
+    common/common.h
+    common/device_child_impl.h
+    common/log.h
+    common/macros.h
+    common/types.h
+    common/unknown_impl.h
 
     device/device.cpp
+    device/device.h
 
     context/context.cpp
+    context/context.h
 
     resources/buffer.cpp
+    resources/buffer.h
+    resources/resource_sw.h
     resources/texture1d.cpp
+    resources/texture1d.h
     resources/texture2d.cpp
+    resources/texture2d.h
     resources/texture3d.cpp
+    resources/texture3d.h
 
     views/render_target_view.cpp
+    views/render_target_view.h
     views/depth_stencil_view.cpp
+    views/depth_stencil_view.h
     views/shader_resource_view.cpp
+    views/shader_resource_view.h
     views/unordered_access_view.cpp
+    views/unordered_access_view.h
 
     shaders/vertex_shader.cpp
+    shaders/vertex_shader.h
     shaders/pixel_shader.cpp
+    shaders/pixel_shader.h
     shaders/geometry_shader.cpp
+    shaders/geometry_shader.h
     shaders/hull_shader.cpp
+    shaders/hull_shader.h
     shaders/domain_shader.cpp
+    shaders/domain_shader.h
     shaders/compute_shader.cpp
+    shaders/compute_shader.h
 
     states/rasterizer_state.cpp
+    states/rasterizer_state.h
     states/blend_state.cpp
+    states/blend_state.h
     states/depth_stencil_state.cpp
+    states/depth_stencil_state.h
     states/sampler_state.cpp
+    states/sampler_state.h
 
     misc/input_layout.cpp
+    misc/input_layout.h
     misc/query.cpp
+    misc/query.h
     misc/command_list.cpp
+    misc/command_list.h
     misc/class_linkage.cpp
+    misc/class_linkage.h
     misc/fence.cpp
+    misc/fence.h
     misc/multithread.cpp
+    misc/multithread.h
 
     dxgi/factory.cpp
+    dxgi/factory.h
     dxgi/adapter.cpp
+    dxgi/adapter.h
     dxgi/swapchain.cpp
+    dxgi/swapchain.h
     dxgi/device.cpp
+    dxgi/device.h
+
+    util/align.h
+    util/enum.h
+    util/format.h
+    util/hash.h
 )
 
-add_library(d3d11 SHARED ${D3D11SW_SOURCES} exports/d3d11sw.def)
+add_library(d3d11 SHARED ${D3D11SW_SOURCES})
+
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${D3D11SW_SOURCES})
 
 target_include_directories(d3d11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(d3d11 PRIVATE dxguid)
