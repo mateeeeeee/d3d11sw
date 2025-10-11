@@ -15,6 +15,29 @@ DXGISwapChainSW::~DXGISwapChainSW()
 }
 
 
+HRESULT STDMETHODCALLTYPE DXGISwapChainSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGISwapChain1))
+        *ppv = static_cast<IDXGISwapChain1*>(this);
+    else if (riid == __uuidof(IDXGISwapChain))
+        *ppv = static_cast<IDXGISwapChain*>(this);
+    else if (riid == __uuidof(IDXGIDeviceSubObject))
+        *ppv = static_cast<IDXGIDeviceSubObject*>(this);
+    else if (riid == __uuidof(IDXGIObject))
+        *ppv = static_cast<IDXGIObject*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
 {
     return E_NOTIMPL;

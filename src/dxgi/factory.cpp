@@ -7,6 +7,29 @@ DXGIFactorySW::DXGIFactorySW() {}
 DXGIFactorySW::~DXGIFactorySW() {}
 
 
+HRESULT STDMETHODCALLTYPE DXGIFactorySW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIFactory2))
+        *ppv = static_cast<IDXGIFactory2*>(this);
+    else if (riid == __uuidof(IDXGIFactory1))
+        *ppv = static_cast<IDXGIFactory1*>(this);
+    else if (riid == __uuidof(IDXGIFactory))
+        *ppv = static_cast<IDXGIFactory*>(this);
+    else if (riid == __uuidof(IDXGIObject))
+        *ppv = static_cast<IDXGIObject*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
 {
     return E_NOTIMPL;

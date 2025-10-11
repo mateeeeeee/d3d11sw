@@ -5,11 +5,15 @@
 namespace d3d11sw {
 
 
-class DXGISwapChainSW : public UnknownImpl<IDXGISwapChain1, IDXGISwapChain, IDXGIDeviceSubObject, IDXGIObject>
+class DXGISwapChainSW : public IDXGISwapChain1, private UnknownBase
 {
 public:
     DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc);
     ~DXGISwapChainSW();
+
+    ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
+    ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
 
     HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
     HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;

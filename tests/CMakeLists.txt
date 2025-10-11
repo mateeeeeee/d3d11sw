@@ -2,3 +2,8 @@ add_executable(test_device_creation test_device_creation.cpp)
 
 target_link_libraries(test_device_creation PRIVATE d3d11)
 target_include_directories(test_device_creation PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+add_executable(test_com test_com.cpp)
+
+target_link_libraries(test_com PRIVATE d3d11)
+target_include_directories(test_com PRIVATE ${CMAKE_SOURCE_DIR}/src)

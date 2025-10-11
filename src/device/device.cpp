@@ -21,6 +21,32 @@ HRESULT Direct3D11DeviceSW::MakeAndInit(T** ppOut, ArgsT&&... args)
 	catch (...) { return E_FAIL; }
 }
 
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Device5))
+        *ppv = static_cast<ID3D11Device5*>(this);
+    else if (riid == __uuidof(ID3D11Device4))
+        *ppv = static_cast<ID3D11Device4*>(this);
+    else if (riid == __uuidof(ID3D11Device3))
+        *ppv = static_cast<ID3D11Device3*>(this);
+    else if (riid == __uuidof(ID3D11Device2))
+        *ppv = static_cast<ID3D11Device2*>(this);
+    else if (riid == __uuidof(ID3D11Device1))
+        *ppv = static_cast<ID3D11Device1*>(this);
+    else if (riid == __uuidof(ID3D11Device))
+        *ppv = static_cast<ID3D11Device*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
 Direct3D11DeviceSW::Direct3D11DeviceSW()
 {
 }

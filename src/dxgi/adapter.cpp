@@ -8,6 +8,27 @@ DXGIAdapterSW::DXGIAdapterSW() {}
 DXGIAdapterSW::~DXGIAdapterSW() {}
 
 
+HRESULT STDMETHODCALLTYPE DXGIAdapterSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIAdapter1))
+        *ppv = static_cast<IDXGIAdapter1*>(this);
+    else if (riid == __uuidof(IDXGIAdapter))
+        *ppv = static_cast<IDXGIAdapter*>(this);
+    else if (riid == __uuidof(IDXGIObject))
+        *ppv = static_cast<IDXGIObject*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
 {
     return E_NOTIMPL;

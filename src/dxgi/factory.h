@@ -1,15 +1,18 @@
 #pragma once
-
 #include "common/unknown_impl.h"
 
 namespace d3d11sw {
 
 
-class DXGIFactorySW : public UnknownImpl<IDXGIFactory2, IDXGIFactory1, IDXGIFactory, IDXGIObject>
+class DXGIFactorySW : public IDXGIFactory2, private UnknownBase
 {
 public:
     DXGIFactorySW();
     ~DXGIFactorySW();
+
+    ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
+    ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
 
     HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
     HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;

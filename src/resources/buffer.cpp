@@ -3,6 +3,29 @@
 namespace d3d11sw {
 
 
+HRESULT STDMETHODCALLTYPE Direct3D11BufferSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Buffer))
+        *ppv = static_cast<ID3D11Buffer*>(this);
+    else if (riid == __uuidof(ID3D11Resource))
+        *ppv = static_cast<ID3D11Resource*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else if (riid == __uuidof(ISWResource))
+        *ppv = static_cast<ISWResource*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+
 Direct3D11BufferSW::Direct3D11BufferSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
@@ -46,7 +69,7 @@ void STDMETHODCALLTYPE Direct3D11BufferSW::GetDesc(D3D11_BUFFER_DESC* pDesc)
 {
     if (pDesc)
     {
-        *pDesc = {};
+        *pDesc = _desc;
     }
 }
 

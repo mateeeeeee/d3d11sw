@@ -3,6 +3,28 @@
 namespace d3d11sw {
 
 
+HRESULT STDMETHODCALLTYPE Direct3D11ShaderResourceViewSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11ShaderResourceView1))
+        *ppv = static_cast<ID3D11ShaderResourceView1*>(this);
+    else if (riid == __uuidof(ID3D11ShaderResourceView))
+        *ppv = static_cast<ID3D11ShaderResourceView*>(this);
+    else if (riid == __uuidof(ID3D11View))
+        *ppv = static_cast<ID3D11View*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
 Direct3D11ShaderResourceViewSW::Direct3D11ShaderResourceViewSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 

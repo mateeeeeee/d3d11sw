@@ -3,6 +3,28 @@
 namespace d3d11sw {
 
 
+HRESULT STDMETHODCALLTYPE Direct3D11Texture3DSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Texture3D1))
+        *ppv = static_cast<ID3D11Texture3D1*>(this);
+    else if (riid == __uuidof(ID3D11Texture3D))
+        *ppv = static_cast<ID3D11Texture3D*>(this);
+    else if (riid == __uuidof(ID3D11Resource))
+        *ppv = static_cast<ID3D11Resource*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
 Direct3D11Texture3DSW::Direct3D11Texture3DSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 

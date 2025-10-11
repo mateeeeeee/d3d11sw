@@ -4,37 +4,39 @@
 
 namespace d3d11sw {
 
-class Direct3D11DeviceSW;
 
-template <typename... Interfaces>
-class DeviceChildImpl : public UnknownImpl<Interfaces...> 
+template <typename T>
+class DeviceChildImpl : public T, private UnknownBase
 {
 public:
     explicit DeviceChildImpl(ID3D11Device* device) : _device(device) {}
 
-    void STDMETHODCALLTYPE GetDevice(ID3D11Device** ppDevice) override 
+    virtual ~DeviceChildImpl() = default;
+
+    ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
+    ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
+
+    void STDMETHODCALLTYPE GetDevice(ID3D11Device** ppDevice) override
     {
-        if (ppDevice) 
+        if (ppDevice)
         {
             *ppDevice = _device;
-            if (_device) 
-            {
+            if (_device)
                 _device->AddRef();
-            }
         }
     }
 
-    HRESULT STDMETHODCALLTYPE GetPrivateData(REFGUID guid, UINT* pDataSize, void* pData) override 
+    HRESULT STDMETHODCALLTYPE GetPrivateData(REFGUID guid, UINT* pDataSize, void* pData) override
     {
         return E_NOTIMPL;
     }
 
-    HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID guid, UINT DataSize, const void* pData) override 
+    HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID guid, UINT DataSize, const void* pData) override
     {
         return E_NOTIMPL;
     }
 
-    HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID guid, const IUnknown* pData) override 
+    HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID guid, const IUnknown* pData) override
     {
         return E_NOTIMPL;
     }
@@ -42,5 +44,6 @@ public:
 protected:
     ID3D11Device* _device;
 };
+
 
 }

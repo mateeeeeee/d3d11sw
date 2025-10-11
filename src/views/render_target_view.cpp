@@ -3,6 +3,28 @@
 namespace d3d11sw {
 
 
+HRESULT STDMETHODCALLTYPE Direct3D11RenderTargetViewSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11RenderTargetView1))
+        *ppv = static_cast<ID3D11RenderTargetView1*>(this);
+    else if (riid == __uuidof(ID3D11RenderTargetView))
+        *ppv = static_cast<ID3D11RenderTargetView*>(this);
+    else if (riid == __uuidof(ID3D11View))
+        *ppv = static_cast<ID3D11View*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
 Direct3D11RenderTargetViewSW::Direct3D11RenderTargetViewSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 

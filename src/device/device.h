@@ -8,11 +8,15 @@ namespace d3d11sw {
 
 class Direct3D11DeviceContextSW;
 
-class Direct3D11DeviceSW : public UnknownImpl<ID3D11Device5, ID3D11Device4, ID3D11Device3, ID3D11Device2, ID3D11Device1, ID3D11Device>
+class Direct3D11DeviceSW : public ID3D11Device5, private UnknownBase
 {
 public:
     Direct3D11DeviceSW();
     ~Direct3D11DeviceSW() override;
+
+    ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
+    ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
 
     void SetImmediateContext(Direct3D11DeviceContextSW* ctx);
 

@@ -4,6 +4,32 @@
 namespace d3d11sw {
 
 
+HRESULT STDMETHODCALLTYPE Direct3D11DeviceContextSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11DeviceContext4))
+        *ppv = static_cast<ID3D11DeviceContext4*>(this);
+    else if (riid == __uuidof(ID3D11DeviceContext3))
+        *ppv = static_cast<ID3D11DeviceContext3*>(this);
+    else if (riid == __uuidof(ID3D11DeviceContext2))
+        *ppv = static_cast<ID3D11DeviceContext2*>(this);
+    else if (riid == __uuidof(ID3D11DeviceContext1))
+        *ppv = static_cast<ID3D11DeviceContext1*>(this);
+    else if (riid == __uuidof(ID3D11DeviceContext))
+        *ppv = static_cast<ID3D11DeviceContext*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
 Direct3D11DeviceContextSW::Direct3D11DeviceContextSW(ID3D11Device* device)
     : DeviceChildImpl(device)
 {

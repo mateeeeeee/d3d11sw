@@ -3,6 +3,70 @@
 namespace d3d11sw {
 
 
+HRESULT STDMETHODCALLTYPE Direct3D11QuerySW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Query1))
+        *ppv = static_cast<ID3D11Query1*>(this);
+    else if (riid == __uuidof(ID3D11Query))
+        *ppv = static_cast<ID3D11Query*>(this);
+    else if (riid == __uuidof(ID3D11Asynchronous))
+        *ppv = static_cast<ID3D11Asynchronous*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11PredicateSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Predicate))
+        *ppv = static_cast<ID3D11Predicate*>(this);
+    else if (riid == __uuidof(ID3D11Query))
+        *ppv = static_cast<ID3D11Query*>(this);
+    else if (riid == __uuidof(ID3D11Asynchronous))
+        *ppv = static_cast<ID3D11Asynchronous*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE Direct3D11CounterSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11Counter))
+        *ppv = static_cast<ID3D11Counter*>(this);
+    else if (riid == __uuidof(ID3D11Asynchronous))
+        *ppv = static_cast<ID3D11Asynchronous*>(this);
+    else if (riid == __uuidof(ID3D11DeviceChild))
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
 Direct3D11QuerySW::Direct3D11QuerySW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
