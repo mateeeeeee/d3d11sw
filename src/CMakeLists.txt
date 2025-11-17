@@ -102,7 +102,13 @@ if(WIN32)
         MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/d3d11sw.def"
     )
 else()
-    target_include_directories(d3d11 PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+    target_include_directories(d3d11 PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party
+        ${CMAKE_SOURCE_DIR}/third_party/native-windows
+    )
+    target_include_directories(d3d11 SYSTEM PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party/directx-headers
+    )
     set_target_properties(d3d11 PROPERTIES
         OUTPUT_NAME "d3d11"
     )
@@ -110,5 +116,5 @@ endif()
 
 target_compile_options(d3d11 PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/FIcommon/types.h /FIcommon/macros.h>
-    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-include common/types.h -include common/macros.h>
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/common/types.h -include ${CMAKE_CURRENT_SOURCE_DIR}/common/macros.h>
 )

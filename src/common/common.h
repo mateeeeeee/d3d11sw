@@ -9,9 +9,17 @@
     #include <dxgi1_2.h>
 #else
     #define COM_NO_WINDOWS_H
-    #include <native-windows/windows.h>
-    #include <directx-headers/d3d11_4.h>
-    #include <directx-headers/dxgi1_2.h>
+    #include <windows.h>
+    #include <d3d11_4.h>
+    #include <dxgi1_2.h>
 #endif
 
 #include <atomic>
+
+#ifdef _WIN32
+    #define D3D11SW_COM_UUID(str)          __declspec(uuid(str))
+    #define D3D11SW_DEFINE_UUID(type, ...) // nothing, __declspec handles it
+#else
+    #define D3D11SW_COM_UUID(str)
+    #define D3D11SW_DEFINE_UUID(type, ...) DECLARE_UUIDOF_HELPER(type, __VA_ARGS__)
+#endif

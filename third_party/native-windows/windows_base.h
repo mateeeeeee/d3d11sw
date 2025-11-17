@@ -3,6 +3,7 @@
 #ifdef __cplusplus
 #include <cstdint>
 #include <cstring>
+#include <cwchar>
 #else
 #include <stdint.h>
 #include <string.h>
