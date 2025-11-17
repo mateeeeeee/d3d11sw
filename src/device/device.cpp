@@ -80,8 +80,17 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBuffer(
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Buffer**                ppBuffer)
 {
-    if (!ppBuffer) 
+    if (!pDesc)
     {
+        return E_INVALIDARG;
+    }
+
+    if (!ppBuffer)
+    {
+        //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
+        //[out, optional] ppBuffer
+        //Type: ID3D11Buffer**
+        //Address of a pointer to the ID3D11Buffer interface for the buffer object created. Set this parameter to NULL to validate the other input parameters (S_FALSE indicates a pass).
         return S_FALSE;
     }
     *ppBuffer = nullptr;
