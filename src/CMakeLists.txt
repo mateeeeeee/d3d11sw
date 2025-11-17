@@ -1,7 +1,6 @@
 set(D3D11SW_SOURCES
     exports/dllmain.cpp
     exports/exports.cpp
-    exports/d3d11sw.def
 
     common/log.cpp
     common/common.h
@@ -86,19 +85,30 @@ set(D3D11SW_SOURCES
     util/hash.h
 )
 
+if(WIN32)
+    list(APPEND D3D11SW_SOURCES exports/d3d11sw.def)
+endif()
+
 add_library(d3d11 SHARED ${D3D11SW_SOURCES})
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${D3D11SW_SOURCES})
 
 target_include_directories(d3d11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(d3d11 PRIVATE dxguid)
+
+if(WIN32)
+    target_link_libraries(d3d11 PRIVATE dxguid)
+    set_target_properties(d3d11 PROPERTIES
+        OUTPUT_NAME "d3d11"
+        MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/d3d11sw.def"
+    )
+else()
+    target_include_directories(d3d11 PRIVATE ${CMAKE_SOURCE_DIR}/third_party)
+    set_target_properties(d3d11 PROPERTIES
+        OUTPUT_NAME "d3d11"
+    )
+endif()
 
 target_compile_options(d3d11 PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/FIcommon/types.h /FIcommon/macros.h>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:-include common/types.h -include common/macros.h>
-)
-
-set_target_properties(d3d11 PROPERTIES
-    OUTPUT_NAME "d3d11"
-    MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/d3d11sw.def"
 )

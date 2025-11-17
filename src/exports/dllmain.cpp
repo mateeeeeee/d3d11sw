@@ -3,8 +3,10 @@
 
 using namespace d3d11sw;
 
+#ifdef _WIN32
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
-    switch (fdwReason) 
+    switch (fdwReason)
     {
     case DLL_PROCESS_ATTACH:
         D3D11SW_INFO("d3d11sw d3d11.dll loaded");
@@ -16,3 +18,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
     }
     return TRUE;
 }
+
+#else
+
+__attribute__((constructor)) static void on_load()   { D3D11SW_INFO("d3d11sw loaded"); }
+__attribute__((destructor))  static void on_unload() { D3D11SW_INFO("d3d11sw unloaded"); }
+
+#endif
