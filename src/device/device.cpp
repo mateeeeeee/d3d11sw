@@ -4,6 +4,7 @@
 #include "resources/buffer.h"
 #include "resources/texture1d.h"
 #include "resources/texture2d.h"
+#include "resources/texture3d.h"
 
 namespace d3d11sw {
 
@@ -185,11 +186,41 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D(
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D(
-    const D3D11_TEXTURE3D_DESC* pDesc,
+    const D3D11_TEXTURE3D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
-    ID3D11Texture3D** ppTexture3D)
+    ID3D11Texture3D**             ppTexture3D)
 {
-    return E_NOTIMPL;
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture3d
+    //Applications cannot specify NULL for pInitialData when creating IMMUTABLE resources
+    if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_TEXTURE3D_DESC1 desc1 = {};
+    std::memcpy(&desc1, pDesc, sizeof(D3D11_TEXTURE3D_DESC));
+    desc1.TextureLayout = D3D11_TEXTURE_LAYOUT_UNDEFINED;
+
+    D3D11Texture3DSW* tex = nullptr;
+    HRESULT hr = MakeAndInit(&tex, &desc1, pInitialData);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppTexture3D)
+    {
+        tex->Release();
+        return S_FALSE;
+    }
+
+    *ppTexture3D = tex;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView(
@@ -578,7 +609,31 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D1(const D3D11_TEXTURE2D_
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D1(const D3D11_TEXTURE3D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture3D1** ppTexture3D)
 {
-    return E_NOTIMPL;
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11Texture3DSW* tex = nullptr;
+    HRESULT hr = MakeAndInit(&tex, pDesc, pInitialData);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppTexture3D)
+    {
+        tex->Release();
+        return S_FALSE;
+    }
+
+    *ppTexture3D = tex;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState2(const D3D11_RASTERIZER_DESC2* pRasterizerDesc, ID3D11RasterizerState2** ppRasterizerState)
