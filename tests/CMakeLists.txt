@@ -9,3 +9,4 @@ endmacro()
 
 add_gtest(test_com             test_com.cpp)
 add_gtest(test_device_creation test_device_creation.cpp)
+add_gtest(test_buffer          test_buffer.cpp)
