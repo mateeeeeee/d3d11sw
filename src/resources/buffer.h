@@ -24,7 +24,10 @@ public:
 
     void STDMETHODCALLTYPE GetDesc(D3D11_BUFFER_DESC* pDesc) override;
 
-    void* GetDataPtr() override { return _data.data(); }
+    void*                      GetDataPtr()                                  override { return _data.data(); }
+    UINT64                     GetDataSize()                           const override { return _data.size(); }
+    UINT                       GetSubresourceCount()                   const override { return 1; }
+    D3D11SW_SUBRESOURCE_LAYOUT GetSubresourceLayout(UINT Subresource)  const override;
 
 private:
     std::vector<Uint8> _data;

@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <d3d11_4.h>
+#include "resources/resource_sw.h"
 
 struct BufferTests : ::testing::Test
 {
@@ -113,4 +114,66 @@ TEST_F(BufferTests, NullDescRejected)
 {
     HRESULT hr = device->CreateBuffer(nullptr, nullptr, nullptr);
     EXPECT_TRUE(FAILED(hr));
+}
+
+TEST_F(BufferTests, IResourceSWSubresourceCount)
+{
+    D3D11_BUFFER_DESC desc = {};
+    desc.ByteWidth = 64;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+    ID3D11Buffer* buffer = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&desc, nullptr, &buffer)));
+
+    d3d11sw::IResourceSW* res = nullptr;
+    ASSERT_TRUE(SUCCEEDED(buffer->QueryInterface(__uuidof(d3d11sw::IResourceSW), (void**)&res)));
+
+    EXPECT_EQ(res->GetSubresourceCount(), 1u);
+
+    res->Release();
+    buffer->Release();
+}
+
+TEST_F(BufferTests, IResourceSWDataSize)
+{
+    D3D11_BUFFER_DESC desc = {};
+    desc.ByteWidth = 128;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+    ID3D11Buffer* buffer = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&desc, nullptr, &buffer)));
+
+    d3d11sw::IResourceSW* res = nullptr;
+    ASSERT_TRUE(SUCCEEDED(buffer->QueryInterface(__uuidof(d3d11sw::IResourceSW), (void**)&res)));
+
+    EXPECT_EQ(res->GetDataSize(), 128ull);
+
+    res->Release();
+    buffer->Release();
+}
+
+TEST_F(BufferTests, IResourceSWLayout)
+{
+    D3D11_BUFFER_DESC desc = {};
+    desc.ByteWidth = 256;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+    ID3D11Buffer* buffer = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&desc, nullptr, &buffer)));
+
+    d3d11sw::IResourceSW* res = nullptr;
+    ASSERT_TRUE(SUCCEEDED(buffer->QueryInterface(__uuidof(d3d11sw::IResourceSW), (void**)&res)));
+
+    d3d11sw::D3D11SW_SUBRESOURCE_LAYOUT layout = res->GetSubresourceLayout(0);
+    EXPECT_EQ(layout.Offset,     0ull);
+    EXPECT_EQ(layout.RowPitch,   256u);
+    EXPECT_EQ(layout.DepthPitch, 256u);
+    EXPECT_EQ(layout.NumRows,    1u);
+    EXPECT_EQ(layout.NumSlices,  1u);
+
+    res->Release();
+    buffer->Release();
 }
