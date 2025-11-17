@@ -1,7 +1,32 @@
 #include "context.h"
-#include "resources/resource_sw.h"
+#include "resources/subresource_layout.h"
+#include "resources/buffer.h"
+#include "resources/texture1d.h"
 
 namespace d3d11sw {
+
+template<typename Fn>
+static void RunOnSWResource(ID3D11Resource* pResource, Fn&& fn)
+{
+    if (!pResource) 
+    {
+        return;
+    }
+
+    D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+    pResource->GetType(&dim);
+    switch (dim)
+    {
+    case D3D11_RESOURCE_DIMENSION_BUFFER:
+        fn(static_cast<D3D11BufferSW*>(static_cast<ID3D11Buffer*>(pResource)));
+        break;
+    case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
+        fn(static_cast<D3D11Texture1DSW*>(static_cast<ID3D11Texture1D*>(pResource)));
+        break;
+    default:
+        break;
+    }
+}
 
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::QueryInterface(REFIID riid, void** ppv)
@@ -244,33 +269,34 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBuf
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::Map(ID3D11Resource* pResource, UINT Subresource, D3D11_MAP MapType, UINT MapFlags, D3D11_MAPPED_SUBRESOURCE* pMappedResource)
 {
-    IResourceSW* swRes = nullptr;
-    HRESULT hr = pResource->QueryInterface(__uuidof(IResourceSW), (void**)&swRes);
-    if (FAILED(hr))
+    if (!pResource)
     {
-        return E_NOTIMPL;
+        return E_INVALIDARG;
     }
 
-    D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
-    pResource->GetType(&dim);
-    if (dim == D3D11_RESOURCE_DIMENSION_BUFFER)
+    HRESULT hr = E_NOTIMPL;
+    RunOnSWResource(pResource, [&](auto* res) 
     {
-        ID3D11Buffer* d3d11_buffer = nullptr;
-        pResource->QueryInterface(__uuidof(ID3D11Buffer), (void**)&d3d11_buffer);
+        if (!pMappedResource)
+        {
+            D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+            res->GetType(&dim);
+            if (dim == D3D11_RESOURCE_DIMENSION_BUFFER || res->GetUsage() != D3D11_USAGE_DEFAULT)
+            {
+                hr = E_INVALIDARG;
+                return;
+            }
+            hr = S_OK;
+            return;
+        }
 
-        D3D11_BUFFER_DESC desc;
-        d3d11_buffer->GetDesc(&desc);
-        pMappedResource->pData = swRes->GetDataPtr();
-        pMappedResource->RowPitch = desc.ByteWidth;
-        pMappedResource->DepthPitch = desc.ByteWidth;
-
-        d3d11_buffer->Release();
-    }
-    else
-    {
-        return E_NOTIMPL;
-    }
-    return S_OK;
+        auto layout                 = res->GetSubresourceLayout(Subresource);
+        pMappedResource->pData      = static_cast<Uint8*>(res->GetDataPtr()) + layout.Offset;
+        pMappedResource->RowPitch   = layout.RowPitch;
+        pMappedResource->DepthPitch = layout.DepthPitch;
+        hr = S_OK;
+    });
+    return hr;
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Unmap(ID3D11Resource* pResource, UINT Subresource)
@@ -279,14 +305,102 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Unmap(ID3D11Resource* pResource, UI
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CopySubresourceRegion(ID3D11Resource* pDstResource, UINT DstSubresource, UINT DstX, UINT DstY, UINT DstZ, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox)
 {
+    RunOnSWResource(pSrcResource, [&](auto* src) 
+    {
+        RunOnSWResource(pDstResource, [&](auto* dst) 
+        {
+            auto srcLayout = src->GetSubresourceLayout(SrcSubresource);
+            auto dstLayout = dst->GetSubresourceLayout(DstSubresource);
+
+            const Uint8* srcBase = static_cast<const Uint8*>(src->GetDataPtr()) + srcLayout.Offset;
+            Uint8*       dstBase = static_cast<Uint8*>(dst->GetDataPtr())       + dstLayout.Offset;
+
+            UINT bx0         = pSrcBox ? pSrcBox->left  / srcLayout.BlockSize : 0;
+            UINT by0         = pSrcBox ? pSrcBox->top   / srcLayout.BlockSize : 0;
+            UINT bz0         = pSrcBox ? pSrcBox->front : 0;
+            UINT copyBlocksX = pSrcBox ? (pSrcBox->right  - pSrcBox->left)  / srcLayout.BlockSize : srcLayout.RowPitch / srcLayout.PixelStride;
+            UINT copyBlocksY = pSrcBox ? (pSrcBox->bottom - pSrcBox->top)   / srcLayout.BlockSize : srcLayout.NumRows;
+            UINT copySlices  = pSrcBox ? (pSrcBox->back   - pSrcBox->front)                       : srcLayout.NumSlices;
+            UINT copyBytes   = copyBlocksX * srcLayout.PixelStride;
+
+            UINT dbx = DstX / dstLayout.BlockSize;
+            UINT dby = DstY / dstLayout.BlockSize;
+
+            for (UINT z = 0; z < copySlices; ++z)
+            {
+                for (UINT y = 0; y < copyBlocksY; ++y)
+                {
+                    std::memcpy(
+                    dstBase + (UINT64)(DstZ + bz0 + z) * dstLayout.DepthPitch + (UINT64)(dby + y) * dstLayout.RowPitch + dbx * dstLayout.PixelStride,
+                    srcBase + (UINT64)(bz0  + z)       * srcLayout.DepthPitch + (UINT64)(by0 + y) * srcLayout.RowPitch + bx0 * srcLayout.PixelStride,
+                    copyBytes);
+                }
+            }
+        });
+    });
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyResource(ID3D11Resource* pDstResource, ID3D11Resource* pSrcResource)
 {
+    RunOnSWResource(pSrcResource, [&](auto* src) 
+    {
+        RunOnSWResource(pDstResource, [&](auto* dst) 
+        {
+            if (dst->GetDataSize() == src->GetDataSize())
+            {
+                std::memcpy(dst->GetDataPtr(), src->GetDataPtr(), src->GetDataSize());
+            }
+        });
+    });
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
 {
+    if (!pSrcData) 
+    {
+        return;
+    }
+
+    RunOnSWResource(pDstResource, [&](auto* dst) 
+    {
+        auto         layout  = dst->GetSubresourceLayout(DstSubresource);
+        Uint8*       dstBase = static_cast<Uint8*>(dst->GetDataPtr()) + layout.Offset;
+        const Uint8* src     = static_cast<const Uint8*>(pSrcData);
+        if (!pDstBox)
+        {
+            for (UINT z = 0; z < layout.NumSlices; ++z)
+            {
+                for (UINT y = 0; y < layout.NumRows; ++y)
+                {
+                    std::memcpy(
+                        dstBase + (UINT64)z * layout.DepthPitch + (UINT64)y * layout.RowPitch,
+                        src     + (UINT64)z * SrcDepthPitch     + (UINT64)y * SrcRowPitch,
+                        layout.RowPitch);
+                }
+            }
+        }
+        else
+        {
+            UINT bx0         = pDstBox->left  / layout.BlockSize;
+            UINT by0         = pDstBox->top   / layout.BlockSize;
+            UINT bz0         = pDstBox->front;
+            UINT copyBlocksX = (pDstBox->right  - pDstBox->left)  / layout.BlockSize;
+            UINT copyBlocksY = (pDstBox->bottom - pDstBox->top)   / layout.BlockSize;
+            UINT copySlices  =  pDstBox->back   - pDstBox->front;
+            UINT copyBytes   = copyBlocksX * layout.PixelStride;
+
+            for (UINT z = 0; z < copySlices; ++z)
+            {
+                for (UINT y = 0; y < copyBlocksY; ++y)
+                {
+                    std::memcpy(
+                        dstBase + (UINT64)(bz0 + z) * layout.DepthPitch + (UINT64)(by0 + y) * layout.RowPitch + bx0 * layout.PixelStride,
+                        src     + (UINT64)z          * SrcDepthPitch     + (UINT64)y          * SrcRowPitch,
+                        copyBytes);
+                }
+            }
+        }
+    });
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyStructureCount(ID3D11Buffer* pDstBuffer, UINT DstAlignedByteOffset, ID3D11UnorderedAccessView* pSrcView)

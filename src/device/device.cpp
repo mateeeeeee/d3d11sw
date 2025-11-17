@@ -2,6 +2,7 @@
 #include "device.h"
 #include "context/context.h"
 #include "resources/buffer.h"
+#include "resources/texture1d.h"
 
 namespace d3d11sw {
 
@@ -85,32 +86,57 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBuffer(
         return E_INVALIDARG;
     }
 
-    if (!ppBuffer)
-    {
-        //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
-        //[out, optional] ppBuffer
-        //Type: ID3D11Buffer**
-        //Address of a pointer to the ID3D11Buffer interface for the buffer object created. Set this parameter to NULL to validate the other input parameters (S_FALSE indicates a pass).
-        return S_FALSE;
-    }
-    *ppBuffer = nullptr;
-
     D3D11BufferSW* buf = nullptr;
     HRESULT hr = MakeAndInit(&buf, pDesc, pInitialData);
-    if (FAILED(hr)) 
+    if (FAILED(hr))
     {
         return hr;
+    }
+
+    //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createbuffer
+    //[out, optional] ppBuffer: Set this parameter to NULL to validate the other input parameters (S_FALSE indicates a pass).
+    if (!ppBuffer)
+    {
+        buf->Release();
+        return S_FALSE;
     }
 
     *ppBuffer = buf;
     return S_OK;
 }
+
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture1D(
     const D3D11_TEXTURE1D_DESC* pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture1D** ppTexture1D)
 {
-    return E_NOTIMPL;
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture1d
+    //Applications can't specify NULL for pInitialData when creating IMMUTABLE resources 
+    if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11Texture1DSW* tex = nullptr;
+    HRESULT hr = MakeAndInit(&tex, pDesc, pInitialData);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppTexture1D)
+    {
+        tex->Release();
+        return S_FALSE;
+    }
+    
+    *ppTexture1D = tex;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D(

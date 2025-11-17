@@ -23,10 +23,6 @@ HRESULT STDMETHODCALLTYPE D3D11BufferSW::QueryInterface(REFIID riid, void** ppv)
     {
         *ppv = static_cast<ID3D11DeviceChild*>(this);
     }
-    else if (riid == __uuidof(IResourceSW))
-    {
-        *ppv = static_cast<IResourceSW*>(this);
-    }
     else
     {
         return E_NOINTERFACE;

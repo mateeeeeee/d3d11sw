@@ -18,7 +18,8 @@ set(D3D11SW_SOURCES
 
     resources/buffer.cpp
     resources/buffer.h
-    resources/resource_sw.h
+    resources/subresource_layout.h
+    resources/texture_util.h
     resources/texture1d.cpp
     resources/texture1d.h
     resources/texture2d.cpp

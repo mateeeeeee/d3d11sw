@@ -1,8 +1,6 @@
 #include <gtest/gtest.h>
 #include <d3d11_4.h>
 
-#include "resources/resource_sw.h"
-
 struct ComTests : ::testing::Test
 {
     ID3D11Device*        device  = nullptr;
@@ -105,26 +103,6 @@ TEST_F(ComTests, BufferIUnknownIdentityViaDeviceChild)
     EXPECT_EQ(a, b);
 
     a->Release(); b->Release(); child->Release();
-}
-
-TEST_F(ComTests, BufferIUnknownIdentityViaISWResource)
-{
-    d3d11sw::IResourceSW* sw = nullptr;
-    HRESULT hr = buffer->QueryInterface(__uuidof(d3d11sw::IResourceSW), (void**)&sw);
-    ASSERT_TRUE(SUCCEEDED(hr) && sw);
-    ASSERT_NE(sw->GetDataPtr(), nullptr);
-
-    IUnknown* a = nullptr;
-    IUnknown* b = nullptr;
-
-    hr = buffer->QueryInterface(__uuidof(IUnknown), (void**)&a);
-    ASSERT_TRUE(SUCCEEDED(hr));
-    hr = sw->QueryInterface(__uuidof(IUnknown), (void**)&b);
-    ASSERT_TRUE(SUCCEEDED(hr));
-
-    EXPECT_EQ(a, b);
-
-    a->Release(); b->Release(); sw->Release();
 }
 
 TEST_F(ComTests, BufferQIReflexivity)

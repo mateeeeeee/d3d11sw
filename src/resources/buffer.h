@@ -1,20 +1,18 @@
 #pragma once
 #include <vector>
-#include "resource_sw.h"
+#include "common/types.h"
+#include "subresource_layout.h"
 #include "common/device_child_impl.h"
 
 namespace d3d11sw {
 
 
-class D3D11BufferSW final : public DeviceChildImpl<ID3D11Buffer>, public IResourceSW
+class D3D11BufferSW final : public DeviceChildImpl<ID3D11Buffer>
 {
 public:
     explicit D3D11BufferSW(ID3D11Device* device);
 
     HRESULT Init(const D3D11_BUFFER_DESC* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData);
-
-    ULONG STDMETHODCALLTYPE AddRef() override  { return DeviceChildImpl::AddRef(); }
-    ULONG STDMETHODCALLTYPE Release() override { return DeviceChildImpl::Release(); }
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
@@ -24,10 +22,11 @@ public:
 
     void STDMETHODCALLTYPE GetDesc(D3D11_BUFFER_DESC* pDesc) override;
 
-    void*                      GetDataPtr()                                  override { return _data.data(); }
-    UINT64                     GetDataSize()                           const override { return _data.size(); }
-    UINT                       GetSubresourceCount()                   const override { return 1; }
-    D3D11SW_SUBRESOURCE_LAYOUT GetSubresourceLayout(UINT Subresource)  const override;
+    void*                      GetDataPtr()                                  { return _data.data(); }
+    UINT64                     GetDataSize()                           const { return _data.size(); }
+    D3D11_USAGE                GetUsage()                              const { return _desc.Usage; }
+    UINT                       GetSubresourceCount()                   const { return 1; }
+    D3D11SW_SUBRESOURCE_LAYOUT GetSubresourceLayout(UINT Subresource)  const;
 
 private:
     std::vector<Uint8> _data;

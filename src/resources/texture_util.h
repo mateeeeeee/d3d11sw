@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <algorithm>
-#include "resources/resource_sw.h"
+#include "resources/subresource_layout.h"
 #include "util/format.h"
 #include "util/align.h"
 
