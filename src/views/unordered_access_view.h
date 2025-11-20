@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/device_child_impl.h"
+#include "resources/subresource_layout.h"
 
 namespace d3d11sw {
 
@@ -9,12 +10,24 @@ class D3D11UnorderedAccessViewSW final : public DeviceChildImpl<ID3D11UnorderedA
 {
 public:
     explicit D3D11UnorderedAccessViewSW(ID3D11Device* device);
+    ~D3D11UnorderedAccessViewSW() override;
+
+    HRESULT Init(ID3D11Resource* pResource, const D3D11_UNORDERED_ACCESS_VIEW_DESC1* pDesc);
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     void STDMETHODCALLTYPE GetResource(ID3D11Resource** ppResource) override;
     void STDMETHODCALLTYPE GetDesc(D3D11_UNORDERED_ACCESS_VIEW_DESC* pDesc) override;
     void STDMETHODCALLTYPE GetDesc1(D3D11_UNORDERED_ACCESS_VIEW_DESC1* pDesc) override;
+
+    Uint8*                     GetDataPtr() const { return _dataPtr; }
+    D3D11SW_SUBRESOURCE_LAYOUT GetLayout()  const { return _layout; }
+
+private:
+    ID3D11Resource*                    _resource = nullptr;
+    D3D11_UNORDERED_ACCESS_VIEW_DESC1  _desc{};
+    Uint8*                             _dataPtr  = nullptr;
+    D3D11SW_SUBRESOURCE_LAYOUT         _layout{};
 };
 
 }

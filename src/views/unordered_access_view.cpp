@@ -1,4 +1,5 @@
 #include "views/unordered_access_view.h"
+#include "views/view_util.h"
 
 namespace d3d11sw {
 
@@ -39,11 +40,42 @@ HRESULT STDMETHODCALLTYPE D3D11UnorderedAccessViewSW::QueryInterface(REFIID riid
 D3D11UnorderedAccessViewSW::D3D11UnorderedAccessViewSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
+D3D11UnorderedAccessViewSW::~D3D11UnorderedAccessViewSW()
+{
+    if (_resource)
+    {
+        _resource->Release();
+    }
+}
+
+HRESULT D3D11UnorderedAccessViewSW::Init(ID3D11Resource* pResource, const D3D11_UNORDERED_ACCESS_VIEW_DESC1* pDesc)
+{
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    _resource = pResource;
+    _resource->AddRef();
+
+    D3D11SW_RESOURCE_DESC res = GetResourceDesc(pResource);
+    _desc    = pDesc ? *pDesc : MakeDefaultUAVDesc(res);
+
+    UINT subresource = CalcUAVSubresource(_desc, res.MipLevels);
+    _dataPtr = GetSwDataPtr(pResource, subresource);
+    _layout  = GetSwSubresourceLayout(pResource, subresource);
+    return S_OK;
+}
+
 void STDMETHODCALLTYPE D3D11UnorderedAccessViewSW::GetResource(ID3D11Resource** ppResource)
 {
     if (ppResource)
     {
-        *ppResource = nullptr;
+        *ppResource = _resource;
+        if (_resource)
+        {
+            _resource->AddRef();
+        }
     }
 }
 
@@ -51,7 +83,7 @@ void STDMETHODCALLTYPE D3D11UnorderedAccessViewSW::GetDesc(D3D11_UNORDERED_ACCES
 {
     if (pDesc)
     {
-        *pDesc = {};
+        std::memcpy(pDesc, &_desc, sizeof(*pDesc));
     }
 }
 
@@ -59,7 +91,7 @@ void STDMETHODCALLTYPE D3D11UnorderedAccessViewSW::GetDesc1(D3D11_UNORDERED_ACCE
 {
     if (pDesc)
     {
-        *pDesc = {};
+        *pDesc = _desc;
     }
 }
 
