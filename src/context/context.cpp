@@ -757,10 +757,6 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::GSGetShader(ID3D11GeometryShader** 
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY* pTopology)
-{
-}
-
 void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
 {
     GetSlots(_state.vsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW**>(ppShaderResourceViews));
