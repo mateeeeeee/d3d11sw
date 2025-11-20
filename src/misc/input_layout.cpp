@@ -31,4 +31,22 @@ HRESULT STDMETHODCALLTYPE D3D11InputLayoutSW::QueryInterface(REFIID riid, void**
 D3D11InputLayoutSW::D3D11InputLayoutSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
+HRESULT D3D11InputLayoutSW::Init(const D3D11_INPUT_ELEMENT_DESC* pElements, UINT numElements)
+{
+    if (!pElements || numElements == 0)
+    {
+        return E_INVALIDARG;
+    }
+
+    _semanticNames.resize(numElements);
+    _elements.resize(numElements);
+    for (UINT i = 0; i < numElements; i++)
+    {
+        _semanticNames[i] = pElements[i].SemanticName;
+        _elements[i]      = pElements[i];
+        _elements[i].SemanticName = _semanticNames[i].c_str();
+    }
+    return S_OK;
+}
+
 }

@@ -39,27 +39,57 @@ HRESULT STDMETHODCALLTYPE D3D11RasterizerStateSW::QueryInterface(REFIID riid, vo
 D3D11RasterizerStateSW::D3D11RasterizerStateSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
+HRESULT D3D11RasterizerStateSW::Init(const D3D11_RASTERIZER_DESC2* pDesc)
+{
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    _desc = *pDesc;
+    return S_OK;
+}
+
 void STDMETHODCALLTYPE D3D11RasterizerStateSW::GetDesc(D3D11_RASTERIZER_DESC* pDesc)
 {
-    if (pDesc) 
+    if (pDesc)
     {
-        *pDesc = {};
+        pDesc->FillMode              = _desc.FillMode;
+        pDesc->CullMode              = _desc.CullMode;
+        pDesc->FrontCounterClockwise = _desc.FrontCounterClockwise;
+        pDesc->DepthBias             = _desc.DepthBias;
+        pDesc->DepthBiasClamp        = _desc.DepthBiasClamp;
+        pDesc->SlopeScaledDepthBias  = _desc.SlopeScaledDepthBias;
+        pDesc->DepthClipEnable       = _desc.DepthClipEnable;
+        pDesc->ScissorEnable         = _desc.ScissorEnable;
+        pDesc->MultisampleEnable     = _desc.MultisampleEnable;
+        pDesc->AntialiasedLineEnable = _desc.AntialiasedLineEnable;
     }
 }
 
 void STDMETHODCALLTYPE D3D11RasterizerStateSW::GetDesc1(D3D11_RASTERIZER_DESC1* pDesc)
 {
-    if (pDesc) 
+    if (pDesc)
     {
-        *pDesc = {};
+        pDesc->FillMode              = _desc.FillMode;
+        pDesc->CullMode              = _desc.CullMode;
+        pDesc->FrontCounterClockwise = _desc.FrontCounterClockwise;
+        pDesc->DepthBias             = _desc.DepthBias;
+        pDesc->DepthBiasClamp        = _desc.DepthBiasClamp;
+        pDesc->SlopeScaledDepthBias  = _desc.SlopeScaledDepthBias;
+        pDesc->DepthClipEnable       = _desc.DepthClipEnable;
+        pDesc->ScissorEnable         = _desc.ScissorEnable;
+        pDesc->MultisampleEnable     = _desc.MultisampleEnable;
+        pDesc->AntialiasedLineEnable = _desc.AntialiasedLineEnable;
+        pDesc->ForcedSampleCount     = _desc.ForcedSampleCount;
     }
 }
 
 void STDMETHODCALLTYPE D3D11RasterizerStateSW::GetDesc2(D3D11_RASTERIZER_DESC2* pDesc)
 {
-    if (pDesc) 
+    if (pDesc)
     {
-        *pDesc = {};
+        *pDesc = _desc;
     }
 }
 

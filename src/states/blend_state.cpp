@@ -35,19 +35,44 @@ HRESULT STDMETHODCALLTYPE D3D11BlendStateSW::QueryInterface(REFIID riid, void** 
 D3D11BlendStateSW::D3D11BlendStateSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
+HRESULT D3D11BlendStateSW::Init(const D3D11_BLEND_DESC1* pDesc)
+{
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    _desc = *pDesc;
+    return S_OK;
+}
+
 void STDMETHODCALLTYPE D3D11BlendStateSW::GetDesc(D3D11_BLEND_DESC* pDesc)
 {
-    if (pDesc) 
+    if (pDesc)
     {
-        *pDesc = {};
+        pDesc->AlphaToCoverageEnable  = _desc.AlphaToCoverageEnable;
+        pDesc->IndependentBlendEnable = _desc.IndependentBlendEnable;
+        for (Int i = 0; i < 8; i++)
+        {
+            const auto& src = _desc.RenderTarget[i];
+            auto&       dst = pDesc->RenderTarget[i];
+            dst.BlendEnable           = src.BlendEnable;
+            dst.SrcBlend              = src.SrcBlend;
+            dst.DestBlend             = src.DestBlend;
+            dst.BlendOp               = src.BlendOp;
+            dst.SrcBlendAlpha         = src.SrcBlendAlpha;
+            dst.DestBlendAlpha        = src.DestBlendAlpha;
+            dst.BlendOpAlpha          = src.BlendOpAlpha;
+            dst.RenderTargetWriteMask = src.RenderTargetWriteMask;
+        }
     }
 }
 
 void STDMETHODCALLTYPE D3D11BlendStateSW::GetDesc1(D3D11_BLEND_DESC1* pDesc)
 {
-    if (pDesc) 
+    if (pDesc)
     {
-        *pDesc = {};
+        *pDesc = _desc;
     }
 }
 

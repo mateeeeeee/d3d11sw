@@ -31,11 +31,22 @@ HRESULT STDMETHODCALLTYPE D3D11SamplerStateSW::QueryInterface(REFIID riid, void*
 D3D11SamplerStateSW::D3D11SamplerStateSW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
+HRESULT D3D11SamplerStateSW::Init(const D3D11_SAMPLER_DESC* pDesc)
+{
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    _desc = *pDesc;
+    return S_OK;
+}
+
 void STDMETHODCALLTYPE D3D11SamplerStateSW::GetDesc(D3D11_SAMPLER_DESC* pDesc)
 {
-    if (pDesc) 
+    if (pDesc)
     {
-        *pDesc = {};
+        *pDesc = _desc;
     }
 }
 
