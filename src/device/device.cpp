@@ -5,6 +5,11 @@
 #include "resources/texture1d.h"
 #include "resources/texture2d.h"
 #include "resources/texture3d.h"
+#include "views/render_target_view.h"
+#include "views/depth_stencil_view.h"
+#include "views/shader_resource_view.h"
+#include "views/unordered_access_view.h"
+#include "views/view_util.h"
 #include "misc/input_layout.h"
 #include "states/blend_state.h"
 #include "states/depth_stencil_state.h"
@@ -373,7 +378,32 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView(
     const D3D11_SHADER_RESOURCE_VIEW_DESC* pDesc,
     ID3D11ShaderResourceView** ppSRView)
 {
-    return E_NOTIMPL;
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC1 desc1{};
+    if (pDesc)
+    {
+        std::memcpy(&desc1, pDesc, sizeof(*pDesc));
+    }
+
+    D3D11ShaderResourceViewSW* view = nullptr;
+    HRESULT hr = CreateAndInit(&view, pResource, pDesc ? &desc1 : nullptr);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppSRView)
+    {
+        view->Release();
+        return S_FALSE;
+    }
+
+    *ppSRView = view;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateUnorderedAccessView(
@@ -381,7 +411,32 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateUnorderedAccessView(
     const D3D11_UNORDERED_ACCESS_VIEW_DESC* pDesc,
     ID3D11UnorderedAccessView** ppUAView)
 {
-    return E_NOTIMPL;
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC1 desc1{};
+    if (pDesc)
+    {
+        std::memcpy(&desc1, pDesc, sizeof(*pDesc));
+    }
+
+    D3D11UnorderedAccessViewSW* view = nullptr;
+    HRESULT hr = CreateAndInit(&view, pResource, pDesc ? &desc1 : nullptr);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppUAView)
+    {
+        view->Release();
+        return S_FALSE;
+    }
+
+    *ppUAView = view;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView(
@@ -389,7 +444,32 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView(
     const D3D11_RENDER_TARGET_VIEW_DESC* pDesc,
     ID3D11RenderTargetView** ppRTView)
 {
-    return E_NOTIMPL;
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_RENDER_TARGET_VIEW_DESC1 desc1{};
+    if (pDesc)
+    {
+        std::memcpy(&desc1, pDesc, sizeof(*pDesc));
+    }
+
+    D3D11RenderTargetViewSW* view = nullptr;
+    HRESULT hr = CreateAndInit(&view, pResource, pDesc ? &desc1 : nullptr);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppRTView)
+    {
+        view->Release();
+        return S_FALSE;
+    }
+
+    *ppRTView = view;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDepthStencilView(
@@ -397,7 +477,26 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDepthStencilView(
     const D3D11_DEPTH_STENCIL_VIEW_DESC* pDesc,
     ID3D11DepthStencilView** ppDepthStencilView)
 {
-    return E_NOTIMPL;
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11DepthStencilViewSW* view = nullptr;
+    HRESULT hr = CreateAndInit(&view, pResource, pDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppDepthStencilView)
+    {
+        view->Release();
+        return S_FALSE;
+    }
+
+    *ppDepthStencilView = view;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateInputLayout(
@@ -990,17 +1089,74 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState2(const D3D11_RAST
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView1(ID3D11Resource* pResource, const D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc, ID3D11ShaderResourceView1** ppSRView)
 {
-    return E_NOTIMPL;
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11ShaderResourceViewSW* view = nullptr;
+    HRESULT hr = CreateAndInit(&view, pResource, pDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppSRView)
+    {
+        view->Release();
+        return S_FALSE;
+    }
+
+    *ppSRView = view;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateUnorderedAccessView1(ID3D11Resource* pResource, const D3D11_UNORDERED_ACCESS_VIEW_DESC1* pDesc, ID3D11UnorderedAccessView1** ppUAView)
 {
-    return E_NOTIMPL;
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11UnorderedAccessViewSW* view = nullptr;
+    HRESULT hr = CreateAndInit(&view, pResource, pDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppUAView)
+    {
+        view->Release();
+        return S_FALSE;
+    }
+
+    *ppUAView = view;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView1(ID3D11Resource* pResource, const D3D11_RENDER_TARGET_VIEW_DESC1* pDesc, ID3D11RenderTargetView1** ppRTView)
 {
-    return E_NOTIMPL;
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11RenderTargetViewSW* view = nullptr;
+    HRESULT hr = CreateAndInit(&view, pResource, pDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppRTView)
+    {
+        view->Release();
+        return S_FALSE;
+    }
+
+    *ppRTView = view;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery1(const D3D11_QUERY_DESC1* pQueryDesc, ID3D11Query1** ppQuery)

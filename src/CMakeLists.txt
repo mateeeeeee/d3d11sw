@@ -37,6 +37,7 @@ set(D3D11SW_SOURCES
     views/shader_resource_view.h
     views/unordered_access_view.cpp
     views/unordered_access_view.h
+    views/view_util.h
 
     shaders/vertex_shader.cpp
     shaders/vertex_shader.h
