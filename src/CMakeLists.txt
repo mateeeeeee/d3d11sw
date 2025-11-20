@@ -15,6 +15,8 @@ set(D3D11SW_SOURCES
 
     context/context.cpp
     context/context.h
+    context/pipeline_state.cpp
+    context/pipeline_state.h
 
     resources/buffer.cpp
     resources/buffer.h

@@ -1,6 +1,7 @@
 #pragma once
 #include "common/common.h"
 #include "common/device_child_impl.h"
+#include "context/pipeline_state.h"
 
 namespace d3d11sw {
 
@@ -9,6 +10,7 @@ class D3D11DeviceContextSW final : public DeviceChildImpl<ID3D11DeviceContext4>
 {
 public:
     explicit D3D11DeviceContextSW(ID3D11Device* device);
+    ~D3D11DeviceContextSW();
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
@@ -166,6 +168,9 @@ public:
     // ID3D11DeviceContext4
     HRESULT STDMETHODCALLTYPE Signal(ID3D11Fence* pFence, UINT64 Value) override;
     HRESULT STDMETHODCALLTYPE Wait(ID3D11Fence* pFence, UINT64 Value) override;
+
+private:
+    D3D11SW_PIPELINE_STATE _state{};
 };
 
 }
