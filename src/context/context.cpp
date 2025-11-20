@@ -2,6 +2,8 @@
 #include "resources/subresource_layout.h"
 #include "resources/buffer.h"
 #include "resources/texture1d.h"
+#include "resources/texture2d.h"
+#include "resources/texture3d.h"
 
 namespace d3d11sw {
 
@@ -22,6 +24,12 @@ static void RunOnSWResource(ID3D11Resource* pResource, Fn&& fn)
         break;
     case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
         fn(static_cast<D3D11Texture1DSW*>(static_cast<ID3D11Texture1D*>(pResource)));
+        break;
+    case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+        fn(static_cast<D3D11Texture2DSW*>(static_cast<ID3D11Texture2D1*>(pResource)));
+        break;
+    case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+        fn(static_cast<D3D11Texture3DSW*>(static_cast<ID3D11Texture3D1*>(pResource)));
         break;
     default:
         break;

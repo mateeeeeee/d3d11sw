@@ -5,6 +5,7 @@
 #include "resources/texture1d.h"
 #include "resources/texture2d.h"
 #include "resources/texture3d.h"
+#include "util/format.h"
 
 namespace d3d11sw {
 
@@ -22,6 +23,102 @@ HRESULT D3D11DeviceSW::MakeAndInit(T** ppOut, ArgsT&&... args)
 	}
 	catch (const std::bad_alloc&) { return E_OUTOFMEMORY; }
 	catch (...) { return E_FAIL; }
+}
+
+static UINT GetFormatSupport(DXGI_FORMAT format)
+{
+    static constexpr UINT kColor =
+        D3D11_FORMAT_SUPPORT_BUFFER            |
+        D3D11_FORMAT_SUPPORT_TEXTURE1D         |
+        D3D11_FORMAT_SUPPORT_TEXTURE2D         |
+        D3D11_FORMAT_SUPPORT_TEXTURE3D         |
+        D3D11_FORMAT_SUPPORT_TEXTURECUBE       |
+        D3D11_FORMAT_SUPPORT_SHADER_LOAD       |
+        D3D11_FORMAT_SUPPORT_SHADER_SAMPLE     |
+        D3D11_FORMAT_SUPPORT_SHADER_GATHER     |
+        D3D11_FORMAT_SUPPORT_MIP               |
+        D3D11_FORMAT_SUPPORT_MIP_AUTOGEN       |
+        D3D11_FORMAT_SUPPORT_RENDER_TARGET     |
+        D3D11_FORMAT_SUPPORT_BLENDABLE         |
+        D3D11_FORMAT_SUPPORT_CPU_LOCKABLE;
+
+    static constexpr UINT kDepth =
+        D3D11_FORMAT_SUPPORT_TEXTURE2D     |
+        D3D11_FORMAT_SUPPORT_DEPTH_STENCIL |
+        D3D11_FORMAT_SUPPORT_CPU_LOCKABLE;
+
+    static constexpr UINT kBC =
+        D3D11_FORMAT_SUPPORT_TEXTURE1D     |
+        D3D11_FORMAT_SUPPORT_TEXTURE2D     |
+        D3D11_FORMAT_SUPPORT_TEXTURE3D     |
+        D3D11_FORMAT_SUPPORT_TEXTURECUBE   |
+        D3D11_FORMAT_SUPPORT_SHADER_LOAD   |
+        D3D11_FORMAT_SUPPORT_SHADER_SAMPLE |
+        D3D11_FORMAT_SUPPORT_SHADER_GATHER |
+        D3D11_FORMAT_SUPPORT_MIP           |
+        D3D11_FORMAT_SUPPORT_CPU_LOCKABLE;
+
+    static constexpr UINT kTypeless =
+        D3D11_FORMAT_SUPPORT_TEXTURE1D              |
+        D3D11_FORMAT_SUPPORT_TEXTURE2D              |
+        D3D11_FORMAT_SUPPORT_TEXTURE3D              |
+        D3D11_FORMAT_SUPPORT_CPU_LOCKABLE           |
+        D3D11_FORMAT_SUPPORT_CAST_WITHIN_BIT_LAYOUT;
+
+    switch (format)
+    {
+    case DXGI_FORMAT_UNKNOWN: return 0;
+
+    case DXGI_FORMAT_D16_UNORM:
+    case DXGI_FORMAT_D24_UNORM_S8_UINT:
+    case DXGI_FORMAT_D32_FLOAT:
+    case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        return kDepth;
+
+    case DXGI_FORMAT_BC1_UNORM:     case DXGI_FORMAT_BC1_UNORM_SRGB:
+    case DXGI_FORMAT_BC2_UNORM:     case DXGI_FORMAT_BC2_UNORM_SRGB:
+    case DXGI_FORMAT_BC3_UNORM:     case DXGI_FORMAT_BC3_UNORM_SRGB:
+    case DXGI_FORMAT_BC4_UNORM:     case DXGI_FORMAT_BC4_SNORM:
+    case DXGI_FORMAT_BC5_UNORM:     case DXGI_FORMAT_BC5_SNORM:
+    case DXGI_FORMAT_BC6H_UF16:     case DXGI_FORMAT_BC6H_SF16:
+    case DXGI_FORMAT_BC7_UNORM:     case DXGI_FORMAT_BC7_UNORM_SRGB:
+        return kBC;
+    case DXGI_FORMAT_R32_TYPELESS:
+    case DXGI_FORMAT_R24G8_TYPELESS:
+    case DXGI_FORMAT_R32G8X24_TYPELESS:
+    case DXGI_FORMAT_R16_TYPELESS:
+        return kTypeless;
+    default:
+        return kColor;
+    }
+}
+
+static HRESULT ValidateTextureBindFlags(DXGI_FORMAT format, UINT bindFlags, Bool depthStencilAllowed)
+{
+    const Bool isDepth = IsDepthFormat(format);
+    const Bool isBC    = IsBlockCompressedFormat(format);
+    
+    if (!depthStencilAllowed && (bindFlags & D3D11_BIND_DEPTH_STENCIL))
+    {
+        return E_INVALIDARG;
+    }
+
+    if (isDepth && (bindFlags & D3D11_BIND_RENDER_TARGET))
+    {
+        return E_INVALIDARG;
+    }
+
+    if (!isDepth && (bindFlags & D3D11_BIND_DEPTH_STENCIL))
+    {
+        return E_INVALIDARG;
+    }
+
+    if (isBC && (bindFlags & (D3D11_BIND_RENDER_TARGET | D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_UNORDERED_ACCESS)))
+    {
+        return E_INVALIDARG;
+    }
+
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::QueryInterface(REFIID riid, void** ppv)
@@ -88,6 +185,16 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBuffer(
         return E_INVALIDARG;
     }
 
+    if (pDesc->BindFlags & D3D11_BIND_DEPTH_STENCIL)
+    {
+        return E_INVALIDARG;
+    }
+
+    if ((pDesc->MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) && pDesc->StructureByteStride == 0)
+    {
+        return E_INVALIDARG;
+    }
+
     D3D11BufferSW* buf = nullptr;
     HRESULT hr = MakeAndInit(&buf, pDesc, pInitialData);
     if (FAILED(hr))
@@ -117,8 +224,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture1D(
         return E_INVALIDARG;
     }
 
+    if (pDesc->Format == DXGI_FORMAT_UNKNOWN)
+    {
+        return E_INVALIDARG;
+    }
+
+    HRESULT flagsHr = ValidateTextureBindFlags(pDesc->Format, pDesc->BindFlags, false);
+    if (FAILED(flagsHr))
+    {
+        return flagsHr;
+    }
+
     //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture1d
-    //Applications can't specify NULL for pInitialData when creating IMMUTABLE resources 
+    //Applications can't specify NULL for pInitialData when creating IMMUTABLE resources
     if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
     {
         return E_INVALIDARG;
@@ -149,6 +267,17 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D(
     if (!pDesc)
     {
         return E_INVALIDARG;
+    }
+
+    if (pDesc->Format == DXGI_FORMAT_UNKNOWN)
+    {
+        return E_INVALIDARG;
+    }
+
+    HRESULT flagsHr = ValidateTextureBindFlags(pDesc->Format, pDesc->BindFlags, /*depthStencilAllowed=*/true);
+    if (FAILED(flagsHr))
+    {
+        return flagsHr;
     }
 
     //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
@@ -193,6 +322,17 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D(
     if (!pDesc)
     {
         return E_INVALIDARG;
+    }
+
+    if (pDesc->Format == DXGI_FORMAT_UNKNOWN)
+    {
+        return E_INVALIDARG;
+    }
+
+    HRESULT flagsHr = ValidateTextureBindFlags(pDesc->Format, pDesc->BindFlags, /*depthStencilAllowed=*/false);
+    if (FAILED(flagsHr))
+    {
+        return flagsHr;
     }
 
     //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture3d
@@ -407,7 +547,12 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckFormatSupport(
     DXGI_FORMAT Format,
     UINT* pFormatSupport)
 {
-    return E_NOTIMPL;
+    if (!pFormatSupport)
+    {
+        return E_INVALIDARG;
+    }
+    *pFormatSupport = GetFormatSupport(Format);
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckMultisampleQualityLevels(
@@ -579,6 +724,17 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D1(const D3D11_TEXTURE2D_
         return E_INVALIDARG;
     }
 
+    if (pDesc->Format == DXGI_FORMAT_UNKNOWN)
+    {
+        return E_INVALIDARG;
+    }
+
+    HRESULT flagsHr = ValidateTextureBindFlags(pDesc->Format, pDesc->BindFlags, /*depthStencilAllowed=*/true);
+    if (FAILED(flagsHr))
+    {
+        return flagsHr;
+    }
+
     if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
     {
         return E_INVALIDARG;
@@ -612,6 +768,17 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D1(const D3D11_TEXTURE3D_
     if (!pDesc)
     {
         return E_INVALIDARG;
+    }
+
+    if (pDesc->Format == DXGI_FORMAT_UNKNOWN)
+    {
+        return E_INVALIDARG;
+    }
+
+    HRESULT flagsHr = ValidateTextureBindFlags(pDesc->Format, pDesc->BindFlags, /*depthStencilAllowed=*/false);
+    if (FAILED(flagsHr))
+    {
+        return flagsHr;
     }
 
     if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)

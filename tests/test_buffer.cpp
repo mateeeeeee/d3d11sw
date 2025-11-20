@@ -177,3 +177,27 @@ TEST_F(BufferTests, SubresourceLayout)
 
     buffer->Release();
 }
+
+TEST_F(BufferTests, DepthStencilBindRejected)
+{
+    D3D11_BUFFER_DESC desc = {};
+    desc.ByteWidth = 64;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+
+    ID3D11Buffer* buffer = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateBuffer(&desc, nullptr, &buffer)));
+}
+
+TEST_F(BufferTests, StructuredBufferZeroStrideRejected)
+{
+    D3D11_BUFFER_DESC desc = {};
+    desc.ByteWidth           = 64;
+    desc.Usage               = D3D11_USAGE_DEFAULT;
+    desc.BindFlags           = D3D11_BIND_SHADER_RESOURCE;
+    desc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    desc.StructureByteStride = 0; // invalid
+
+    ID3D11Buffer* buffer = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateBuffer(&desc, nullptr, &buffer)));
+}

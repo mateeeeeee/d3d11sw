@@ -187,3 +187,60 @@ TEST_F(Texture1DTests, InitialDataCopied)
 
     tex->Release();
 }
+
+TEST_F(Texture1DTests, UnknownFormatRejected)
+{
+    D3D11_TEXTURE1D_DESC desc = {};
+    desc.Width     = 64;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format    = DXGI_FORMAT_UNKNOWN;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+
+    ID3D11Texture1D* tex = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateTexture1D(&desc, nullptr, &tex)));
+}
+
+TEST_F(Texture1DTests, DepthFormatWithDepthStencilRejected)
+{
+    D3D11_TEXTURE1D_DESC desc = {};
+    desc.Width     = 64;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format    = DXGI_FORMAT_D32_FLOAT;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_DEPTH_STENCIL; // not allowed for 1D
+
+    ID3D11Texture1D* tex = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateTexture1D(&desc, nullptr, &tex)));
+}
+
+TEST_F(Texture1DTests, ColorFormatWithRenderTargetAllowed)
+{
+    D3D11_TEXTURE1D_DESC desc = {};
+    desc.Width     = 64;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format    = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+
+    ID3D11Texture1D* tex = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateTexture1D(&desc, nullptr, &tex)));
+    tex->Release();
+}
+
+TEST_F(Texture1DTests, BCFormatWithRenderTargetRejected)
+{
+    D3D11_TEXTURE1D_DESC desc = {};
+    desc.Width     = 64;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format    = DXGI_FORMAT_BC1_UNORM;
+    desc.Usage     = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+
+    ID3D11Texture1D* tex = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateTexture1D(&desc, nullptr, &tex)));
+}

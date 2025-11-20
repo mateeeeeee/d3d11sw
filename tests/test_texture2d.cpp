@@ -423,3 +423,84 @@ TEST_F(Texture2DTests, CreateTexture2D1MultisampledWithInitialDataRejected)
     EXPECT_TRUE(FAILED(device3->CreateTexture2D1(&desc, &initData, &tex)));
     device3->Release();
 }
+
+TEST_F(Texture2DTests, UnknownFormatRejected)
+{
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width      = 64;
+    desc.Height     = 64;
+    desc.MipLevels  = 1;
+    desc.ArraySize  = 1;
+    desc.Format     = DXGI_FORMAT_UNKNOWN;
+    desc.SampleDesc = { 1, 0 };
+    desc.Usage      = D3D11_USAGE_DEFAULT;
+    desc.BindFlags  = D3D11_BIND_SHADER_RESOURCE;
+
+    ID3D11Texture2D* tex = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateTexture2D(&desc, nullptr, &tex)));
+}
+
+TEST_F(Texture2DTests, DepthFormatWithRenderTargetRejected)
+{
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width      = 64;
+    desc.Height     = 64;
+    desc.MipLevels  = 1;
+    desc.ArraySize  = 1;
+    desc.Format     = DXGI_FORMAT_D32_FLOAT;
+    desc.SampleDesc = { 1, 0 };
+    desc.Usage      = D3D11_USAGE_DEFAULT;
+    desc.BindFlags  = D3D11_BIND_RENDER_TARGET;
+
+    ID3D11Texture2D* tex = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateTexture2D(&desc, nullptr, &tex)));
+}
+
+TEST_F(Texture2DTests, ColorFormatWithDepthStencilRejected)
+{
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width      = 64;
+    desc.Height     = 64;
+    desc.MipLevels  = 1;
+    desc.ArraySize  = 1;
+    desc.Format     = DXGI_FORMAT_R8G8B8A8_UNORM;
+    desc.SampleDesc = { 1, 0 };
+    desc.Usage      = D3D11_USAGE_DEFAULT;
+    desc.BindFlags  = D3D11_BIND_DEPTH_STENCIL;
+
+    ID3D11Texture2D* tex = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateTexture2D(&desc, nullptr, &tex)));
+}
+
+TEST_F(Texture2DTests, DepthFormatWithDepthStencilAllowed)
+{
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width      = 64;
+    desc.Height     = 64;
+    desc.MipLevels  = 1;
+    desc.ArraySize  = 1;
+    desc.Format     = DXGI_FORMAT_D32_FLOAT;
+    desc.SampleDesc = { 1, 0 };
+    desc.Usage      = D3D11_USAGE_DEFAULT;
+    desc.BindFlags  = D3D11_BIND_DEPTH_STENCIL;
+
+    ID3D11Texture2D* tex = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateTexture2D(&desc, nullptr, &tex)));
+    tex->Release();
+}
+
+TEST_F(Texture2DTests, BCFormatWithRenderTargetRejected)
+{
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width      = 64;
+    desc.Height     = 64;
+    desc.MipLevels  = 1;
+    desc.ArraySize  = 1;
+    desc.Format     = DXGI_FORMAT_BC1_UNORM;
+    desc.SampleDesc = { 1, 0 };
+    desc.Usage      = D3D11_USAGE_DEFAULT;
+    desc.BindFlags  = D3D11_BIND_RENDER_TARGET;
+
+    ID3D11Texture2D* tex = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateTexture2D(&desc, nullptr, &tex)));
+}
