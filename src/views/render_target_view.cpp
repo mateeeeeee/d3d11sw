@@ -58,10 +58,10 @@ HRESULT D3D11RenderTargetViewSW::Init(ID3D11Resource* pResource, const D3D11_REN
     _resource = pResource;
     _resource->AddRef();
 
-    D3D11SW_RESOURCE_DESC res = GetResourceDesc(pResource);
-    _desc    = pDesc ? *pDesc : MakeDefaultRTVDesc(res);
+    D3D11SW_RESOURCE_INFO info = GetSWResourceInfo(pResource);
+    _desc    = pDesc ? *pDesc : MakeDefaultRTVDesc(info);
 
-    UINT subresource = CalcRTVSubresource(_desc, res.MipLevels);
+    UINT subresource = CalcRTVSubresource(_desc, info.MipLevels);
     _dataPtr = GetSwDataPtr(pResource, subresource);
     _layout  = GetSwSubresourceLayout(pResource, subresource);
     return S_OK;

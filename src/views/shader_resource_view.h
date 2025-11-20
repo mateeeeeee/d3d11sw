@@ -20,13 +20,13 @@ public:
     void STDMETHODCALLTYPE GetDesc(D3D11_SHADER_RESOURCE_VIEW_DESC* pDesc) override;
     void STDMETHODCALLTYPE GetDesc1(D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc) override;
 
-    Uint8*                     GetDataPtr() const { return _dataPtr; }
+    UINT8*                     GetDataPtr() const { return _dataPtr; }
     D3D11SW_SUBRESOURCE_LAYOUT GetLayout()  const { return _layout; }
 
 private:
     ID3D11Resource*                  _resource = nullptr;
     D3D11_SHADER_RESOURCE_VIEW_DESC1 _desc{};
-    Uint8*                           _dataPtr  = nullptr;
+    UINT8*                           _dataPtr  = nullptr;
     D3D11SW_SUBRESOURCE_LAYOUT       _layout{};
 };
 

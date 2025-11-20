@@ -54,10 +54,10 @@ HRESULT D3D11DepthStencilViewSW::Init(ID3D11Resource* pResource, const D3D11_DEP
     _resource = pResource;
     _resource->AddRef();
 
-    D3D11SW_RESOURCE_DESC res = GetResourceDesc(pResource);
-    _desc    = pDesc ? *pDesc : MakeDefaultDSVDesc(res);
+    D3D11SW_RESOURCE_INFO info = GetSWResourceInfo(pResource);
+    _desc    = pDesc ? *pDesc : MakeDefaultDSVDesc(info);
 
-    UINT subresource = CalcDSVSubresource(_desc, res.MipLevels);
+    UINT subresource = CalcDSVSubresource(_desc, info.MipLevels);
     _dataPtr = GetSwDataPtr(pResource, subresource);
     _layout  = GetSwSubresourceLayout(pResource, subresource);
     return S_OK;
