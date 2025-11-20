@@ -103,7 +103,7 @@ private:
 
 private:
     template<typename T, typename... ArgsT>
-    HRESULT MakeAndInit(T** ppOut, ArgsT&&... args);
+    HRESULT CreateAndInit(T** ppOut, ArgsT&&... args);
 };
 
 }

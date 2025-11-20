@@ -5,13 +5,18 @@
 #include "resources/texture1d.h"
 #include "resources/texture2d.h"
 #include "resources/texture3d.h"
+#include "misc/input_layout.h"
+#include "states/blend_state.h"
+#include "states/depth_stencil_state.h"
+#include "states/rasterizer_state.h"
+#include "states/sampler_state.h"
 #include "util/format.h"
 
 namespace d3d11sw {
 
 
 template<typename T, typename... ArgsT>
-HRESULT D3D11DeviceSW::MakeAndInit(T** ppOut, ArgsT&&... args)
+HRESULT D3D11DeviceSW::CreateAndInit(T** ppOut, ArgsT&&... args)
 {
 	try
 	{
@@ -196,7 +201,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBuffer(
     }
 
     D3D11BufferSW* buf = nullptr;
-    HRESULT hr = MakeAndInit(&buf, pDesc, pInitialData);
+    HRESULT hr = CreateAndInit(&buf, pDesc, pInitialData);
     if (FAILED(hr))
     {
         return hr;
@@ -243,7 +248,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture1D(
     }
 
     D3D11Texture1DSW* tex = nullptr;
-    HRESULT hr = MakeAndInit(&tex, pDesc, pInitialData);
+    HRESULT hr = CreateAndInit(&tex, pDesc, pInitialData);
     if (FAILED(hr))
     {
         return hr;
@@ -298,7 +303,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D(
     desc1.TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED;
 
     D3D11Texture2DSW* tex = nullptr;
-    HRESULT hr = MakeAndInit(&tex, &desc1, pInitialData);
+    HRESULT hr = CreateAndInit(&tex, &desc1, pInitialData);
     if (FAILED(hr))
     {
         return hr;
@@ -347,7 +352,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D(
     desc1.TextureLayout = D3D11_TEXTURE_LAYOUT_UNDEFINED;
 
     D3D11Texture3DSW* tex = nullptr;
-    HRESULT hr = MakeAndInit(&tex, &desc1, pInitialData);
+    HRESULT hr = CreateAndInit(&tex, &desc1, pInitialData);
     if (FAILED(hr))
     {
         return hr;
@@ -402,7 +407,26 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateInputLayout(
     SIZE_T BytecodeLength,
     ID3D11InputLayout** ppInputLayout)
 {
-    return E_NOTIMPL;
+    if (!pInputElementDescs || NumElements == 0)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11InputLayoutSW* layout = nullptr;
+    HRESULT hr = CreateAndInit(&layout, pInputElementDescs, NumElements);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppInputLayout)
+    {
+        layout->Release();
+        return S_FALSE;
+    }
+
+    *ppInputLayout = layout;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateVertexShader(
@@ -483,28 +507,124 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBlendState(
     const D3D11_BLEND_DESC* pBlendStateDesc,
     ID3D11BlendState** ppBlendState)
 {
-    return E_NOTIMPL;
+    if (!pBlendStateDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_BLEND_DESC1 desc1{};
+    desc1.AlphaToCoverageEnable  = pBlendStateDesc->AlphaToCoverageEnable;
+    desc1.IndependentBlendEnable = pBlendStateDesc->IndependentBlendEnable;
+    for (Int i = 0; i < 8; i++)
+    {
+        const auto& src = pBlendStateDesc->RenderTarget[i];
+        auto&       dst = desc1.RenderTarget[i];
+        dst.BlendEnable           = src.BlendEnable;
+        dst.SrcBlend              = src.SrcBlend;
+        dst.DestBlend             = src.DestBlend;
+        dst.BlendOp               = src.BlendOp;
+        dst.SrcBlendAlpha         = src.SrcBlendAlpha;
+        dst.DestBlendAlpha        = src.DestBlendAlpha;
+        dst.BlendOpAlpha          = src.BlendOpAlpha;
+        dst.RenderTargetWriteMask = src.RenderTargetWriteMask;
+    }
+
+    D3D11BlendStateSW* bs = nullptr;
+    HRESULT hr = CreateAndInit(&bs, &desc1);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppBlendState)
+    {
+        bs->Release();
+        return S_FALSE;
+    }
+
+    *ppBlendState = bs;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDepthStencilState(
     const D3D11_DEPTH_STENCIL_DESC* pDepthStencilDesc,
     ID3D11DepthStencilState** ppDepthStencilState)
 {
-    return E_NOTIMPL;
+    if (!pDepthStencilDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11DepthStencilStateSW* dss = nullptr;
+    HRESULT hr = CreateAndInit(&dss, pDepthStencilDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppDepthStencilState)
+    {
+        dss->Release();
+        return S_FALSE;
+    }
+
+    *ppDepthStencilState = dss;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState(
     const D3D11_RASTERIZER_DESC* pRasterizerDesc,
     ID3D11RasterizerState** ppRasterizerState)
 {
-    return E_NOTIMPL;
+    if (!pRasterizerDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_RASTERIZER_DESC2 desc2{};
+    std::memcpy(&desc2, pRasterizerDesc, sizeof(D3D11_RASTERIZER_DESC));
+
+    D3D11RasterizerStateSW* rs = nullptr;
+    HRESULT hr = CreateAndInit(&rs, &desc2);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppRasterizerState)
+    {
+        rs->Release();
+        return S_FALSE;
+    }
+
+    *ppRasterizerState = rs;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateSamplerState(
     const D3D11_SAMPLER_DESC* pSamplerDesc,
     ID3D11SamplerState** ppSamplerState)
 {
-    return E_NOTIMPL;
+    if (!pSamplerDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11SamplerStateSW* ss = nullptr;
+    HRESULT hr = CreateAndInit(&ss, pSamplerDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppSamplerState)
+    {
+        ss->Release();
+        return S_FALSE;
+    }
+
+    *ppSamplerState = ss;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery(
@@ -667,12 +787,53 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeferredContext1(UINT ContextFlag
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBlendState1(const D3D11_BLEND_DESC1* pBlendStateDesc, ID3D11BlendState1** ppBlendState)
 {
-    return E_NOTIMPL;
+    if (!pBlendStateDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11BlendStateSW* bs = nullptr;
+    HRESULT hr = CreateAndInit(&bs, pBlendStateDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppBlendState)
+    {
+        bs->Release();
+        return S_FALSE;
+    }
+
+    *ppBlendState = bs;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState1(const D3D11_RASTERIZER_DESC1* pRasterizerDesc, ID3D11RasterizerState1** ppRasterizerState)
 {
-    return E_NOTIMPL;
+    if (!pRasterizerDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_RASTERIZER_DESC2 desc2{};
+    std::memcpy(&desc2, pRasterizerDesc, sizeof(D3D11_RASTERIZER_DESC1));
+
+    D3D11RasterizerStateSW* rs = nullptr;
+    HRESULT hr = CreateAndInit(&rs, &desc2);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppRasterizerState)
+    {
+        rs->Release();
+        return S_FALSE;
+    }
+
+    *ppRasterizerState = rs;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeviceContextState(UINT Flags, const D3D_FEATURE_LEVEL* pFeatureLevels, UINT FeatureLevels, UINT SDKVersion, REFIID EmulatedInterface, D3D_FEATURE_LEVEL* pChosenFeatureLevel, ID3DDeviceContextState** ppContextState)
@@ -747,7 +908,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D1(const D3D11_TEXTURE2D_
     }
 
     D3D11Texture2DSW* tex = nullptr;
-    HRESULT hr = MakeAndInit(&tex, pDesc, pInitialData);
+    HRESULT hr = CreateAndInit(&tex, pDesc, pInitialData);
     if (FAILED(hr))
     {
         return hr;
@@ -787,7 +948,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D1(const D3D11_TEXTURE3D_
     }
 
     D3D11Texture3DSW* tex = nullptr;
-    HRESULT hr = MakeAndInit(&tex, pDesc, pInitialData);
+    HRESULT hr = CreateAndInit(&tex, pDesc, pInitialData);
     if (FAILED(hr))
     {
         return hr;
@@ -805,7 +966,26 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D1(const D3D11_TEXTURE3D_
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState2(const D3D11_RASTERIZER_DESC2* pRasterizerDesc, ID3D11RasterizerState2** ppRasterizerState)
 {
-    return E_NOTIMPL;
+    if (!pRasterizerDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11RasterizerStateSW* rs = nullptr;
+    HRESULT hr = CreateAndInit(&rs, pRasterizerDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppRasterizerState)
+    {
+        rs->Release();
+        return S_FALSE;
+    }
+
+    *ppRasterizerState = rs;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView1(ID3D11Resource* pResource, const D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc, ID3D11ShaderResourceView1** ppSRView)
