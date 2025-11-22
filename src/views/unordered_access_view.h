@@ -22,6 +22,7 @@ public:
 
     UINT8*                     GetDataPtr() const { return _dataPtr; }
     D3D11SW_SUBRESOURCE_LAYOUT GetLayout()  const { return _layout; }
+    DXGI_FORMAT                GetFormat()  const { return _desc.Format; }
 
 private:
     ID3D11Resource*                    _resource = nullptr;

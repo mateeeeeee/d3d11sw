@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <d3d11_4.h>
+#include <cstring>
+#include "resources/texture2d.h"
 #include "views/render_target_view.h"
 #include "views/depth_stencil_view.h"
 #include "views/shader_resource_view.h"
@@ -310,6 +312,299 @@ TEST_F(ViewTests, UAV_GetDescRoundtrip)
     EXPECT_EQ(out.Format,             DXGI_FORMAT_R8G8B8A8_UNORM);
     EXPECT_EQ(out.ViewDimension,      D3D11_UAV_DIMENSION_TEXTURE2D);
     EXPECT_EQ(out.Texture2D.MipSlice, 0u);
+
+    uav->Release();
+    tex->Release();
+}
+
+// ---- ClearRenderTargetView -------------------------------------------------
+
+TEST_F(ViewTests, ClearRTV_R8G8B8A8_WritesCorrectPixels)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R8G8B8A8_UNORM, D3D11_BIND_RENDER_TARGET);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11RenderTargetView* rtv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateRenderTargetView(tex, nullptr, &rtv)));
+
+    FLOAT color[4] = { 1.0f, 0.5f, 0.0f, 1.0f };
+    context->ClearRenderTargetView(rtv, color);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    EXPECT_EQ(data[0], 255u);  // R = 1.0
+    EXPECT_EQ(data[1], 128u);  // G ≈ 0.5
+    EXPECT_EQ(data[2],   0u);  // B = 0.0
+    EXPECT_EQ(data[3], 255u);  // A = 1.0
+
+    rtv->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearRTV_B8G8R8A8_WritesSwappedChannels)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_B8G8R8A8_UNORM, D3D11_BIND_RENDER_TARGET);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11RenderTargetView* rtv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateRenderTargetView(tex, nullptr, &rtv)));
+
+    FLOAT color[4] = { 1.0f, 0.0f, 0.0f, 1.0f };  // pure red
+    context->ClearRenderTargetView(rtv, color);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    EXPECT_EQ(data[0],   0u);  // B channel
+    EXPECT_EQ(data[1],   0u);  // G channel
+    EXPECT_EQ(data[2], 255u);  // R channel
+    EXPECT_EQ(data[3], 255u);  // A channel
+
+    rtv->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearRTV_R32Float_WritesFloat)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R32_FLOAT, D3D11_BIND_RENDER_TARGET);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11RenderTargetView* rtv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateRenderTargetView(tex, nullptr, &rtv)));
+
+    FLOAT color[4] = { 0.75f, 0.f, 0.f, 0.f };
+    context->ClearRenderTargetView(rtv, color);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    FLOAT val;
+    std::memcpy(&val, data, 4);
+    EXPECT_FLOAT_EQ(val, 0.75f);
+
+    rtv->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearRTV_FillsAllPixels)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R8G8B8A8_UNORM, D3D11_BIND_RENDER_TARGET);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11RenderTargetView* rtv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateRenderTargetView(tex, nullptr, &rtv)));
+
+    FLOAT color[4] = { 0.0f, 1.0f, 0.0f, 1.0f };
+    context->ClearRenderTargetView(rtv, color);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    // Check last pixel (64*64 - 1) as well
+    UINT lastPixelOffset = (layout.NumRows - 1) * layout.RowPitch + (layout.RowPitch - 4);
+    EXPECT_EQ(data[lastPixelOffset + 0],   0u);  
+    EXPECT_EQ(data[lastPixelOffset + 1], 255u);  
+    EXPECT_EQ(data[lastPixelOffset + 2],   0u);  
+    EXPECT_EQ(data[lastPixelOffset + 3], 255u);  
+
+    rtv->Release();
+    tex->Release();
+}
+
+// ---- ClearDepthStencilView -------------------------------------------------
+
+TEST_F(ViewTests, ClearDSV_D32Float_WritesDepth)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_D32_FLOAT, D3D11_BIND_DEPTH_STENCIL);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11DepthStencilView* dsv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilView(tex, nullptr, &dsv)));
+
+    context->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 0.75f, 0);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    FLOAT depth;
+    std::memcpy(&depth, data, 4);
+    EXPECT_FLOAT_EQ(depth, 0.75f);
+
+    dsv->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearDSV_D24S8_ClearsBoth)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_D24_UNORM_S8_UINT, D3D11_BIND_DEPTH_STENCIL);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11DepthStencilView* dsv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilView(tex, nullptr, &dsv)));
+
+    context->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0xAB);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    UINT32 packed;
+    std::memcpy(&packed, data, 4);
+    EXPECT_EQ(packed & 0xFFu, 0xABu);                   // stencil in low byte
+    EXPECT_EQ((packed >> 8) & 0xFFFFFFu, 0xFFFFFFu);    // depth = 1.0 → all 24 bits set
+
+    dsv->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearDSV_D24S8_DepthOnlyPreservesStencil)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_D24_UNORM_S8_UINT, D3D11_BIND_DEPTH_STENCIL);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11DepthStencilView* dsv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilView(tex, nullptr, &dsv)));
+
+    // Set initial state: both depth and stencil
+    context->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 0.5f, 0x42);
+
+    // Now clear only depth
+    context->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0x00);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    UINT32 packed;
+    std::memcpy(&packed, data, 4);
+    EXPECT_EQ(packed & 0xFFu, 0x42u);                   // stencil preserved
+    EXPECT_EQ((packed >> 8) & 0xFFFFFFu, 0xFFFFFFu);    // depth updated to 1.0
+
+    dsv->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearDSV_D16_WritesDepth)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_D16_UNORM, D3D11_BIND_DEPTH_STENCIL);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11DepthStencilView* dsv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilView(tex, nullptr, &dsv)));
+
+    context->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    UINT16 d16;
+    std::memcpy(&d16, data, 2);
+    EXPECT_EQ(d16, 0xFFFFu);  // 1.0 → all bits set
+
+    dsv->Release();
+    tex->Release();
+}
+
+// ---- ClearUnorderedAccessViewUint ------------------------------------------
+
+TEST_F(ViewTests, ClearUAVUint_R32_WritesValue)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R32_UINT, D3D11_BIND_UNORDERED_ACCESS);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(tex, nullptr, &uav)));
+
+    UINT values[4] = { 0xDEADBEEF, 0, 0, 0 };
+    context->ClearUnorderedAccessViewUint(uav, values);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    UINT val;
+    std::memcpy(&val, data, 4);
+    EXPECT_EQ(val, 0xDEADBEEFu);
+
+    uav->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearUAVUint_R8G8B8A8_WritesChannels)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R8G8B8A8_UINT, D3D11_BIND_UNORDERED_ACCESS);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(tex, nullptr, &uav)));
+
+    UINT values[4] = { 10, 20, 30, 40 };
+    context->ClearUnorderedAccessViewUint(uav, values);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    EXPECT_EQ(data[0], 10u);
+    EXPECT_EQ(data[1], 20u);
+    EXPECT_EQ(data[2], 30u);
+    EXPECT_EQ(data[3], 40u);
+
+    uav->Release();
+    tex->Release();
+}
+
+// ---- ClearUnorderedAccessViewFloat -----------------------------------------
+
+TEST_F(ViewTests, ClearUAVFloat_R32_WritesFloat)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R32_FLOAT, D3D11_BIND_UNORDERED_ACCESS);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(tex, nullptr, &uav)));
+
+    FLOAT values[4] = { 3.14f, 0.f, 0.f, 0.f };
+    context->ClearUnorderedAccessViewFloat(uav, values);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    FLOAT val;
+    std::memcpy(&val, data, 4);
+    EXPECT_FLOAT_EQ(val, 3.14f);
+
+    uav->Release();
+    tex->Release();
+}
+
+TEST_F(ViewTests, ClearUAVFloat_R8G8B8A8Unorm_WritesUnorm)
+{
+    ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R8G8B8A8_UNORM, D3D11_BIND_UNORDERED_ACCESS);
+    ASSERT_NE(tex, nullptr);
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(tex, nullptr, &uav)));
+
+    FLOAT values[4] = { 1.0f, 0.0f, 0.5f, 1.0f };
+    context->ClearUnorderedAccessViewFloat(uav, values);
+
+    auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
+    auto  layout = sw->GetSubresourceLayout(0);
+    const UINT8* data = static_cast<const UINT8*>(sw->GetDataPtr()) + layout.Offset;
+
+    EXPECT_EQ(data[0], 255u);  // R = 1.0
+    EXPECT_EQ(data[1],   0u);  // G = 0.0
+    EXPECT_EQ(data[2], 128u);  // B ≈ 0.5
+    EXPECT_EQ(data[3], 255u);  // A = 1.0
 
     uav->Release();
     tex->Release();

@@ -18,6 +18,8 @@
 #include "views/render_target_view.h"
 #include "views/depth_stencil_view.h"
 #include "views/shader_resource_view.h"
+#include "views/unordered_access_view.h"
+#include "context/context_util.h"
 
 namespace d3d11sw {
 
@@ -549,18 +551,152 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyStructureCount(ID3D11Buffer* pD
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearRenderTargetView(ID3D11RenderTargetView* pRenderTargetView, const FLOAT ColorRGBA[4])
 {
+    if (!pRenderTargetView)
+    {
+        return;
+    }
+
+    D3D11RenderTargetViewSW* rtv    = static_cast<D3D11RenderTargetViewSW*>(pRenderTargetView);
+    D3D11SW_SUBRESOURCE_LAYOUT layout = rtv->GetLayout();
+
+    UINT8 pixel[16];
+    PackRTVColor(rtv->GetFormat(), ColorRGBA, pixel);
+    ForEachPixel(rtv->GetDataPtr(), layout, [&pixel, &layout](UINT8* px)
+    {
+        std::memcpy(px, pixel, layout.PixelStride);
+    });
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewUint(ID3D11UnorderedAccessView* pUnorderedAccessView, const UINT Values[4])
 {
+    if (!pUnorderedAccessView)
+    {
+        return;
+    }
+
+    D3D11UnorderedAccessViewSW* uav = static_cast<D3D11UnorderedAccessViewSW*>(pUnorderedAccessView);
+    D3D11SW_SUBRESOURCE_LAYOUT layout = uav->GetLayout();
+
+    UINT8 pixel[16];
+    PackUAVUint(uav->GetFormat(), Values, pixel);
+    ForEachPixel(uav->GetDataPtr(), layout, [&pixel, &layout](UINT8* px)
+    {
+        std::memcpy(px, pixel, layout.PixelStride);
+    });
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewFloat(ID3D11UnorderedAccessView* pUnorderedAccessView, const FLOAT Values[4])
 {
+    if (!pUnorderedAccessView)
+    {
+        return;
+    }
+
+    D3D11UnorderedAccessViewSW* uav    = static_cast<D3D11UnorderedAccessViewSW*>(pUnorderedAccessView);
+    D3D11SW_SUBRESOURCE_LAYOUT layout = uav->GetLayout();
+
+    UINT8 pixel[16];
+    PackRTVColor(uav->GetFormat(), Values, pixel);
+    ForEachPixel(uav->GetDataPtr(), layout, [&pixel, &layout](UINT8* px)
+    {
+        std::memcpy(px, pixel, layout.PixelStride);
+    });
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthStencilView* pDepthStencilView, UINT ClearFlags, FLOAT Depth, UINT8 Stencil)
 {
+    if (!pDepthStencilView)
+    {
+        return;
+    }
+
+    D3D11DepthStencilViewSW* dsv = static_cast<D3D11DepthStencilViewSW*>(pDepthStencilView);
+    UINT8*  data   = dsv->GetDataPtr();
+    D3D11SW_SUBRESOURCE_LAYOUT layout = dsv->GetLayout();
+    DXGI_FORMAT fmt = dsv->GetFormat();
+    switch (fmt)
+    {
+        case DXGI_FORMAT_D32_FLOAT:
+        {
+            if (!(ClearFlags & D3D11_CLEAR_DEPTH))
+            {
+                break;
+            }
+            ForEachPixel(data, layout, [Depth](UINT8* px)
+            {
+                std::memcpy(px, &Depth, 4);
+            });
+            break;
+        }
+        case DXGI_FORMAT_D16_UNORM:
+        {
+            if (!(ClearFlags & D3D11_CLEAR_DEPTH))
+            {
+                break;
+            }
+            UINT16 d16 = (UINT16)(std::clamp(Depth, 0.f, 1.f) * 65535.f + 0.5f);
+            ForEachPixel(data, layout, [d16](UINT8* px)
+            {
+                std::memcpy(px, &d16, 2);
+            });
+            break;
+        }
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        {
+            Bool clearDepth   = (ClearFlags & D3D11_CLEAR_DEPTH)   != 0;
+            Bool clearStencil = (ClearFlags & D3D11_CLEAR_STENCIL) != 0;
+            UINT32 d24 = std::min((UINT32)(std::clamp(Depth, 0.f, 1.f) * 16777215.f + 0.5f), 0xFFFFFFu);
+            if (clearDepth && clearStencil)
+            {
+                UINT32 packed = (d24 << 8) | Stencil;
+                ForEachPixel(data, layout, [packed](UINT8* px)
+                {
+                    std::memcpy(px, &packed, 4);
+                });
+            }
+            else if (clearDepth)
+            {
+                ForEachPixel(data, layout, [d24](UINT8* px)
+                {
+                    UINT32 v; std::memcpy(&v, px, 4);
+                    v = (d24 << 8) | (v & 0xFFu);
+                    std::memcpy(px, &v, 4);
+                });
+            }
+            else if (clearStencil)
+            {
+                ForEachPixel(data, layout, [Stencil](UINT8* px)
+                {
+                    UINT32 v; std::memcpy(&v, px, 4);
+                    v = (v & 0xFFFFFF00u) | Stencil;
+                    std::memcpy(px, &v, 4);
+                });
+            }
+            break;
+        }
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        {
+            Bool clearDepth   = (ClearFlags & D3D11_CLEAR_DEPTH)   != 0;
+            Bool clearStencil = (ClearFlags & D3D11_CLEAR_STENCIL) != 0;
+            if (clearDepth)
+            {
+                ForEachPixel(data, layout, [Depth](UINT8* px)
+                {
+                    std::memcpy(px, &Depth, 4);
+                });
+            }
+            if (clearStencil)
+            {
+                ForEachPixel(data, layout, [Stencil](UINT8* px)
+                {
+                    px[4] = Stencil;
+                });
+            }
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::GenerateMips(ID3D11ShaderResourceView* pShaderResourceView)
