@@ -1,0 +1,236 @@
+#include "shaders/dxbc_parser.h"
+#include "shaders/sm4_decoder.h"
+#include "common/log.h"
+#include <cstring>
+
+namespace d3d11sw {
+
+Bool DXBCParser::ParseSignatureChunk(const Uint8* data, Usize size,
+                                      std::vector<D3D11SW_ShaderSignatureElement>& out)
+{
+    if (size < 8)
+    {
+        return false;
+    }
+
+    Uint32 elementCount;
+    std::memcpy(&elementCount, data, 4);
+
+    out.reserve(elementCount);
+    for (Uint32 i = 0; i < elementCount; ++i)
+    {
+        const Uint8* rec = data + 8 + i * sizeof(DXBCSigElement);
+        if (rec + sizeof(DXBCSigElement) > data + size)
+        {
+            break;
+        }
+
+        DXBCSigElement el{};
+        std::memcpy(&el, rec, sizeof(DXBCSigElement));
+
+        D3D11SW_ShaderSignatureElement e{};
+        const Char* namePtr = reinterpret_cast<const Char*>(data + el.nameOffset);
+        Usize nameLen = 0;
+        while (nameLen < 63 && namePtr[nameLen])
+        {
+            ++nameLen;
+        }
+        std::memcpy(e.name, namePtr, nameLen);
+        e.name[nameLen] = '\0';
+        e.semanticIndex = el.semanticIndex;
+        e.reg           = el.registerIndex;
+        e.mask          = el.mask;
+        e.svType        = el.svType;
+        out.push_back(e);
+    }
+
+    return true;
+}
+
+Bool DXBCParser::ParseRdefChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out)
+{
+    if (size < sizeof(DXBCRdefHeader))
+    {
+        return false;
+    }
+
+    DXBCRdefHeader hdr{};
+    std::memcpy(&hdr, data, sizeof(DXBCRdefHeader));
+
+    out.type = ShaderTypeFromRdef(hdr.shaderType);
+    for (Uint32 i = 0; i < hdr.cbufCount; ++i)
+    {
+        const Uint8* rec = data + hdr.cbufOffset + i * sizeof(DXBCRdefCbuf);
+        if (rec + sizeof(DXBCRdefCbuf) > data + size)
+        {
+            break;
+        }
+
+        DXBCRdefCbuf cb{};
+        std::memcpy(&cb, rec, sizeof(DXBCRdefCbuf));
+
+        D3D11SW_CBufBinding b{};
+        b.slot      = i;
+        b.sizeVec4s = (cb.sizeBytes + 15) / 16;
+        out.cbufs.push_back(b);
+    }
+
+    for (Uint32 i = 0; i < hdr.bindingCount; ++i)
+    {
+        const Uint8* rec = data + hdr.bindingOffset + i * sizeof(DXBCRdefBinding);
+        if (rec + sizeof(DXBCRdefBinding) > data + size)
+        {
+            break;
+        }
+
+        DXBCRdefBinding bd{};
+        std::memcpy(&bd, rec, sizeof(DXBCRdefBinding));
+        if (bd.inputType == RDEF_SIT_CBUFFER)
+        {
+            if (bd.bindPoint < out.cbufs.size())
+            {
+                out.cbufs[bd.bindPoint].slot = bd.bindPoint;
+            }
+        }
+        else if (bd.inputType == RDEF_SIT_TEXTURE)
+        {
+            D3D11SW_TexBinding tb{};
+            tb.slot      = bd.bindPoint;
+            tb.dimension = bd.dimension;
+            out.textures.push_back(tb);
+        }
+    }
+    return true;
+}
+
+Bool DXBCParser::ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out)
+{
+    if (size < 8)
+    {
+        return false;
+    }
+
+    const Uint32* tokens    = reinterpret_cast<const Uint32*>(data);
+    Uint32        numDwords = static_cast<Uint32>(size / 4);
+
+    SM4Decoder decoder;
+    Uint32 threadGroup[3] = {1, 1, 1};
+    Uint32 numTemps = 0;
+    if (!decoder.Decode(tokens, numDwords, out.instrs, numTemps, threadGroup))
+    {
+        return false;
+    }
+
+    out.numTemps     = numTemps;
+    out.threadGroupX = threadGroup[0];
+    out.threadGroupY = threadGroup[1];
+    out.threadGroupZ = threadGroup[2];
+    return true;
+}
+
+Bool DXBCParser::ParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& out)
+{
+    if (!bytecode || len < sizeof(DXBCContainerHeader) + 4)
+    {
+        return false;
+    }
+
+    const Uint8* base = static_cast<const Uint8*>(bytecode);
+
+    DXBCContainerHeader hdr{};
+    std::memcpy(&hdr, base, sizeof(DXBCContainerHeader));
+
+    if (hdr.magic != DXBC_MAGIC)
+    {
+        return false;
+    }
+    if (hdr.version != 1)
+    {
+        return false;
+    }
+    if (hdr.totalSize > len)
+    {
+        return false;
+    }
+
+    const Uint32* offsets = reinterpret_cast<const Uint32*>(base + sizeof(DXBCContainerHeader));
+
+    out = {};
+    out.threadGroupX = out.threadGroupY = out.threadGroupZ = 1;
+    for (Uint32 c = 0; c < hdr.chunkCount; ++c)
+    {
+        Uint32 chunkOff = offsets[c];
+        if (chunkOff + sizeof(DXBCChunkHeader) > len)
+        {
+            continue;
+        }
+
+        DXBCChunkHeader chdr{};
+        std::memcpy(&chdr, base + chunkOff, sizeof(DXBCChunkHeader));
+
+        const Uint8* cdata = base + chunkOff + sizeof(DXBCChunkHeader);
+        Usize        csz   = chdr.size;
+        if (chdr.fourCC == FOURCC_ISGN)
+        {
+            ParseSignatureChunk(cdata, csz, out.inputs);
+        }
+        else if (chdr.fourCC == FOURCC_OSGN || chdr.fourCC == FOURCC_OSG5)
+        {
+            ParseSignatureChunk(cdata, csz, out.outputs);
+        }
+        else if (chdr.fourCC == FOURCC_RDEF)
+        {
+            ParseRdefChunk(cdata, csz, out);
+        }
+    }
+
+    return true;
+}
+
+Bool DXBCParser::Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out)
+{
+    if (!ParseReflection(bytecode, len, out))
+    {
+        return false;
+    }
+
+    const Uint8* base = static_cast<const Uint8*>(bytecode);
+    DXBCContainerHeader hdr{};
+    std::memcpy(&hdr, base, sizeof(DXBCContainerHeader));
+
+    const Uint32* offsets = reinterpret_cast<const Uint32*>(base + sizeof(DXBCContainerHeader));
+    for (Uint32 c = 0; c < hdr.chunkCount; ++c)
+    {
+        Uint32 chunkOff = offsets[c];
+        if (chunkOff + sizeof(DXBCChunkHeader) > len)
+        {
+            continue;
+        }
+
+        DXBCChunkHeader chdr{};
+        std::memcpy(&chdr, base + chunkOff, sizeof(DXBCChunkHeader));
+        if (chdr.fourCC == FOURCC_SHDR || chdr.fourCC == FOURCC_SHEX)
+        {
+            const Uint8* cdata = base + chunkOff + sizeof(DXBCChunkHeader);
+            ParseShaderChunk(cdata, chdr.size, out);
+            break;
+        }
+    }
+    return true;
+}
+
+D3D11_SHADER_TYPE DXBCParser::ShaderTypeFromRdef(Uint16 shaderType)
+{
+    switch (shaderType)
+    {
+        case RDEF_SHTYPE_PS: return D3D11_PIXEL_SHADER;
+        case RDEF_SHTYPE_VS: return D3D11_VERTEX_SHADER;
+        case RDEF_SHTYPE_GS: return D3D11_GEOMETRY_SHADER;
+        case RDEF_SHTYPE_HS: return D3D11_HULL_SHADER;
+        case RDEF_SHTYPE_DS: return D3D11_DOMAIN_SHADER;
+        case RDEF_SHTYPE_CS: return D3D11_COMPUTE_SHADER;
+        default:             return D3D11_VERTEX_SHADER;
+    }
+}
+
+} 
