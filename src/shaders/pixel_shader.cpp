@@ -20,8 +20,10 @@ HRESULT STDMETHODCALLTYPE D3D11PixelShaderSW::QueryInterface(REFIID riid, void**
         *ppv = static_cast<ID3D11DeviceChild*>(this);
     }
     else
+    {
         return E_NOINTERFACE;
-
+    }
+    
     AddRef();
     return S_OK;
 }

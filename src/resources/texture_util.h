@@ -8,12 +8,9 @@
 namespace d3d11sw {
 
 // Builds the flat texture buffer and per-subresource layouts.
-//
 // Layout: mip-major, slices within each mip:
 //   mip0_slice0 | mip0_slice1 | ... | mip1_slice0 | ...
-//
 // Subresource index = MipSlice + ArraySlice * MipLevels  (D3D11CalcSubresource)
-//
 // For 1D/2D textures: depth=1, arraySize=ArraySize
 // For 3D textures:    depth=Depth, arraySize=1
 inline void BuildTextureLayouts(
@@ -73,14 +70,16 @@ inline void BuildTextureLayouts(
     }
 }
 
-// Copies caller-provided initial data into the flat texture buffer.
 inline void CopyInitialData(
     const D3D11_SUBRESOURCE_DATA*              pInitialData,
     UINT                                       SubresourceCount,
     const std::vector<D3D11SW_SUBRESOURCE_LAYOUT>& Layouts,
     std::vector<Uint8>&                            Data)
 {
-    if (!pInitialData) return;
+    if (!pInitialData) 
+    {
+        return;
+    }
 
     for (UINT subres = 0; subres < SubresourceCount; ++subres)
     {
@@ -101,4 +100,4 @@ inline void CopyInitialData(
     }
 }
 
-} // namespace d3d11sw
+} 
