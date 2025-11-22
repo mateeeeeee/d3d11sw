@@ -52,6 +52,12 @@ set(D3D11SW_SOURCES
     shaders/domain_shader.h
     shaders/compute_shader.cpp
     shaders/compute_shader.h
+    shaders/dxbc.h
+    shaders/dxbc_parser.h
+    shaders/dxbc_parser.cpp
+    shaders/sm4.h
+    shaders/sm4_decoder.h
+    shaders/sm4_decoder.cpp
 
     states/rasterizer_state.cpp
     states/rasterizer_state.h
