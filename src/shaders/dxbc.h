@@ -103,7 +103,6 @@ struct DXBCRdefBinding
     UINT32 uFlags;
 };
 
-//D3D_SHADER_INPUT_TYPE values we care about
 static constexpr UINT32 RDEF_SIT_CBUFFER = 0;
 static constexpr UINT32 RDEF_SIT_TEXTURE = 2;
 static constexpr UINT32 RDEF_SIT_SAMPLER = 3;
@@ -112,8 +111,8 @@ static constexpr UINT32 RDEF_SIT_SAMPLER = 3;
 static constexpr UINT16 RDEF_SHTYPE_PS = 0xFFFF;
 static constexpr UINT16 RDEF_SHTYPE_VS = 0xFFFE;
 static constexpr UINT16 RDEF_SHTYPE_GS = 0xFFFD;
-static constexpr UINT16 RDEF_SHTYPE_HS = 0xFFF8;  // SM5
-static constexpr UINT16 RDEF_SHTYPE_DS = 0xFFF9;  // SM5
-static constexpr UINT16 RDEF_SHTYPE_CS = 0xFFFA;  // SM5 (also seen as 0x0005 in some tools)
+static constexpr UINT16 RDEF_SHTYPE_HS = 0xFFF8;  
+static constexpr UINT16 RDEF_SHTYPE_DS = 0xFFF9;  
+static constexpr UINT16 RDEF_SHTYPE_CS = 0xFFFA;  
 
 } 
