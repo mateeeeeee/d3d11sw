@@ -219,17 +219,17 @@ Bool DXBCParser::Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& ou
     return true;
 }
 
-D3D11_SHADER_TYPE DXBCParser::ShaderTypeFromRdef(Uint16 shaderType)
+D3D11SW_ShaderType DXBCParser::ShaderTypeFromRdef(Uint16 shaderType)
 {
     switch (shaderType)
     {
-        case RDEF_SHTYPE_PS: return D3D11_PIXEL_SHADER;
-        case RDEF_SHTYPE_VS: return D3D11_VERTEX_SHADER;
-        case RDEF_SHTYPE_GS: return D3D11_GEOMETRY_SHADER;
-        case RDEF_SHTYPE_HS: return D3D11_HULL_SHADER;
-        case RDEF_SHTYPE_DS: return D3D11_DOMAIN_SHADER;
-        case RDEF_SHTYPE_CS: return D3D11_COMPUTE_SHADER;
-        default:             return D3D11_VERTEX_SHADER;
+        case RDEF_SHTYPE_PS: return D3D11SW_ShaderType::Pixel;
+        case RDEF_SHTYPE_VS: return D3D11SW_ShaderType::Vertex;
+        case RDEF_SHTYPE_GS: return D3D11SW_ShaderType::Geometry;
+        case RDEF_SHTYPE_HS: return D3D11SW_ShaderType::Hull;
+        case RDEF_SHTYPE_DS: return D3D11SW_ShaderType::Domain;
+        case RDEF_SHTYPE_CS: return D3D11SW_ShaderType::Compute;
+        default:             return D3D11SW_ShaderType::Unknown;
     }
 }
 

@@ -6,6 +6,17 @@
 
 namespace d3d11sw {
 
+enum class D3D11SW_ShaderType : Uint8
+{
+    Vertex   = 0,
+    Pixel    = 1,
+    Geometry = 2,
+    Hull     = 3,
+    Domain   = 4,
+    Compute  = 5,
+    Unknown  = 0xFF,
+};
+
 struct D3D11SW_ShaderSignatureElement
 {
     Char   name[64];
@@ -29,7 +40,7 @@ struct D3D11SW_TexBinding
 
 struct D3D11SW_ParsedShader
 {
-    D3D11_SHADER_TYPE                            type;
+    D3D11SW_ShaderType                           type;
     std::vector<D3D11SW_ShaderSignatureElement>  inputs;
     std::vector<D3D11SW_ShaderSignatureElement>  outputs;
     std::vector<D3D11SW_CBufBinding>             cbufs;
@@ -41,6 +52,7 @@ struct D3D11SW_ParsedShader
     Uint32                                       threadGroupZ;
 };
 
+D3D11SW_TODO(no state, should it be free function?);
 class DXBCParser
 {
 public:
@@ -53,7 +65,7 @@ private:
     Bool ParseRdefChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out);
     Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out);
 
-    D3D11_SHADER_TYPE ShaderTypeFromRdef(Uint16 shaderType);
+    D3D11SW_ShaderType ShaderTypeFromRdef(Uint16 shaderType);
 };
 
 } 
