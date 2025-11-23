@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <d3d11TokenizedProgramFormat.hpp>
 #include "shaders/dxbc_parser.h"
 #include "shaders/sm4_decoder.h"
 #include <vector>
@@ -62,16 +63,16 @@ static std::vector<Uint32> MakeMinimalVSTokens()
         0xFFFE0400,  // version: VS SM4.0
         0x0000000A,  // total = 10 DWORDs
 
-        0x02000068,  // dcl_temps, instrLen=2
+        ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_TEMPS) | ENCODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(2),
         0x00000001,  // numTemps = 1
 
-        0x05000036,  // mov, instrLen=5
+        ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_MOV) | ENCODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(5),
         0x001000F2,  // dst r0: Temp, mask xyzw, 1D index, imm32
         0x00000000,  // r0 index = 0
         0x00101E46,  // src v0: Input, swizzle xyzw, 1D index, imm32
         0x00000000,  // v0 index = 0
 
-        0x0100003E,  // ret, instrLen=1
+        ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_RET) | ENCODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(1),
     };
 }
 
@@ -182,7 +183,7 @@ TEST_F(DXBCParserTests, ParseShdrMovOpcode)
     ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
 
     // instrs[1] = mov
-    EXPECT_EQ(out.instrs[1].op, SM4OpCode::Mov);
+    EXPECT_EQ(out.instrs[1].op, D3D10_SB_OPCODE_MOV);
 }
 
 TEST_F(DXBCParserTests, ParseShdrMovOperands)
@@ -197,12 +198,12 @@ TEST_F(DXBCParserTests, ParseShdrMovOperands)
     ASSERT_EQ(mov.operands.size(), 2u);
 
     // dst: r0, mask xyzw
-    EXPECT_EQ(mov.operands[0].type,      SM4OperandType::Temp);
+    EXPECT_EQ(mov.operands[0].type, D3D10_SB_OPERAND_TYPE_TEMP);
     EXPECT_EQ(mov.operands[0].writeMask, 0xFu);
     EXPECT_EQ(mov.operands[0].indices[0], 0u);
 
     // src: v0, swizzle xyzw
-    EXPECT_EQ(mov.operands[1].type,      SM4OperandType::Input);
+    EXPECT_EQ(mov.operands[1].type, D3D10_SB_OPERAND_TYPE_INPUT);
     EXPECT_EQ(mov.operands[1].swizzle[0], 0u); // x
     EXPECT_EQ(mov.operands[1].swizzle[1], 1u); // y
     EXPECT_EQ(mov.operands[1].swizzle[2], 2u); // z
@@ -255,7 +256,7 @@ TEST_F(SM4DecoderTests, RetOnly)
     Uint32 tgs[3]   = {};
     EXPECT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), out, numTemps, tgs));
     ASSERT_EQ(out.size(), 1u);
-    EXPECT_EQ(out[0].op, SM4OpCode::Ret);
+    EXPECT_EQ(out[0].op, D3D10_SB_OPCODE_RET);
 }
 
 TEST_F(SM4DecoderTests, DclTempsExtractsCount)
@@ -272,15 +273,15 @@ TEST_F(SM4DecoderTests, DclTempsExtractsCount)
 TEST_F(SM4DecoderTests, DclThreadGroupExtractsSize)
 {
     std::vector<Uint32> tokens = {
-        0xFFFE0500,   // version CS SM5
-        0x00000007,   // total = 7
+        0xFFFE0500,  // version CS SM5
+        0x00000007,  // total = 7
 
-        0x0400009B,   // dcl_num_thread_group (0x9B=155), instrLen=4
-        0x00000008,   // X = 8
-        0x00000001,   // Y = 1
-        0x00000001,   // Z = 1
+        ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_THREAD_GROUP) | ENCODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(4),
+        0x00000008,  // X = 8
+        0x00000001,  // Y = 1
+        0x00000001,  // Z = 1
 
-        0x0100003E,   // ret
+        ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_RET) | ENCODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(1),
     };
 
     SM4Decoder decoder;

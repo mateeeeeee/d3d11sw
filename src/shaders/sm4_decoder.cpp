@@ -3,73 +3,27 @@
 
 namespace d3d11sw {
 
-// OpcodeToken0
-static constexpr Uint32 OT0_OPCODE_MASK          = 0x7FF;
-static constexpr Uint32 OT0_SATURATE_SHIFT        = 13;
-static constexpr Uint32 OT0_INSTR_LENGTH_SHIFT    = 24;
-static constexpr Uint32 OT0_INSTR_LENGTH_MASK     = 0x7F;
-static constexpr Uint32 OT0_EXTENDED_SHIFT        = 31;
-
-// OperandToken0
-static constexpr Uint32 OP0_NUM_COMP_MASK         = 0x3;
-static constexpr Uint32 OP0_NUM_COMP_4            = 2;
-static constexpr Uint32 OP0_NUM_COMP_1            = 1;
-static constexpr Uint32 OP0_COMP_MODE_SHIFT       = 2;
-static constexpr Uint32 OP0_COMP_MODE_MASK        = 0x3;
-static constexpr Uint32 OP0_COMP_SEL_SHIFT        = 4;
-static constexpr Uint32 OP0_COMP_SEL_MASK         = 0xFF;
-static constexpr Uint32 OP0_OPERAND_TYPE_SHIFT    = 12;
-static constexpr Uint32 OP0_OPERAND_TYPE_MASK     = 0xFF;
-static constexpr Uint32 OP0_INDEX_DIM_SHIFT       = 20;
-static constexpr Uint32 OP0_INDEX_DIM_MASK        = 0x3;
-static constexpr Uint32 OP0_INDEX_REPR_BASE_SHIFT = 22;
-static constexpr Uint32 OP0_INDEX_REPR_BITS       = 3;
-static constexpr Uint32 OP0_INDEX_REPR_MASK       = 0x7;
-static constexpr Uint32 OP0_EXTENDED_SHIFT        = 31;
-
-// Extended operand token
-static constexpr Uint32 EXT_TYPE_MASK             = 0x3F;
-static constexpr Uint32 EXT_TYPE_MODIFIER         = 1;
-static constexpr Uint32 EXT_MODIFIER_SHIFT        = 6;
-static constexpr Uint32 EXT_MODIFIER_MASK         = 0xF;
-static constexpr Uint32 EXT_MODIFIER_NEG          = 1;
-static constexpr Uint32 EXT_MODIFIER_ABS          = 2;
-static constexpr Uint32 EXT_MODIFIER_ABSNEG       = 3;
-
-// Index representation values (D3D10_SB_OPERAND_INDEX_REPRESENTATION)
-static constexpr Uint32 INDEX_REPR_IMM32          = 0;
-static constexpr Uint32 INDEX_REPR_IMM64          = 1;
-static constexpr Uint32 INDEX_REPR_RELATIVE       = 2;
-static constexpr Uint32 INDEX_REPR_IMM32_RELATIVE = 3;
-static constexpr Uint32 INDEX_REPR_IMM64_RELATIVE = 4;
-
-// Component selection modes (D3D10_SB_OPERAND_4_COMPONENT_SELECTION_MODE)
-static constexpr Uint32 COMP_MODE_MASK            = 0;
-static constexpr Uint32 COMP_MODE_SWIZZLE         = 1;
-static constexpr Uint32 COMP_MODE_SELECT1         = 2;
-
 Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& op) const
 {
     Uint32 t0       = tokens[offset];
     Uint32 consumed = 1;
 
-    Uint32 numComp  = (t0                               ) & OP0_NUM_COMP_MASK;
-    Uint32 compMode = (t0 >> OP0_COMP_MODE_SHIFT        ) & OP0_COMP_MODE_MASK;
-    Uint32 compSel  = (t0 >> OP0_COMP_SEL_SHIFT         ) & OP0_COMP_SEL_MASK;
-    Uint32 opType   = (t0 >> OP0_OPERAND_TYPE_SHIFT     ) & OP0_OPERAND_TYPE_MASK;
-    Uint32 indexDim = (t0 >> OP0_INDEX_DIM_SHIFT        ) & OP0_INDEX_DIM_MASK;
-    Bool   hasExt   = (t0 >> OP0_EXTENDED_SHIFT         ) & 1;
+    Uint32 numComp  = DECODE_D3D10_SB_OPERAND_NUM_COMPONENTS(t0);
+    Uint32 compMode = DECODE_D3D10_SB_OPERAND_4_COMPONENT_SELECTION_MODE(t0);
+    Uint32 compSel  = (t0 >> 4) & 0xFF;
+    Uint32 opType   = DECODE_D3D10_SB_OPERAND_TYPE(t0);
+    Uint32 indexDim = DECODE_D3D10_SB_OPERAND_INDEX_DIMENSION(t0);
+    Bool   hasExt   = DECODE_IS_D3D10_SB_OPERAND_EXTENDED(t0);
 
     if (hasExt)
     {
-        Uint32 ext     = tokens[offset + consumed];
+        Uint32 ext = tokens[offset + consumed];
         consumed++;
-        Uint32 extType = ext & EXT_TYPE_MASK;
-        if (extType == EXT_TYPE_MODIFIER)
+        if (DECODE_D3D10_SB_EXTENDED_OPERAND_TYPE(ext) == D3D10_SB_EXTENDED_OPERAND_MODIFIER)
         {
-            Uint32 mod  = (ext >> EXT_MODIFIER_SHIFT) & EXT_MODIFIER_MASK;
-            op.negate   = (mod == EXT_MODIFIER_NEG   || mod == EXT_MODIFIER_ABSNEG);
-            op.absolute = (mod == EXT_MODIFIER_ABS   || mod == EXT_MODIFIER_ABSNEG);
+            D3D10_SB_OPERAND_MODIFIER mod = DECODE_D3D10_SB_OPERAND_MODIFIER(ext);
+            op.negate   = (mod == D3D10_SB_OPERAND_MODIFIER_NEG    || mod == D3D10_SB_OPERAND_MODIFIER_ABSNEG);
+            op.absolute = (mod == D3D10_SB_OPERAND_MODIFIER_ABS    || mod == D3D10_SB_OPERAND_MODIFIER_ABSNEG);
         }
     }
 
@@ -79,21 +33,21 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
     op.writeMask  = 0xF;
     op.swizzle[0] = 0; op.swizzle[1] = 1; op.swizzle[2] = 2; op.swizzle[3] = 3;
 
-    if (numComp == OP0_NUM_COMP_4)
+    if (numComp == D3D10_SB_OPERAND_4_COMPONENT)
     {
         op.compMode = static_cast<SM4CompMode>(compMode);
-        if (compMode == COMP_MODE_MASK)
+        if (compMode == D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE)
         {
             op.writeMask = static_cast<Uint8>(compSel & 0xF);
         }
-        else if (compMode == COMP_MODE_SWIZZLE)
+        else if (compMode == D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE)
         {
             op.swizzle[0] = static_cast<Uint8>((compSel     ) & 0x3);
             op.swizzle[1] = static_cast<Uint8>((compSel >> 2) & 0x3);
             op.swizzle[2] = static_cast<Uint8>((compSel >> 4) & 0x3);
             op.swizzle[3] = static_cast<Uint8>((compSel >> 6) & 0x3);
         }
-        else if (compMode == COMP_MODE_SELECT1)
+        else if (compMode == D3D10_SB_OPERAND_4_COMPONENT_SELECT_1_MODE)
         {
             Uint8 sel     = static_cast<Uint8>(compSel & 0x3);
             op.swizzle[0] = op.swizzle[1] = op.swizzle[2] = op.swizzle[3] = sel;
@@ -102,28 +56,28 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
 
     for (Uint32 dim = 0; dim < indexDim; ++dim)
     {
-        Uint32 repr = (t0 >> (OP0_INDEX_REPR_BASE_SHIFT + OP0_INDEX_REPR_BITS * dim)) & OP0_INDEX_REPR_MASK;
+        Uint32 repr = DECODE_D3D10_SB_OPERAND_INDEX_REPRESENTATION(dim, t0);
         switch (repr)
         {
-            case INDEX_REPR_IMM32:
+            case D3D10_SB_OPERAND_INDEX_IMMEDIATE32:
             {
                 op.indices[dim] = tokens[offset + consumed];
                 consumed++;
                 break;
             }
-            case INDEX_REPR_IMM64:
+            case D3D10_SB_OPERAND_INDEX_IMMEDIATE64:
             {
                 op.indices[dim] = tokens[offset + consumed];
                 consumed += 2;
                 break;
             }
-            case INDEX_REPR_RELATIVE:
+            case D3D10_SB_OPERAND_INDEX_RELATIVE:
             {
                 SM4Operand dummy{};
                 consumed += ReadOperand(tokens, offset + consumed, dummy);
                 break;
             }
-            case INDEX_REPR_IMM32_RELATIVE:
+            case D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE:
             {
                 op.indices[dim] = tokens[offset + consumed];
                 consumed++;
@@ -131,7 +85,7 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
                 consumed += ReadOperand(tokens, offset + consumed, dummy);
                 break;
             }
-            case INDEX_REPR_IMM64_RELATIVE:
+            case D3D10_SB_OPERAND_INDEX_IMMEDIATE64_PLUS_RELATIVE:
             {
                 op.indices[dim] = tokens[offset + consumed];
                 consumed += 2;
@@ -142,9 +96,9 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
         }
     }
 
-    if (op.type == SM4OperandType::Immediate32)
+    if (op.type == D3D10_SB_OPERAND_TYPE_IMMEDIATE32)
     {
-        Uint32 count = (numComp == OP0_NUM_COMP_1) ? 1 : 4;
+        Uint32 count = (numComp == D3D10_SB_OPERAND_1_COMPONENT) ? 1 : 4;
         for (Uint32 i = 0; i < count; ++i)
         {
             std::memcpy(&op.imm[i], &tokens[offset + consumed], 4);
@@ -179,9 +133,9 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
     while (pos < totalLen)
     {
         Uint32    opTok    = tokens[pos];
-        SM4OpCode op       = static_cast<SM4OpCode>(opTok & OT0_OPCODE_MASK);
-        Bool      sat      = (opTok >> OT0_SATURATE_SHIFT) & 1;
-        Uint32    instrLen = (opTok >> OT0_INSTR_LENGTH_SHIFT) & OT0_INSTR_LENGTH_MASK;
+        SM4OpCode op       = DECODE_D3D10_SB_OPCODE_TYPE(opTok);
+        Bool      sat      = DECODE_IS_D3D10_SB_INSTRUCTION_SATURATE_ENABLED(opTok) != 0;
+        Uint32    instrLen = DECODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(opTok);
 
         if (instrLen == 0)
         {
@@ -194,7 +148,7 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
         instr.op       = op;
         instr.saturate = sat;
 
-        if (op == SM4OpCode::DclTemps)
+        if (op == D3D10_SB_OPCODE_DCL_TEMPS)
         {
             if (pos + 1 < instrEnd)
             {
@@ -205,7 +159,7 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
             continue;
         }
 
-        if (op == SM4OpCode::DclThreadGroup)
+        if (op == D3D11_SB_OPCODE_DCL_THREAD_GROUP)
         {
             if (pos + 3 < instrEnd)
             {
@@ -218,21 +172,21 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
             continue;
         }
 
-        if (op == SM4OpCode::DclResource                ||
-            op == SM4OpCode::DclConstantBuffer          ||
-            op == SM4OpCode::DclSampler                 ||
-            op == SM4OpCode::DclIndexRange              ||
-            op == SM4OpCode::DclGlobalFlags             ||
-            op == SM4OpCode::DclIndexableTemp           ||
-            op == SM4OpCode::DclInputSgv                ||
-            op == SM4OpCode::DclInputSiv                ||
-            op == SM4OpCode::DclInputPsSgv              ||
-            op == SM4OpCode::DclInputPsSiv              ||
-            op == SM4OpCode::DclOutputSgv               ||
-            op == SM4OpCode::DclOutputSiv               ||
-            op == SM4OpCode::DclGsOutputPrimitiveTopo   ||
-            op == SM4OpCode::DclGsInputPrimitive        ||
-            op == SM4OpCode::DclMaxOutputVertexCount)
+        if (op == D3D10_SB_OPCODE_DCL_RESOURCE                          ||
+            op == D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER                   ||
+            op == D3D10_SB_OPCODE_DCL_SAMPLER                           ||
+            op == D3D10_SB_OPCODE_DCL_INDEX_RANGE                       ||
+            op == D3D10_SB_OPCODE_DCL_GLOBAL_FLAGS                      ||
+            op == D3D10_SB_OPCODE_DCL_INDEXABLE_TEMP                    ||
+            op == D3D10_SB_OPCODE_DCL_INPUT_SGV                         ||
+            op == D3D10_SB_OPCODE_DCL_INPUT_SIV                         ||
+            op == D3D10_SB_OPCODE_DCL_INPUT_PS_SGV                      ||
+            op == D3D10_SB_OPCODE_DCL_INPUT_PS_SIV                      ||
+            op == D3D10_SB_OPCODE_DCL_OUTPUT_SGV                        ||
+            op == D3D10_SB_OPCODE_DCL_OUTPUT_SIV                        ||
+            op == D3D10_SB_OPCODE_DCL_GS_OUTPUT_PRIMITIVE_TOPOLOGY      ||
+            op == D3D10_SB_OPCODE_DCL_GS_INPUT_PRIMITIVE                ||
+            op == D3D10_SB_OPCODE_DCL_MAX_OUTPUT_VERTEX_COUNT)
         {
             pos = instrEnd;
             out.push_back(std::move(instr));
@@ -240,7 +194,7 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
         }
 
         Uint32 cur = pos + 1;
-        if ((opTok >> OT0_EXTENDED_SHIFT) & 1)
+        if (DECODE_IS_D3D10_SB_OPCODE_EXTENDED(opTok))
         {
             cur++;
         }
@@ -260,4 +214,4 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
     return true;
 }
 
-} 
+} // namespace d3d11sw

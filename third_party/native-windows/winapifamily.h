@@ -1,0 +1,3 @@
+#pragma once
+#define WINAPI_PARTITION_DESKTOP 1
+#define WINAPI_FAMILY_PARTITION(x) (x)
