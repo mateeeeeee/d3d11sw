@@ -145,8 +145,9 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
         Uint32 instrEnd = pos + instrLen;
 
         SM4Instruction instr{};
-        instr.op       = op;
-        instr.saturate = sat;
+        instr.op          = op;
+        instr.saturate    = sat;
+        instr.testNonZero = DECODE_D3D10_SB_INSTRUCTION_TEST_BOOLEAN(opTok) == D3D10_SB_INSTRUCTION_TEST_NONZERO;
 
         if (op == D3D10_SB_OPCODE_DCL_TEMPS)
         {

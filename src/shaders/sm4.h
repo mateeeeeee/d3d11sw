@@ -24,8 +24,9 @@ struct SM4Operand
 
 struct SM4Instruction
 {
-    SM4OpCode               op       = D3D10_SB_OPCODE_NOP;
-    Bool                    saturate = false;
+    SM4OpCode               op            = D3D10_SB_OPCODE_NOP;
+    Bool                    saturate      = false;
+    Bool                    testNonZero   = true;  
     Uint32                  threadGroupSize[3] = {1, 1, 1};
     std::vector<SM4Operand> operands;
 };
