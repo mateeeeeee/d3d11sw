@@ -62,6 +62,8 @@ set(D3D11SW_SOURCES
     shaders/shader_runtime.h
     shaders/shader_codegen.h
     shaders/shader_codegen.cpp
+    shaders/shader_jit.h
+    shaders/shader_jit.cpp
 
     states/rasterizer_state.cpp
     states/rasterizer_state.h
@@ -98,6 +100,8 @@ set(D3D11SW_SOURCES
     util/enum.h
     util/format.h
     util/hash.h
+    util/dynamic_library.h
+    util/dynamic_library.cpp
 )
 
 if(WIN32)
@@ -132,4 +136,9 @@ endif()
 target_compile_options(d3d11 PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/FIcommon/types.h /FIcommon/macros.h>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/common/types.h -include ${CMAKE_CURRENT_SOURCE_DIR}/common/macros.h>
+)
+
+target_compile_definitions(d3d11 PRIVATE
+    D3D11SW_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
 )
