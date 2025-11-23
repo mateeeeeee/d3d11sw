@@ -398,9 +398,9 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
             break;
 
         case D3D10_SB_OPCODE_IF:
-            if (src0)
+            if (dst)
             {
-                s << "    if ((" << EmitSrc(*src0) << ".x) ";
+                s << "    if ((" << EmitSrc(*dst) << ".x) ";
                 s << (instr.testNonZero ? "!= 0.f" : "== 0.f");
                 s << ")\n    {\n";
             }
@@ -424,6 +424,15 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
 
         case D3D10_SB_OPCODE_BREAK:
             s << "    break;\n";
+            break;
+
+        case D3D10_SB_OPCODE_BREAKC:
+            if (dst)
+            {
+                s << "    if ((" << EmitSrc(*dst) << ".x) ";
+                s << (instr.testNonZero ? "!= 0.f" : "== 0.f");
+                s << ") { break; }\n";
+            }
             break;
 
         case D3D10_SB_OPCODE_SAMPLE:
