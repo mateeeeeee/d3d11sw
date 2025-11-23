@@ -58,6 +58,8 @@ set(D3D11SW_SOURCES
     shaders/sm4.h
     shaders/sm4_decoder.h
     shaders/sm4_decoder.cpp
+    shaders/shader_abi.h
+    shaders/shader_runtime.h
 
     states/rasterizer_state.cpp
     states/rasterizer_state.h
