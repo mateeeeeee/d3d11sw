@@ -81,6 +81,6 @@ struct SW_CSInput
 
 using SW_VSFn = void(*)(const SW_VSInput*, SW_VSOutput*, const SW_Resources*);
 using SW_PSFn = void(*)(const SW_PSInput*, SW_PSOutput*, const SW_Resources*);
-using SW_CSFn = void(*)(const SW_CSInput*, const SW_Resources*);
+using SW_CSFn = void(*)(const SW_CSInput*, SW_Resources*);
 
 }

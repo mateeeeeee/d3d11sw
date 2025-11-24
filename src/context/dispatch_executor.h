@@ -10,7 +10,7 @@ public:
 
     virtual void DispatchCS(UINT groupCountX, UINT groupCountY, UINT groupCountZ,
                             UINT threadGroupX, UINT threadGroupY, UINT threadGroupZ,
-                            SW_CSFn fn, const SW_Resources& res) = 0;
+                            SW_CSFn fn, SW_Resources& res) = 0;
 };
 
 class SingleThreadedDispatchExecutor final : public ISWDispatchExecutor
@@ -18,7 +18,7 @@ class SingleThreadedDispatchExecutor final : public ISWDispatchExecutor
 public:
     void DispatchCS(UINT groupCountX, UINT groupCountY, UINT groupCountZ,
                     UINT threadGroupX, UINT threadGroupY, UINT threadGroupZ,
-                    SW_CSFn fn, const SW_Resources& res) override;
+                    SW_CSFn fn, SW_Resources& res) override;
 };
 
 }

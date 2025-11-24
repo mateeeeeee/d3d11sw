@@ -30,10 +30,33 @@ inline float sw_round_z(float v)      { return std::trunc(v); }
 inline float sw_min(float a, float b) { return std::fmin(a, b); }
 inline float sw_max(float a, float b) { return std::fmax(a, b); }
 inline float sw_abs(float v)          { return std::fabs(v); }
-inline int   sw_ftoi(float v)         { return (int)v; }
-inline float sw_itof(int v)           { return (float)v; }
-inline float sw_utof(unsigned v)      { return (float)v; }
-inline int   sw_ftou(float v)         { return (int)(unsigned)v; }
+
+// Bitcasts
+inline unsigned sw_bits_uint(float f)  { unsigned u; std::memcpy(&u, &f, 4); return u; }
+inline int      sw_bits_int(float f)   { int i;      std::memcpy(&i, &f, 4); return i; }
+inline float    sw_uint_bits(unsigned u) { float f;  std::memcpy(&f, &u, 4); return f; }
+inline float    sw_int_bits(int i)     { float f;    std::memcpy(&f, &i, 4); return f; }
+
+// Type conversions
+inline float sw_utof(float v)  { return (float)sw_bits_uint(v); }    
+inline float sw_itof(float v)  { return (float)sw_bits_int(v);  }    
+inline float sw_ftou(float v)  { return sw_uint_bits((unsigned)v); } 
+inline float sw_ftoi(float v)  { return sw_int_bits((int)v);     }   
+
+// Integer arithmetic
+inline float sw_iadd(float a, float b)  { return sw_int_bits(sw_bits_int(a)  +  sw_bits_int(b)); }
+inline float sw_ishl(float a, float b)  { return sw_int_bits(sw_bits_int(a)  << (sw_bits_int(b) & 31)); }
+inline float sw_ishr(float a, float b)  { return sw_int_bits(sw_bits_int(a)  >> (sw_bits_int(b) & 31)); }
+inline float sw_ushr(float a, float b)  { return sw_uint_bits(sw_bits_uint(a) >> (sw_bits_uint(b) & 31)); }
+inline float sw_ineg(float a)           { return sw_int_bits(-sw_bits_int(a)); }
+inline float sw_imax(float a, float b)  { int ia = sw_bits_int(a), ib = sw_bits_int(b); return sw_int_bits(ia > ib ? ia : ib); }
+inline float sw_imin(float a, float b)  { int ia = sw_bits_int(a), ib = sw_bits_int(b); return sw_int_bits(ia < ib ? ia : ib); }
+inline float sw_umax(float a, float b)  { unsigned ua = sw_bits_uint(a), ub = sw_bits_uint(b); return sw_uint_bits(ua > ub ? ua : ub); }
+inline float sw_umin(float a, float b)  { unsigned ua = sw_bits_uint(a), ub = sw_bits_uint(b); return sw_uint_bits(ua < ub ? ua : ub); }
+inline float sw_and(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) & sw_bits_uint(b)); }
+inline float sw_or(float a, float b)    { return sw_uint_bits(sw_bits_uint(a) | sw_bits_uint(b)); }
+inline float sw_xor(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) ^ sw_bits_uint(b)); }
+inline float sw_not(float a)            { return sw_uint_bits(~sw_bits_uint(a)); }
 
 // float4 intrinsics
 inline SW_float4 sw_abs4(SW_float4 v)

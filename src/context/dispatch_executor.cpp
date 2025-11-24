@@ -5,7 +5,7 @@ namespace d3d11sw {
 void SingleThreadedDispatchExecutor::DispatchCS(
     UINT groupCountX, UINT groupCountY, UINT groupCountZ,
     UINT threadGroupX, UINT threadGroupY, UINT threadGroupZ,
-    SW_CSFn fn, const SW_Resources& res)
+    SW_CSFn fn, SW_Resources& res)
 {
     for (UINT gz = 0; gz < groupCountZ; ++gz)
     {
