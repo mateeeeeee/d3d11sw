@@ -9,6 +9,7 @@ static constexpr unsigned SW_MAX_PS_OUTPUTS = D3D11_PS_OUTPUT_REGISTER_COUNT;
 static constexpr unsigned SW_MAX_CBUFS      = D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT;
 static constexpr unsigned SW_MAX_TEXTURES   = D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT;
 static constexpr unsigned SW_MAX_SAMPLERS   = D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT;
+static constexpr unsigned SW_MAX_UAVS       = D3D11_1_UAV_SLOT_COUNT;
 
 struct SW_float4
 {
@@ -43,11 +44,26 @@ struct SW_Sampler
     float                      maxLOD;
 };
 
+struct SW_UAV
+{
+    void*               data;
+    unsigned            elementCount;
+    unsigned            stride;        
+    unsigned            width;
+    unsigned            height;
+    unsigned            depth;
+    unsigned            rowPitch;
+    unsigned            slicePitch;
+    DXGI_FORMAT         format;
+    D3D11_UAV_DIMENSION dimension;
+};
+
 struct SW_Resources
 {
     const SW_float4* cb[SW_MAX_CBUFS];
     SW_Texture       tex[SW_MAX_TEXTURES];
     SW_Sampler       smp[SW_MAX_SAMPLERS];
+    SW_UAV           uav[SW_MAX_UAVS];
 };
 
 struct SW_VSInput  { SW_float4 v[SW_MAX_VS_INPUTS]; };

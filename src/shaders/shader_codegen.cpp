@@ -36,6 +36,9 @@ std::string ShaderCodeGen::EmitDstBase(const SM4Operand& op) const
         case D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH:
             s << "out_ptr->oDepth";
             break;
+        case D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW:
+            s << "res->uav[" << op.indices[0] << "]";
+            break;
         default:
             s << "r[0]";
             break;
@@ -473,6 +476,76 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
             }
             break;
 
+        case D3D11_SB_OPCODE_LD_UAV_TYPED:
+            if (dst && src0 && src1)
+            {
+                Uint32 uavSlot = src1->indices[0];
+                std::string addr = EmitSrc(*src0);
+                s << EmitWrite(dstBase, mask,
+                    "sw_uav_load_typed(res->uav[" + std::to_string(uavSlot) + "],"
+                    "(unsigned)((" + addr + ").x))", sat);
+            }
+            break;
+
+        case D3D11_SB_OPCODE_STORE_UAV_TYPED:
+            if (dst && src0 && src1)
+            {
+                Uint32 uavSlot = dst->indices[0];
+                std::string addr = EmitSrc(*src0);
+                std::string val  = EmitSrc(*src1);
+                s << "    sw_uav_store_typed(res->uav[" << uavSlot << "],"
+                  << "(unsigned)((" << addr << ").x)," << val << ");\n";
+            }
+            break;
+
+        case D3D11_SB_OPCODE_LD_RAW:
+            if (dst && src0 && src1)
+            {
+                Uint32 uavSlot = src1->indices[0];
+                std::string addr = EmitSrc(*src0);
+                s << EmitWrite(dstBase, mask,
+                    "sw_uav_load_raw(res->uav[" + std::to_string(uavSlot) + "],"
+                    "(unsigned)((" + addr + ").x))", sat);
+            }
+            break;
+
+        case D3D11_SB_OPCODE_STORE_RAW:
+            if (dst && src0 && src1)
+            {
+                Uint32 uavSlot = dst->indices[0];
+                std::string addr = EmitSrc(*src0);
+                std::string val  = EmitSrc(*src1);
+                s << "    sw_uav_store_raw(res->uav[" << uavSlot << "],"
+                  << "(unsigned)((" << addr << ").x)," << val << ");\n";
+            }
+            break;
+
+        case D3D11_SB_OPCODE_LD_STRUCTURED:
+            if (dst && src0 && src1 && src2)
+            {
+                Uint32 uavSlot     = src2->indices[0];
+                std::string idx    = EmitSrc(*src0);
+                std::string offset = EmitSrc(*src1);
+                s << EmitWrite(dstBase, mask,
+                    "sw_uav_load_structured(res->uav[" + std::to_string(uavSlot) + "],"
+                    "(unsigned)((" + idx + ").x),"
+                    "(unsigned)((" + offset + ").x))", sat);
+            }
+            break;
+
+        case D3D11_SB_OPCODE_STORE_STRUCTURED:
+            if (dst && src0 && src1 && src2)
+            {
+                Uint32 uavSlot     = dst->indices[0];
+                std::string idx    = EmitSrc(*src0);
+                std::string offset = EmitSrc(*src1);
+                std::string val    = EmitSrc(*src2);
+                s << "    sw_uav_store_structured(res->uav[" << uavSlot << "],"
+                  << "(unsigned)((" << idx << ").x),"
+                  << "(unsigned)((" << offset << ").x)," << val << ");\n";
+            }
+            break;
+
         case D3D10_SB_OPCODE_RET:
         case D3D10_SB_OPCODE_NOP:
         case D3D10_SB_OPCODE_DCL_TEMPS:
@@ -489,6 +562,9 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
         case D3D10_SB_OPCODE_DCL_RESOURCE:
         case D3D10_SB_OPCODE_DCL_SAMPLER:
         case D3D11_SB_OPCODE_DCL_THREAD_GROUP:
+        case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED:
+        case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW:
+        case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
             break;
 
         default:

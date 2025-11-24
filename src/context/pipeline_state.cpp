@@ -13,6 +13,7 @@
 #include "views/render_target_view.h"
 #include "views/depth_stencil_view.h"
 #include "views/shader_resource_view.h"
+#include "views/unordered_access_view.h"
 #include "resources/buffer.h"
 
 namespace d3d11sw {
@@ -34,6 +35,8 @@ void D3D11SW_PIPELINE_STATE::ReleaseAll()
 
     relA(vsSRVs); relA(psSRVs); relA(gsSRVs);
     relA(hsSRVs); relA(dsSRVs); relA(csSRVs);
+
+    relA(csUAVs);
 
     relA(vsSamplers); relA(psSamplers); relA(gsSamplers);
     relA(hsSamplers); relA(dsSamplers); relA(csSamplers);

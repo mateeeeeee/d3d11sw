@@ -13,6 +13,7 @@ class D3D11HullShaderSW;
 class D3D11DomainShaderSW;
 class D3D11ComputeShaderSW;
 class D3D11ShaderResourceViewSW;
+class D3D11UnorderedAccessViewSW;
 class D3D11SamplerStateSW;
 class D3D11RasterizerStateSW;
 class D3D11RenderTargetViewSW;
@@ -56,6 +57,9 @@ struct D3D11SW_PIPELINE_STATE
     D3D11ShaderResourceViewSW* hsSRVs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
     D3D11ShaderResourceViewSW* dsSRVs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
     D3D11ShaderResourceViewSW* csSRVs[D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT];
+
+    //UAVs
+    D3D11UnorderedAccessViewSW* csUAVs[D3D11_1_UAV_SLOT_COUNT];
 
     //Samplers
     D3D11SamplerStateSW* vsSamplers[D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT];

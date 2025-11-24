@@ -137,3 +137,119 @@ static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
 
     return lerp4(lerp4(s00, s10, tx), lerp4(s01, s11, tx), ty);
 }
+
+static inline SW_float4 sw_uav_load_typed(const SW_UAV& u, unsigned idx)
+{
+    if (!u.data || idx >= u.elementCount) { return {0,0,0,0}; }
+    switch (u.format)
+    {
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        {
+            float v[4];
+            std::memcpy(v, static_cast<const unsigned char*>(u.data) + idx * 16u, 16);
+            return { v[0], v[1], v[2], v[3] };
+        }
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+        case DXGI_FORMAT_R32G32B32A32_SINT:
+        {
+            unsigned v[4];
+            std::memcpy(v, static_cast<const unsigned char*>(u.data) + idx * 16u, 16);
+            return { (float)v[0], (float)v[1], (float)v[2], (float)v[3] };
+        }
+        case DXGI_FORMAT_R32_FLOAT:
+        {
+            float v;
+            std::memcpy(&v, static_cast<const unsigned char*>(u.data) + idx * 4u, 4);
+            return { v, 0, 0, 0 };
+        }
+        case DXGI_FORMAT_R32_UINT:
+        case DXGI_FORMAT_R32_SINT:
+        {
+            unsigned v;
+            std::memcpy(&v, static_cast<const unsigned char*>(u.data) + idx * 4u, 4);
+            return { (float)v, 0, 0, 0 };
+        }
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        {
+            const unsigned char* p = static_cast<const unsigned char*>(u.data) + idx * 4u;
+            return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
+        }
+        default: return {0,0,0,0};
+    }
+}
+
+static inline void sw_uav_store_typed(SW_UAV& u, unsigned idx, SW_float4 val)
+{
+    if (!u.data || idx >= u.elementCount) { return; }
+    switch (u.format)
+    {
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        {
+            float v[4] = { val.x, val.y, val.z, val.w };
+            std::memcpy(static_cast<unsigned char*>(u.data) + idx * 16u, v, 16);
+            break;
+        }
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+        case DXGI_FORMAT_R32G32B32A32_SINT:
+        {
+            unsigned v[4] = { (unsigned)val.x, (unsigned)val.y, (unsigned)val.z, (unsigned)val.w };
+            std::memcpy(static_cast<unsigned char*>(u.data) + idx * 16u, v, 16);
+            break;
+        }
+        case DXGI_FORMAT_R32_FLOAT:
+        {
+            std::memcpy(static_cast<unsigned char*>(u.data) + idx * 4u, &val.x, 4);
+            break;
+        }
+        case DXGI_FORMAT_R32_UINT:
+        case DXGI_FORMAT_R32_SINT:
+        {
+            unsigned v = (unsigned)val.x;
+            std::memcpy(static_cast<unsigned char*>(u.data) + idx * 4u, &v, 4);
+            break;
+        }
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        {
+            unsigned char* p = static_cast<unsigned char*>(u.data) + idx * 4u;
+            p[0] = (unsigned char)sw_saturate(val.x) * 255;
+            p[1] = (unsigned char)sw_saturate(val.y) * 255;
+            p[2] = (unsigned char)sw_saturate(val.z) * 255;
+            p[3] = (unsigned char)sw_saturate(val.w) * 255;
+            break;
+        }
+        default: break;
+    }
+}
+
+// UAV raw load/store (byte address buffer, R32_TYPELESS)
+static inline SW_float4 sw_uav_load_raw(const SW_UAV& u, unsigned byteOffset)
+{
+    if (!u.data) { return {0,0,0,0}; }
+    unsigned v;
+    std::memcpy(&v, static_cast<const unsigned char*>(u.data) + byteOffset, 4);
+    return { (float)v, 0, 0, 0 };
+}
+
+static inline void sw_uav_store_raw(SW_UAV& u, unsigned byteOffset, SW_float4 val)
+{
+    if (!u.data) { return; }
+    unsigned v = (unsigned)val.x;
+    std::memcpy(static_cast<unsigned char*>(u.data) + byteOffset, &v, 4);
+}
+
+static inline SW_float4 sw_uav_load_structured(const SW_UAV& u, unsigned idx, unsigned byteOffset)
+{
+    if (!u.data || !u.stride) { return {0,0,0,0}; }
+    unsigned base = idx * u.stride + byteOffset;
+    unsigned v;
+    std::memcpy(&v, static_cast<const unsigned char*>(u.data) + base, 4);
+    return { (float)v, 0, 0, 0 };
+}
+
+static inline void sw_uav_store_structured(SW_UAV& u, unsigned idx, unsigned byteOffset, SW_float4 val)
+{
+    if (!u.data || !u.stride) { return; }
+    unsigned base = idx * u.stride + byteOffset;
+    unsigned v = (unsigned)val.x;
+    std::memcpy(static_cast<unsigned char*>(u.data) + base, &v, 4);
+}
