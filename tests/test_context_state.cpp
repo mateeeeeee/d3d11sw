@@ -96,8 +96,6 @@ struct ContextStateTests : ::testing::Test
     }
 };
 
-// ---- IA --------------------------------------------------------------------
-
 TEST_F(ContextStateTests, IA_InputLayout_RoundTrip)
 {
     D3D11_INPUT_ELEMENT_DESC elem = { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 };
@@ -196,8 +194,6 @@ TEST_F(ContextStateTests, IA_PrimitiveTopology_RoundTrip)
     EXPECT_EQ(out, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 }
 
-// ---- Constant buffers ------------------------------------------------------
-
 TEST_F(ContextStateTests, VS_ConstantBuffers_RoundTrip)
 {
     ID3D11Buffer* cb0 = MakeBuffer(256, D3D11_BIND_CONSTANT_BUFFER);
@@ -235,8 +231,6 @@ TEST_F(ContextStateTests, PS_ConstantBuffers_RoundTrip)
     cb->Release();
 }
 
-// ---- Samplers --------------------------------------------------------------
-
 TEST_F(ContextStateTests, VS_Samplers_RoundTrip)
 {
     ID3D11SamplerState* ss = MakeSamplerState();
@@ -266,8 +260,6 @@ TEST_F(ContextStateTests, PS_Samplers_RoundTrip)
 
     ss->Release();
 }
-
-// ---- RS --------------------------------------------------------------------
 
 TEST_F(ContextStateTests, RS_State_RoundTrip)
 {
@@ -315,8 +307,6 @@ TEST_F(ContextStateTests, RS_ScissorRects_RoundTrip)
     EXPECT_EQ(out.right,  300);
     EXPECT_EQ(out.bottom, 400);
 }
-
-// ---- OM --------------------------------------------------------------------
 
 TEST_F(ContextStateTests, OM_BlendState_RoundTrip)
 {
@@ -376,8 +366,6 @@ TEST_F(ContextStateTests, OM_DepthStencilState_RoundTrip)
 
     dss->Release();
 }
-
-// ---- ClearState ------------------------------------------------------------
 
 TEST_F(ContextStateTests, ClearState_NullsBindings)
 {
@@ -443,9 +431,8 @@ TEST_F(ContextStateTests, ClearState_ReleasesRefs)
     ID3D11RasterizerState* rs = MakeRasterizerState();
     ASSERT_NE(rs, nullptr);
 
-    context->RSSetState(rs);  // context holds ref
-    context->ClearState();    // context releases ref
+    context->RSSetState(rs);  
+    context->ClearState();    
 
-    // rs refcount is back to 1 — we can release cleanly
     rs->Release();
 }

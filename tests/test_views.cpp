@@ -207,8 +207,6 @@ TEST_F(ViewTests, DSV_GetDescRoundtrip)
     tex->Release();
 }
 
-// ---- ShaderResourceView ----------------------------------------------------
-
 TEST_F(ViewTests, SRV_Creation)
 {
     ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_R8G8B8A8_UNORM, D3D11_BIND_SHADER_RESOURCE);
@@ -263,7 +261,6 @@ TEST_F(ViewTests, SRV_GetDescRoundtrip)
     tex->Release();
 }
 
-// ---- UnorderedAccessView ---------------------------------------------------
 
 TEST_F(ViewTests, UAV_Creation)
 {
@@ -316,8 +313,6 @@ TEST_F(ViewTests, UAV_GetDescRoundtrip)
     uav->Release();
     tex->Release();
 }
-
-// ---- ClearRenderTargetView -------------------------------------------------
 
 TEST_F(ViewTests, ClearRTV_R8G8B8A8_WritesCorrectPixels)
 {
@@ -416,8 +411,6 @@ TEST_F(ViewTests, ClearRTV_FillsAllPixels)
     tex->Release();
 }
 
-// ---- ClearDepthStencilView -------------------------------------------------
-
 TEST_F(ViewTests, ClearDSV_D32Float_WritesDepth)
 {
     ID3D11Texture2D* tex = MakeTex2D(DXGI_FORMAT_D32_FLOAT, D3D11_BIND_DEPTH_STENCIL);
@@ -471,10 +464,7 @@ TEST_F(ViewTests, ClearDSV_D24S8_DepthOnlyPreservesStencil)
     ID3D11DepthStencilView* dsv = nullptr;
     ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilView(tex, nullptr, &dsv)));
 
-    // Set initial state: both depth and stencil
     context->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 0.5f, 0x42);
-
-    // Now clear only depth
     context->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0x00);
 
     auto* sw     = static_cast<D3D11Texture2DSW*>(tex);
@@ -506,13 +496,11 @@ TEST_F(ViewTests, ClearDSV_D16_WritesDepth)
 
     UINT16 d16;
     std::memcpy(&d16, data, 2);
-    EXPECT_EQ(d16, 0xFFFFu);  // 1.0 → all bits set
+    EXPECT_EQ(d16, 0xFFFFu);  
 
     dsv->Release();
     tex->Release();
 }
-
-// ---- ClearUnorderedAccessViewUint ------------------------------------------
 
 TEST_F(ViewTests, ClearUAVUint_R32_WritesValue)
 {
@@ -560,8 +548,6 @@ TEST_F(ViewTests, ClearUAVUint_R8G8B8A8_WritesChannels)
     uav->Release();
     tex->Release();
 }
-
-// ---- ClearUnorderedAccessViewFloat -----------------------------------------
 
 TEST_F(ViewTests, ClearUAVFloat_R32_WritesFloat)
 {

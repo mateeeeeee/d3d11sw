@@ -34,8 +34,6 @@ struct StateTests : ::testing::Test
     }
 };
 
-// ---- SamplerState ----------------------------------------------------------
-
 TEST_F(StateTests, SamplerState_Creation)
 {
     D3D11_SAMPLER_DESC desc = {};
@@ -103,8 +101,6 @@ TEST_F(StateTests, SamplerState_NullOutputReturnsSFalse)
     EXPECT_EQ(device->CreateSamplerState(&desc, nullptr), S_FALSE);
 }
 
-// ---- DepthStencilState -----------------------------------------------------
-
 TEST_F(StateTests, DepthStencilState_Creation)
 {
     D3D11_DEPTH_STENCIL_DESC desc = {};
@@ -162,8 +158,6 @@ TEST_F(StateTests, DepthStencilState_NullOutputReturnsSFalse)
 
     EXPECT_EQ(device->CreateDepthStencilState(&desc, nullptr), S_FALSE);
 }
-
-// ---- BlendState ------------------------------------------------------------
 
 TEST_F(StateTests, BlendState_Creation)
 {
@@ -243,8 +237,6 @@ TEST_F(StateTests, BlendState_NullOutputReturnsSFalse)
 
     EXPECT_EQ(device->CreateBlendState(&desc, nullptr), S_FALSE);
 }
-
-// ---- RasterizerState -------------------------------------------------------
 
 TEST_F(StateTests, RasterizerState_Creation)
 {
@@ -355,8 +347,6 @@ TEST_F(StateTests, RasterizerState_NullOutputReturnsSFalse)
 
     EXPECT_EQ(device->CreateRasterizerState(&desc, nullptr), S_FALSE);
 }
-
-// ---- InputLayout -----------------------------------------------------------
 
 TEST_F(StateTests, InputLayout_Creation)
 {

@@ -7,10 +7,6 @@
 
 using namespace d3d11sw;
 
-// ---------------------------------------------------------------------------
-// Helpers to build minimal DXBC blobs in-memory
-// ---------------------------------------------------------------------------
-
 static std::vector<Uint8> BuildDXBCBlob(Uint32 chunkFourCC, const std::vector<Uint8>& chunkPayload)
 {
     // Layout:
@@ -26,24 +22,20 @@ static std::vector<Uint8> BuildDXBCBlob(Uint32 chunkFourCC, const std::vector<Ui
     std::vector<Uint8> blob(totalSize, 0);
     Uint8* p = blob.data();
 
-    // Container header
     Uint32 magic = MakeFourCC('D','X','B','C');
     std::memcpy(p,      &magic,      4); p += 4;
-    p += 16;                              // checksum (zeroed)
+    p += 16;                              // checksum
     Uint32 version = 1;
     std::memcpy(p,      &version,    4); p += 4;
     std::memcpy(p,      &totalSize,  4); p += 4;
     Uint32 chunkCount = 1;
     std::memcpy(p,      &chunkCount, 4); p += 4;
 
-    // Chunk offset table
     std::memcpy(p, &chunkOffset, 4); p += 4;
 
-    // Chunk header
     std::memcpy(p, &chunkFourCC, 4); p += 4;
     std::memcpy(p, &chunkSize,   4); p += 4;
 
-    // Chunk payload
     std::memcpy(p, chunkPayload.data(), chunkSize);
 
     return blob;
@@ -56,9 +48,9 @@ static std::vector<Uint8> DwordsToBytes(const std::vector<Uint32>& dwords)
     return bytes;
 }
 
-// Minimal VS SM4 token stream: dcl_temps 1 / mov r0.xyzw, v0.xyzw / ret
 static std::vector<Uint32> MakeMinimalVSTokens()
 {
+    // Minimal VS SM4 token stream: dcl_temps 1 / mov r0.xyzw, v0.xyzw / ret
     return {
         0xFFFE0400,  // version: VS SM4.0
         0x0000000A,  // total = 10 DWORDs
@@ -76,16 +68,15 @@ static std::vector<Uint32> MakeMinimalVSTokens()
     };
 }
 
-// ISGN payload with one element: "POSITION" at register 0, mask 0xF
 static std::vector<Uint8> MakeISGNPayload()
 {
+    // ISGN payload with one element: "POSITION" at register 0, mask 0xF
     // 8-byte header + 24-byte element + name string
     const Uint32 elementCount = 1;
     const Uint32 unknown      = 8;
     const Uint32 nameOffset   = 8 + 24; // = 32
 
-    std::vector<Uint8> data(32 + 9, 0); // 9 = strlen("POSITION") + 1
-
+    std::vector<Uint8> data(32 + 9, 0); 
     Uint8* p = data.data();
     std::memcpy(p,      &elementCount, 4); p += 4;
     std::memcpy(p,      &unknown,      4); p += 4;
@@ -93,7 +84,7 @@ static std::vector<Uint8> MakeISGNPayload()
     // DXBCSigElement
     Uint32 semanticIndex  = 0;
     Uint32 svType         = 0;
-    Uint32 componentType  = 3; // float32
+    Uint32 componentType  = 3; 
     Uint32 registerIndex  = 0;
     Uint8  mask           = 0xF;
     Uint8  rwMask         = 0xF;
@@ -105,15 +96,12 @@ static std::vector<Uint8> MakeISGNPayload()
     std::memcpy(p,      &registerIndex, 4); p += 4;
     *p++ = mask;
     *p++ = rwMask;
-    p += 2; // pad
+    p += 2; 
 
     std::memcpy(p, "POSITION", 9);
     return data;
 }
 
-// ---------------------------------------------------------------------------
-// DXBCParser tests
-// ---------------------------------------------------------------------------
 
 struct DXBCParserTests : ::testing::Test {};
 
@@ -126,7 +114,7 @@ TEST_F(DXBCParserTests, NullInputFails)
 
 TEST_F(DXBCParserTests, TooSmallFails)
 {
-    Uint8 tiny[4] = {0x44, 0x58, 0x42, 0x43}; // just "DXBC", no more
+    Uint8 tiny[4] = {0x44, 0x58, 0x42, 0x43}; // just "DXBC"
     DXBCParser parser;
     D3D11SW_ParsedShader out;
     EXPECT_FALSE(parser.ParseReflection(tiny, sizeof(tiny), out));
@@ -182,7 +170,6 @@ TEST_F(DXBCParserTests, ParseShdrMovOpcode)
     D3D11SW_ParsedShader out;
     ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
 
-    // instrs[1] = mov
     EXPECT_EQ(out.instrs[1].op, D3D10_SB_OPCODE_MOV);
 }
 
@@ -227,9 +214,6 @@ TEST_F(DXBCParserTests, ParseISGNOneElement)
     EXPECT_EQ(out.inputs[0].svType,        0u);
 }
 
-// ---------------------------------------------------------------------------
-// SM4Decoder direct tests
-// ---------------------------------------------------------------------------
 
 struct SM4DecoderTests : ::testing::Test {};
 

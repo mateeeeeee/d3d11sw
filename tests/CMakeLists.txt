@@ -35,3 +35,8 @@ add_gtest(test_context_state   test_context_state.cpp)
 add_gtest(test_views           test_views.cpp)
 add_gtest(test_dxbc_parser     test_dxbc_parser.cpp)
 add_gtest(test_shader_codegen  test_shader_codegen.cpp)
+add_gtest(test_shader_jit      test_shader_jit.cpp)
+target_compile_definitions(test_shader_jit PRIVATE
+    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
+    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+)
