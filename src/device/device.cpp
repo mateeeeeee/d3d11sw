@@ -11,6 +11,9 @@
 #include "views/unordered_access_view.h"
 #include "views/view_util.h"
 #include "misc/input_layout.h"
+#include "shaders/vertex_shader.h"
+#include "shaders/pixel_shader.h"
+#include "shaders/compute_shader.h"
 #include "states/blend_state.h"
 #include "states/depth_stencil_state.h"
 #include "states/rasterizer_state.h"
@@ -534,7 +537,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateVertexShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11VertexShader** ppVertexShader)
 {
-    return E_NOTIMPL;
+    D3D11VertexShaderSW* shader = nullptr;
+    HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (!ppVertexShader)
+    {
+        shader->Release();
+        return S_FALSE;
+    }
+    *ppVertexShader = shader;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShader(
@@ -566,7 +581,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreatePixelShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11PixelShader** ppPixelShader)
 {
-    return E_NOTIMPL;
+    D3D11PixelShaderSW* shader = nullptr;
+    HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (!ppPixelShader)
+    {
+        shader->Release();
+        return S_FALSE;
+    }
+    *ppPixelShader = shader;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateHullShader(
@@ -593,7 +620,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateComputeShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11ComputeShader** ppComputeShader)
 {
-    return E_NOTIMPL;
+    D3D11ComputeShaderSW* shader = nullptr;
+    HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (!ppComputeShader)
+    {
+        shader->Release();
+        return S_FALSE;
+    }
+    *ppComputeShader = shader;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateClassLinkage(
