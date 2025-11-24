@@ -1,5 +1,10 @@
 #pragma once
+#include "common/common.h"
 #include "resources/subresource_layout.h"
+#include "resources/buffer.h"
+#include "resources/texture1d.h"
+#include "resources/texture2d.h"
+#include "resources/texture3d.h"
 
 namespace d3d11sw {
 
@@ -129,6 +134,76 @@ inline void PackUAVUint(DXGI_FORMAT fmt, const UINT values[4], UINT8 out[16])
         case DXGI_FORMAT_R8_SINT:
             out[0]=(UINT8)values[0]; break;
         default: break;
+    }
+}
+
+template<typename T>
+static void SetSlot(T*& slot, T* value)
+{
+    if (value)
+    {
+        value->AddRef();
+    }
+    if (slot)
+    {
+        slot->Release();
+    }
+    slot = value;
+}
+
+template<typename T, Usize N>
+static void SetSlots(T* (&slots)[N], UINT start, UINT count, T* const* values)
+{
+    for (UINT i = 0; i < count; i++)
+    {
+        SetSlot(slots[start + i], values ? values[i] : nullptr);
+    }
+}
+
+template<typename T, Usize N>
+static void GetSlots(T* (&slots)[N], UINT start, UINT count, T** out)
+{
+    if (!out)
+    {
+        return;
+    }
+
+    for (UINT i = 0; i < count; i++)
+    {
+        out[i] = slots[start + i];
+        if (out[i])
+        {
+            out[i]->AddRef();
+        }
+    }
+}
+
+template<typename Fn>
+static void RunOnSWResource(ID3D11Resource* pResource, Fn&& fn)
+{
+    if (!pResource)
+    {
+        return;
+    }
+
+    D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
+    pResource->GetType(&dim);
+    switch (dim)
+    {
+        case D3D11_RESOURCE_DIMENSION_BUFFER:
+            fn(static_cast<D3D11BufferSW*>(static_cast<ID3D11Buffer*>(pResource)));
+            break;
+        case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
+            fn(static_cast<D3D11Texture1DSW*>(static_cast<ID3D11Texture1D*>(pResource)));
+            break;
+        case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
+            fn(static_cast<D3D11Texture2DSW*>(static_cast<ID3D11Texture2D1*>(pResource)));
+            break;
+        case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
+            fn(static_cast<D3D11Texture3DSW*>(static_cast<ID3D11Texture3D1*>(pResource)));
+            break;
+        default:
+            break;
     }
 }
 

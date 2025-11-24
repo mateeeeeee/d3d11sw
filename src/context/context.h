@@ -2,6 +2,8 @@
 #include "common/common.h"
 #include "common/device_child_impl.h"
 #include "context/pipeline_state.h"
+#include "context/dispatch_executor.h"
+#include <memory>
 
 namespace d3d11sw {
 
@@ -170,7 +172,8 @@ public:
     HRESULT STDMETHODCALLTYPE Wait(ID3D11Fence* pFence, UINT64 Value) override;
 
 private:
-    D3D11SW_PIPELINE_STATE _state{};
+    D3D11SW_PIPELINE_STATE                 _state{};
+    std::unique_ptr<ISWDispatchExecutor>   _dispatchExecutor;
 };
 
 }

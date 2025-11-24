@@ -20,78 +20,9 @@
 #include "views/shader_resource_view.h"
 #include "views/unordered_access_view.h"
 #include "context/context_util.h"
+#include "context/dispatch_executor.h"
 
 namespace d3d11sw {
-
-template<typename T>
-static void SetSlot(T*& slot, T* value)
-{
-    if (value)
-    {
-        value->AddRef();
-    }
-    if (slot)
-    {
-        slot->Release();
-    }
-    slot = value;
-}
-
-template<typename T, Usize N>
-static void SetSlots(T* (&slots)[N], UINT start, UINT count, T* const* values)
-{
-    for (UINT i = 0; i < count; i++)
-    {
-        SetSlot(slots[start + i], values ? values[i] : nullptr);
-    }
-}
-
-template<typename T, Usize N>
-static void GetSlots(T* (&slots)[N], UINT start, UINT count, T** out)
-{
-    if (!out)
-    {
-        return;
-    }
-
-    for (UINT i = 0; i < count; i++)
-    {
-        out[i] = slots[start + i];
-        if (out[i]) 
-        {
-            out[i]->AddRef();
-        }
-    }
-}
-
-template<typename Fn>
-static void RunOnSWResource(ID3D11Resource* pResource, Fn&& fn)
-{
-    if (!pResource) 
-    {
-        return;
-    }
-
-    D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
-    pResource->GetType(&dim);
-    switch (dim)
-    {
-    case D3D11_RESOURCE_DIMENSION_BUFFER:
-        fn(static_cast<D3D11BufferSW*>(static_cast<ID3D11Buffer*>(pResource)));
-        break;
-    case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
-        fn(static_cast<D3D11Texture1DSW*>(static_cast<ID3D11Texture1D*>(pResource)));
-        break;
-    case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
-        fn(static_cast<D3D11Texture2DSW*>(static_cast<ID3D11Texture2D1*>(pResource)));
-        break;
-    case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
-        fn(static_cast<D3D11Texture3DSW*>(static_cast<ID3D11Texture3D1*>(pResource)));
-        break;
-    default:
-        break;
-    }
-}
 
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::QueryInterface(REFIID riid, void** ppv)
@@ -137,6 +68,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::QueryInterface(REFIID riid, void
 
 D3D11DeviceContextSW::D3D11DeviceContextSW(ID3D11Device* device)
     : DeviceChildImpl(device)
+    , _dispatchExecutor(std::make_unique<SingleThreadedDispatchExecutor>())
 {
     _state.blendFactor[0] = _state.blendFactor[1] =
     _state.blendFactor[2] = _state.blendFactor[3] = 1.0f;
@@ -403,6 +335,33 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstancedIndirect(ID3D11Buffer*
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ)
 {
+    if (!_state.cs)
+    {
+        return;
+    }
+
+    SW_CSFn fn = _state.cs->GetJitFn();
+    if (!fn)
+    {
+        return;
+    }
+
+    const D3D11SW_ParsedShader& reflection = _state.cs->GetReflection();
+    UINT csX = reflection.threadGroupX > 0 ? reflection.threadGroupX : 1;
+    UINT csY = reflection.threadGroupY > 0 ? reflection.threadGroupY : 1;
+    UINT csZ = reflection.threadGroupZ > 0 ? reflection.threadGroupZ : 1;
+
+    SW_Resources res{};
+    for (UINT i = 0; i < SW_MAX_CBUFS; ++i)
+    {
+        if (_state.csCBs[i])
+        {
+            res.cb[i] = static_cast<const SW_float4*>(_state.csCBs[i]->GetDataPtr());
+        }
+    }
+
+    _dispatchExecutor->DispatchCS(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ,
+                                   csX, csY, csZ, fn, res);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
