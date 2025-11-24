@@ -40,3 +40,4 @@ target_compile_definitions(test_shader_jit PRIVATE
     D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
     D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
 )
+add_gtest(test_shaders         test_shaders.cpp)
