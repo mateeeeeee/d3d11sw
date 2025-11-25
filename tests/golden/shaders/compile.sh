@@ -29,10 +29,19 @@ case "$OS" in
         ;;
 esac
 
+MISSING_ONLY=false
+if [[ "${1:-}" == "--missing" ]]; then
+    MISSING_ONLY=true
+fi
+
 compile_shader() {
     local hlsl="$1"
     local out="${hlsl%.hlsl}.o"
     local name="$(basename "$hlsl")"
+
+    if $MISSING_ONLY && [ -f "$out" ]; then
+        return
+    fi
 
     $FXC2 -T cs_5_0 -E main -Fo"$out" "$hlsl"
     echo "  $name -> $(basename "$out")"

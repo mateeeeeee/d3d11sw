@@ -363,6 +363,45 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         }
         break;
 
+    case D3D10_SB_OPCODE_UDIV:
+    {
+        const SM4Operand* dstQ = dst;
+        const SM4Operand* dstR = src0;
+        const SM4Operand* srcA = src1;
+        const SM4Operand* srcB = src2;
+        if (srcA && srcB)
+        {
+            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            if (dstQ && dstQ->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string qBase = EmitDstBase(*dstQ);
+                Uint8 qMask = dstQ->writeMask ? dstQ->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(qMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_udiv(_a.{}, _b.{});", qBase, Comp(i), Comp(i), Comp(i));
+                }
+            }
+            if (dstR && dstR->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string rBase = EmitDstBase(*dstR);
+                Uint8 rMask = dstR->writeMask ? dstR->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(rMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_umod(_a.{}, _b.{});", rBase, Comp(i), Comp(i), Comp(i));
+                }
+            }
+            w.Line("}}");
+        }
+        break;
+    }
 
     case D3D10_SB_OPCODE_IF:
         if (dst)

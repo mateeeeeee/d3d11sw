@@ -59,6 +59,8 @@ inline float sw_ige(float a, float b)  { return sw_uint_bits(sw_bits_int(a) >= s
 inline float sw_ilt(float a, float b)  { return sw_uint_bits(sw_bits_int(a) <  sw_bits_int(b) ? 0xFFFFFFFFu : 0u); }
 inline float sw_uge(float a, float b)  { return sw_uint_bits(sw_bits_uint(a) >= sw_bits_uint(b) ? 0xFFFFFFFFu : 0u); }
 inline float sw_ult(float a, float b)  { return sw_uint_bits(sw_bits_uint(a) <  sw_bits_uint(b) ? 0xFFFFFFFFu : 0u); }
+inline float sw_udiv(float a, float b) { unsigned ub = sw_bits_uint(b); return ub ? sw_uint_bits(sw_bits_uint(a) / ub) : sw_uint_bits(0xFFFFFFFFu); }
+inline float sw_umod(float a, float b) { unsigned ub = sw_bits_uint(b); return ub ? sw_uint_bits(sw_bits_uint(a) % ub) : 0.f; }
 inline float sw_and(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) & sw_bits_uint(b)); }
 inline float sw_or(float a, float b)    { return sw_uint_bits(sw_bits_uint(a) | sw_bits_uint(b)); }
 inline float sw_xor(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) ^ sw_bits_uint(b)); }

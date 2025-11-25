@@ -958,6 +958,89 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckFeatureSupport(
         data->AllOtherShaderStagesMinPrecision     = 0;
         return S_OK;
     }
+    case D3D11_FEATURE_D3D9_OPTIONS:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D9_OPTIONS))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D9_OPTIONS* data = static_cast<D3D11_FEATURE_DATA_D3D9_OPTIONS*>(pFeatureSupportData);
+        data->FullNonPow2TextureSupport = TRUE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D9_SHADOW_SUPPORT:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D9_SHADOW_SUPPORT))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D9_SHADOW_SUPPORT* data = static_cast<D3D11_FEATURE_DATA_D3D9_SHADOW_SUPPORT*>(pFeatureSupportData);
+        data->SupportsDepthAsTextureWithLessEqualComparisonFilter = TRUE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D11_OPTIONS1:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D11_OPTIONS1))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D11_OPTIONS1* data = static_cast<D3D11_FEATURE_DATA_D3D11_OPTIONS1*>(pFeatureSupportData);
+        memset(data, 0, sizeof(*data));
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D9_SIMPLE_INSTANCING_SUPPORT:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D9_SIMPLE_INSTANCING_SUPPORT))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D9_SIMPLE_INSTANCING_SUPPORT* data = static_cast<D3D11_FEATURE_DATA_D3D9_SIMPLE_INSTANCING_SUPPORT*>(pFeatureSupportData);
+        data->SimpleInstancingSupported = TRUE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_MARKER_SUPPORT:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_MARKER_SUPPORT))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_MARKER_SUPPORT* data = static_cast<D3D11_FEATURE_DATA_MARKER_SUPPORT*>(pFeatureSupportData);
+        data->Profile = FALSE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D9_OPTIONS1:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D9_OPTIONS1))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D9_OPTIONS1* data = static_cast<D3D11_FEATURE_DATA_D3D9_OPTIONS1*>(pFeatureSupportData);
+        data->FullNonPow2TextureSupported = TRUE;
+        data->DepthAsTextureWithLessEqualComparisonFilterSupported = TRUE;
+        data->SimpleInstancingSupported = TRUE;
+        data->TextureCubeFaceRenderTargetWithNonCubeDepthStencilSupported = TRUE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D11_OPTIONS2:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D11_OPTIONS2))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D11_OPTIONS2* data = static_cast<D3D11_FEATURE_DATA_D3D11_OPTIONS2*>(pFeatureSupportData);
+        memset(data, 0, sizeof(*data));
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D11_OPTIONS3:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D11_OPTIONS3))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D11_OPTIONS3* data = static_cast<D3D11_FEATURE_DATA_D3D11_OPTIONS3*>(pFeatureSupportData);
+        data->VPAndRTArrayIndexFromAnyShaderFeedingRasterizer = FALSE;
+        return S_OK;
+    }
     default:
         return E_INVALIDARG;
     }

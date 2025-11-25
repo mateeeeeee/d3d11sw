@@ -95,6 +95,46 @@ TEST_F(CheckFeatureSupportTests, ShaderMinPrecision)
     EXPECT_EQ(data.AllOtherShaderStagesMinPrecision, 0u);
 }
 
+TEST_F(CheckFeatureSupportTests, D3D9Options)
+{
+    D3D11_FEATURE_DATA_D3D9_OPTIONS data = {};
+    HRESULT hr = device->CheckFeatureSupport(D3D11_FEATURE_D3D9_OPTIONS, &data, sizeof(data));
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_TRUE(data.FullNonPow2TextureSupport);
+}
+
+TEST_F(CheckFeatureSupportTests, D3D9ShadowSupport)
+{
+    D3D11_FEATURE_DATA_D3D9_SHADOW_SUPPORT data = {};
+    HRESULT hr = device->CheckFeatureSupport(D3D11_FEATURE_D3D9_SHADOW_SUPPORT, &data, sizeof(data));
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_TRUE(data.SupportsDepthAsTextureWithLessEqualComparisonFilter);
+}
+
+TEST_F(CheckFeatureSupportTests, D3D11Options1)
+{
+    D3D11_FEATURE_DATA_D3D11_OPTIONS1 data = {};
+    HRESULT hr = device->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS1, &data, sizeof(data));
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_EQ(data.TiledResourcesTier, D3D11_TILED_RESOURCES_NOT_SUPPORTED);
+}
+
+TEST_F(CheckFeatureSupportTests, D3D11Options2)
+{
+    D3D11_FEATURE_DATA_D3D11_OPTIONS2 data = {};
+    HRESULT hr = device->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS2, &data, sizeof(data));
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_FALSE(data.TypedUAVLoadAdditionalFormats);
+}
+
+TEST_F(CheckFeatureSupportTests, D3D11Options3)
+{
+    D3D11_FEATURE_DATA_D3D11_OPTIONS3 data = {};
+    HRESULT hr = device->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS3, &data, sizeof(data));
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_FALSE(data.VPAndRTArrayIndexFromAnyShaderFeedingRasterizer);
+}
+
 TEST_F(CheckFeatureSupportTests, UnsupportedFeatureReturnsInvalidArg)
 {
     char data[64] = {};

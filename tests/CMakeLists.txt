@@ -66,5 +66,6 @@ add_golden_test(golden_cs_shared_sum    golden/test_cs_shared_sum.cpp)
 add_golden_test(golden_cs_cbuffer       golden/test_cs_cbuffer.cpp)
 add_golden_test(golden_cs_multi_group   golden/test_cs_multi_group.cpp)
 add_golden_test(golden_cs_loop          golden/test_cs_loop.cpp)
+add_golden_test(golden_cs_structured    golden/test_cs_structured.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
