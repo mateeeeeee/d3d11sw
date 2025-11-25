@@ -1,16 +1,40 @@
 #include "shaders/shader_codegen.h"
-#include <sstream>
+#include <format>
 #include <cstring>
 
 namespace d3d11sw {
 
-const Char* ShaderCodeGen::Comp(Int i)
+namespace {
+
+class CodeWriter
+{
+public:
+    template<typename... Args>
+    void Line(std::format_string<Args...> fmt, Args&&... args)
+    {
+        _buf.append(_depth * 4, ' ');
+        std::format_to(std::back_inserter(_buf), fmt, std::forward<Args>(args)...);
+        _buf += '\n';
+    }
+
+    void Newline() { _buf += '\n'; }
+    void Indent()  { ++_depth; }
+    void Dedent()  { --_depth; }
+
+    std::string Take() { return std::move(_buf); }
+
+private:
+    std::string _buf;
+    Int _depth = 0;
+};
+
+const Char* Comp(Int i)
 {
     static const Char* n[] = {"x","y","z","w"};
     return n[i & 3];
 }
 
-Uint8 ShaderCodeGen::FindSVPositionReg(const D3D11SW_ParsedShader& shader) const
+Uint8 FindSVPositionReg(const D3D11SW_ParsedShader& shader)
 {
     for (const auto& e : shader.outputs)
     {
@@ -22,89 +46,59 @@ Uint8 ShaderCodeGen::FindSVPositionReg(const D3D11SW_ParsedShader& shader) const
     return 0xFF;
 }
 
-std::string ShaderCodeGen::EmitDstBase(const SM4Operand& op) const
+std::string EmitDstBase(const SM4Operand& op)
 {
-    std::ostringstream s;
     switch (op.type)
     {
-        case D3D10_SB_OPERAND_TYPE_TEMP:
-            s << "r[" << op.indices[0] << "]";
-            break;
-        case D3D10_SB_OPERAND_TYPE_OUTPUT:
-            s << "out_v[" << op.indices[0] << "]";
-            break;
-        case D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH:
-            s << "out_ptr->oDepth";
-            break;
-        case D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW:
-            s << "res->uav[" << op.indices[0] << "]";
-            break;
-        case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:
-            s << "tgsm[" << op.indices[0] << "]";
-            break;
-        default:
-            s << "r[0]";
-            break;
+    case D3D10_SB_OPERAND_TYPE_TEMP:                        return std::format("r[{}]", op.indices[0]);
+    case D3D10_SB_OPERAND_TYPE_OUTPUT:                      return std::format("out_v[{}]", op.indices[0]);
+    case D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH:                return "out_ptr->oDepth";
+    case D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW:       return std::format("res->uav[{}]", op.indices[0]);
+    case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:  return std::format("tgsm[{}]", op.indices[0]);
+    default:                                                return "r[0]";
     }
-    return s.str();
 }
 
-std::string ShaderCodeGen::EmitSrc(const SM4Operand& op) const
+std::string EmitSrc(const SM4Operand& op)
 {
-    std::ostringstream s;
-
     std::string base;
+    switch (op.type)
     {
-        std::ostringstream b;
-        switch (op.type)
-        {
-            case D3D10_SB_OPERAND_TYPE_TEMP:
-                b << "r[" << op.indices[0] << "]";
-                break;
-            case D3D10_SB_OPERAND_TYPE_INPUT:
-                b << "in_ptr->v[" << op.indices[0] << "]";
-                break;
-            case D3D10_SB_OPERAND_TYPE_OUTPUT:
-                b << "out_v[" << op.indices[0] << "]";
-                break;
-            case D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER:
-                b << "res->cb[" << op.indices[0] << "][" << op.indices[1] << "]";
-                break;
-            case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID:
-                b << "_tid";
-                break;
-            case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_GROUP_ID:
-                b << "_gid";
-                break;
-            case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP:
-                b << "_gtid";
-                break;
-            case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP_FLATTENED:
-                b << "_gi";
-                break;
-            case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:
-                b << "tgsm[" << op.indices[0] << "]";
-                break;
-            case D3D10_SB_OPERAND_TYPE_IMMEDIATE32:
-            {
-                unsigned bits[4];
-                std::memcpy(bits, op.imm, 16);
-                char buf[256];
-                std::snprintf(buf, sizeof(buf),
-                    "SW_float4{sw_uint_bits(0x%08xu),sw_uint_bits(0x%08xu),"
-                    "sw_uint_bits(0x%08xu),sw_uint_bits(0x%08xu)}",
-                    bits[0], bits[1], bits[2], bits[3]);
-                b << buf;
-                break;
-            }
-            default:
-                b << "SW_float4{0,0,0,0}";
-                break;
-        }
-        base = b.str();
+    case D3D10_SB_OPERAND_TYPE_TEMP:
+        base = std::format("r[{}]", op.indices[0]);
+        break;
+    case D3D10_SB_OPERAND_TYPE_INPUT:
+        base = std::format("in_ptr->v[{}]", op.indices[0]);
+        break;
+    case D3D10_SB_OPERAND_TYPE_OUTPUT:
+        base = std::format("out_v[{}]", op.indices[0]);
+        break;
+    case D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER:
+        base = std::format("res->cb[{}][{}]", op.indices[0], op.indices[1]);
+        break;
+    case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID:                    base = "_tid";  break;
+    case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_GROUP_ID:              base = "_gid";  break;
+    case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP:           base = "_gtid"; break;
+    case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP_FLATTENED: base = "_gi";   break;
+    case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:
+        base = std::format("tgsm[{}]", op.indices[0]);
+        break;
+    case D3D10_SB_OPERAND_TYPE_IMMEDIATE32:
+    {
+        Uint32 bits[4];
+        std::memcpy(bits, op.imm, 16);
+        base = std::format(
+            "SW_float4{{sw_uint_bits(0x{:08x}u),sw_uint_bits(0x{:08x}u),"
+            "sw_uint_bits(0x{:08x}u),sw_uint_bits(0x{:08x}u)}}",
+            bits[0], bits[1], bits[2], bits[3]);
+        break;
+    }
+    default:
+        base = "SW_float4{0,0,0,0}";
+        break;
     }
 
-    bool identitySwizzle = (op.swizzle[0]==0 && op.swizzle[1]==1 &&
+    Bool identitySwizzle = (op.swizzle[0]==0 && op.swizzle[1]==1 &&
                             op.swizzle[2]==2 && op.swizzle[3]==3);
 
     std::string result;
@@ -114,71 +108,130 @@ std::string ShaderCodeGen::EmitSrc(const SM4Operand& op) const
     }
     else
     {
-        char buf[256];
-        std::snprintf(buf, sizeof(buf), "sw_swizzle(%s,%d,%d,%d,%d)",
-                      base.c_str(),
-                      op.swizzle[0], op.swizzle[1], op.swizzle[2], op.swizzle[3]);
-        result = buf;
+        result = std::format("sw_swizzle({},{},{},{},{})",
+                             base, op.swizzle[0], op.swizzle[1], op.swizzle[2], op.swizzle[3]);
     }
 
-    if (op.absolute) { result = "sw_abs4(" + result + ")"; }
+    if (op.absolute)
+    {
+        result = std::format("sw_abs4({})", result);
+    }
     if (op.negate)
     {
         if (op.intContext)
-            result = "sw_ineg4(" + result + ")";
+        {
+            result = std::format("sw_ineg4({})", result);
+        }
         else
-            result = "(-(" + result + "))";
+        {
+            result = std::format("(-({}))", result);
+        }
     }
 
     return result;
 }
 
-std::string ShaderCodeGen::EmitWrite(const std::string& dstBase, Uint8 mask,
-                                      const std::string& srcExpr, Bool sat) const
+void EmitWrite(CodeWriter& w, std::string_view dst, Uint8 mask,
+               std::string_view expr, Bool sat)
 {
-    std::ostringstream s;
-    s << "    { SW_float4 _t = " << srcExpr << ";\n";
+    w.Line("{{ SW_float4 _t = {};", expr);
     for (Int i = 0; i < 4; ++i)
     {
-        if (!(mask & (1 << i))) { continue; }
-        s << "      " << dstBase << "." << Comp(i) << " = ";
-        if (sat) { s << "sw_saturate("; }
-        s << "_t." << Comp(i);
-        if (sat) { s << ")"; }
-        s << ";\n";
+        if (!(mask & (1 << i)))
+        {
+            continue;
+        }
+        if (sat)
+        {
+            w.Line("  {}.{} = sw_saturate(_t.{});", dst, Comp(i), Comp(i));
+        }
+        else
+        {
+            w.Line("  {}.{} = _t.{};", dst, Comp(i), Comp(i));
+        }
     }
-    s << "    }\n";
-    return s.str();
+    w.Line("}}");
 }
 
-std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
-                                      const D3D11SW_ParsedShader& shader) const
+void EmitPerComp1(CodeWriter& w, const Char* fn,
+                  std::string_view dst, Uint8 mask, const SM4Operand& src)
 {
-    std::ostringstream s;
+    w.Line("{{ SW_float4 _a = {};", EmitSrc(src));
+    for (Int i = 0; i < 4; ++i)
+    {
+        if (!(mask & (1 << i)))
+        {
+            continue;
+        }
+        w.Line("  {}.{} = {}(_a.{});", dst, Comp(i), fn, Comp(i));
+    }
+    w.Line("}}");
+}
 
-    // Detect integer instructions for correct negate modifier behavior
+void EmitPerComp2(CodeWriter& w, const Char* fn,
+                  std::string_view dst, Uint8 mask,
+                  const SM4Operand& a, const SM4Operand& b)
+{
+    w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(a), EmitSrc(b));
+    for (Int i = 0; i < 4; ++i)
+    {
+        if (!(mask & (1 << i)))
+        {
+            continue;
+        }
+        w.Line("  {}.{} = {}(_a.{}, _b.{});", dst, Comp(i), fn, Comp(i), Comp(i));
+    }
+    w.Line("}}");
+}
+
+void EmitScalarBroadcast(CodeWriter& w, std::string_view dst, Uint8 mask,
+                         std::string_view scalar, Bool sat)
+{
+    for (Int i = 0; i < 4; ++i)
+    {
+        if (!(mask & (1 << i)))
+        {
+            continue;
+        }
+        if (sat)
+        {
+            w.Line("{}.{} = sw_saturate({});", dst, Comp(i), scalar);
+        }
+        else
+        {
+            w.Line("{}.{} = {};", dst, Comp(i), scalar);
+        }
+    }
+}
+
+void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
+               const D3D11SW_ParsedShader& shader)
+{
     Bool isIntOp = false;
     switch (instr.op)
     {
-        case D3D10_SB_OPCODE_IADD: case D3D10_SB_OPCODE_IMUL: case D3D10_SB_OPCODE_IMAD:
-        case D3D10_SB_OPCODE_ISHL: case D3D10_SB_OPCODE_ISHR: case D3D10_SB_OPCODE_USHR:
-        case D3D10_SB_OPCODE_AND:  case D3D10_SB_OPCODE_OR:   case D3D10_SB_OPCODE_XOR:
-        case D3D10_SB_OPCODE_NOT:  case D3D10_SB_OPCODE_INEG:
-        case D3D10_SB_OPCODE_IMAX: case D3D10_SB_OPCODE_IMIN:
-        case D3D10_SB_OPCODE_UMAX: case D3D10_SB_OPCODE_UMIN:
-        case D3D10_SB_OPCODE_IEQ:  case D3D10_SB_OPCODE_INE:
-        case D3D10_SB_OPCODE_IGE:  case D3D10_SB_OPCODE_ILT:
-        case D3D10_SB_OPCODE_UGE:  case D3D10_SB_OPCODE_ULT:
-        case D3D10_SB_OPCODE_UDIV:
-            isIntOp = true;
-            break;
-        default: break;
+    case D3D10_SB_OPCODE_IADD: case D3D10_SB_OPCODE_IMUL: case D3D10_SB_OPCODE_IMAD:
+    case D3D10_SB_OPCODE_ISHL: case D3D10_SB_OPCODE_ISHR: case D3D10_SB_OPCODE_USHR:
+    case D3D10_SB_OPCODE_AND:  case D3D10_SB_OPCODE_OR:   case D3D10_SB_OPCODE_XOR:
+    case D3D10_SB_OPCODE_NOT:  case D3D10_SB_OPCODE_INEG:
+    case D3D10_SB_OPCODE_IMAX: case D3D10_SB_OPCODE_IMIN:
+    case D3D10_SB_OPCODE_UMAX: case D3D10_SB_OPCODE_UMIN:
+    case D3D10_SB_OPCODE_IEQ:  case D3D10_SB_OPCODE_INE:
+    case D3D10_SB_OPCODE_IGE:  case D3D10_SB_OPCODE_ILT:
+    case D3D10_SB_OPCODE_UGE:  case D3D10_SB_OPCODE_ULT:
+    case D3D10_SB_OPCODE_UDIV:
+        isIntOp = true;
+        break;
+    default: break;
     }
 
-    // Make mutable copies with intContext set for integer ops
-    auto fixOp = [&](const SM4Operand* op) -> SM4Operand {
+    auto fixOp = [&](const SM4Operand* op) -> SM4Operand
+    {
         SM4Operand copy = op ? *op : SM4Operand{};
-        if (isIntOp) copy.intContext = true;
+        if (isIntOp)
+        {
+            copy.intContext = true;
+        }
         return copy;
     };
 
@@ -194,824 +247,429 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
 
     std::string dstBase = dst ? EmitDstBase(*dst) : "r[0]";
     Uint8 mask = dst ? (dst->writeMask ? dst->writeMask : 0xF) : 0xF;
-    Bool  sat  = instr.saturate;
+    Bool sat = instr.saturate;
 
     switch (instr.op)
     {
-        case D3D10_SB_OPCODE_MOV:
-            if (src0) { s << EmitWrite(dstBase, mask, EmitSrc(*src0), sat); }
-            break;
+    case D3D10_SB_OPCODE_MOV:
+        if (src0)
+        {
+            EmitWrite(w, dstBase, mask, EmitSrc(*src0), sat);
+        }
+        break;
 
-        case D3D10_SB_OPCODE_ADD:
-            if (src0 && src1)
-            {
-                s << EmitWrite(dstBase, mask,
-                    EmitSrc(*src0) + " + " + EmitSrc(*src1), sat);
-            }
-            break;
+    case D3D10_SB_OPCODE_ADD:
+        if (src0 && src1)
+        {
+            EmitWrite(w, dstBase, mask, std::format("{} + {}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+        }
+        break;
 
-        case D3D10_SB_OPCODE_MUL:
-            if (src0 && src1)
-            {
-                s << EmitWrite(dstBase, mask,
-                    EmitSrc(*src0) + " * " + EmitSrc(*src1), sat);
-            }
-            break;
+    case D3D10_SB_OPCODE_MUL:
+        if (src0 && src1)
+        {
+            EmitWrite(w, dstBase, mask, std::format("{} * {}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+        }
+        break;
 
-        case D3D10_SB_OPCODE_MAD:
-            if (src0 && src1 && src2)
-            {
-                s << EmitWrite(dstBase, mask,
-                    EmitSrc(*src0) + " * " + EmitSrc(*src1) + " + " + EmitSrc(*src2), sat);
-            }
-            break;
+    case D3D10_SB_OPCODE_MAD:
+        if (src0 && src1 && src2)
+        {
+            EmitWrite(w, dstBase, mask,
+                std::format("{} * {} + {}", EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2)), sat);
+        }
+        break;
 
-        case D3D10_SB_OPCODE_DIV:
-            if (src0 && src1)
-            {
-                s << EmitWrite(dstBase, mask,
-                    EmitSrc(*src0) + " / " + EmitSrc(*src1), sat);
-            }
-            break;
+    case D3D10_SB_OPCODE_DIV:
+        if (src0 && src1)
+        {
+            EmitWrite(w, dstBase, mask, std::format("{} / {}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+        }
+        break;
 
-        case D3D10_SB_OPCODE_DP2:
-            if (src0 && src1)
-            {
-                std::string expr = "SW_float4{sw_dot2(" + EmitSrc(*src0) + "," + EmitSrc(*src1) + ")}";
-                s << EmitWrite(dstBase, mask, expr, sat);
-            }
-            break;
+    case D3D10_SB_OPCODE_DP2:
+        if (src0 && src1)
+        {
+            EmitWrite(w, dstBase, mask,
+                std::format("SW_float4{{sw_dot2({},{})}}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+        }
+        break;
 
-        case D3D10_SB_OPCODE_DP3:
-            if (src0 && src1)
+    case D3D10_SB_OPCODE_DP3:
+        if (src0 && src1)
+        {
+            EmitScalarBroadcast(w, dstBase, mask,
+                std::format("sw_dot3({},{})", EmitSrc(*src0), EmitSrc(*src1)), sat);
+        }
+        break;
+
+    case D3D10_SB_OPCODE_DP4:
+        if (src0 && src1)
+        {
+            EmitScalarBroadcast(w, dstBase, mask,
+                std::format("sw_dot4({},{})", EmitSrc(*src0), EmitSrc(*src1)), sat);
+        }
+        break;
+
+    case D3D10_SB_OPCODE_SQRT:     if (src0) { EmitPerComp1(w, "sw_sqrt",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_RSQ:      if (src0) { EmitPerComp1(w, "sw_rsq",      dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_LOG:      if (src0) { EmitPerComp1(w, "sw_log2",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_EXP:      if (src0) { EmitPerComp1(w, "sw_exp2",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_FRC:      if (src0) { EmitPerComp1(w, "sw_frc",      dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_ROUND_NE: if (src0) { EmitPerComp1(w, "sw_round_ne", dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_ROUND_Z:  if (src0) { EmitPerComp1(w, "sw_round_z",  dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_FTOI:     if (src0) { EmitPerComp1(w, "sw_ftoi",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_ITOF:     if (src0) { EmitPerComp1(w, "sw_itof",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_UTOF:     if (src0) { EmitPerComp1(w, "sw_utof",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_FTOU:     if (src0) { EmitPerComp1(w, "sw_ftou",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_NOT:      if (src0) { EmitPerComp1(w, "sw_not",      dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_INEG:     if (src0) { EmitPerComp1(w, "sw_ineg",     dstBase, mask, *src0); } break;
+
+    case D3D10_SB_OPCODE_MIN:  if (src0 && src1) { EmitPerComp2(w, "sw_min",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_MAX:  if (src0 && src1) { EmitPerComp2(w, "sw_max",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_IADD: if (src0 && src1) { EmitPerComp2(w, "sw_iadd", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_ISHL: if (src0 && src1) { EmitPerComp2(w, "sw_ishl", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_ISHR: if (src0 && src1) { EmitPerComp2(w, "sw_ishr", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_USHR: if (src0 && src1) { EmitPerComp2(w, "sw_ushr", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_AND:  if (src0 && src1) { EmitPerComp2(w, "sw_and",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_OR:   if (src0 && src1) { EmitPerComp2(w, "sw_or",   dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_XOR:  if (src0 && src1) { EmitPerComp2(w, "sw_xor",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_IMAX: if (src0 && src1) { EmitPerComp2(w, "sw_imax", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_IMIN: if (src0 && src1) { EmitPerComp2(w, "sw_imin", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_UMAX: if (src0 && src1) { EmitPerComp2(w, "sw_umax", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_UMIN: if (src0 && src1) { EmitPerComp2(w, "sw_umin", dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_IEQ:  if (src0 && src1) { EmitPerComp2(w, "sw_ieq",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_INE:  if (src0 && src1) { EmitPerComp2(w, "sw_ine",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_IGE:  if (src0 && src1) { EmitPerComp2(w, "sw_ige",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_ILT:  if (src0 && src1) { EmitPerComp2(w, "sw_ilt",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_UGE:  if (src0 && src1) { EmitPerComp2(w, "sw_uge",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_ULT:  if (src0 && src1) { EmitPerComp2(w, "sw_ult",  dstBase, mask, *src0, *src1); } break;
+
+    case D3D10_SB_OPCODE_MOVC:
+        if (src0 && src1 && src2)
+        {
+            w.Line("{{ SW_float4 _c = {}, _t = {}, _f = {};",
+                   EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
+            for (Int i = 0; i < 4; ++i)
             {
-                std::string scalar = "sw_dot3(" + EmitSrc(*src0) + "," + EmitSrc(*src1) + ")";
-                for (Int i = 0; i < 4; ++i)
+                if (!(mask & (1 << i)))
                 {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "    " << dstBase << "." << Comp(i) << " = ";
-                    if (sat) { s << "sw_saturate("; }
-                    s << scalar;
-                    if (sat) { s << ")"; }
-                    s << ";\n";
+                    continue;
                 }
+                w.Line("  {}.{} = (_c.{} != 0.f) ? _t.{} : _f.{};",
+                       dstBase, Comp(i), Comp(i), Comp(i), Comp(i));
             }
-            break;
+            w.Line("}}");
+        }
+        break;
 
-        case D3D10_SB_OPCODE_DP4:
-            if (src0 && src1)
+
+    case D3D10_SB_OPCODE_IF:
+        if (dst)
+        {
+            w.Line("if (({}.x) {} 0.f)", EmitSrc(*dst), instr.testNonZero ? "!=" : "==");
+            w.Line("{{");
+            w.Indent();
+        }
+        break;
+
+    case D3D10_SB_OPCODE_ELSE:
+        w.Dedent();
+        w.Line("}}");
+        w.Line("else");
+        w.Line("{{");
+        w.Indent();
+        break;
+
+    case D3D10_SB_OPCODE_ENDIF:
+        w.Dedent();
+        w.Line("}}");
+        break;
+
+    case D3D10_SB_OPCODE_LOOP:
+        w.Line("while (true)");
+        w.Line("{{");
+        w.Indent();
+        break;
+
+    case D3D10_SB_OPCODE_ENDLOOP:
+        w.Dedent();
+        w.Line("}}");
+        break;
+
+    case D3D10_SB_OPCODE_BREAK:
+        w.Line("break;");
+        break;
+
+    case D3D10_SB_OPCODE_BREAKC:
+        if (dst)
+        {
+            w.Line("if (({}.x) {} 0.f) {{ break; }}", EmitSrc(*dst),
+                   instr.testNonZero ? "!=" : "==");
+        }
+        break;
+
+    case D3D10_SB_OPCODE_SAMPLE:
+    case D3D10_SB_OPCODE_SAMPLE_L:
+        if (dst && src0 && src1 && src2)
+        {
+            auto uv = EmitSrc(*src0);
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_sample_2d(res->tex[{}],res->smp[{}],({}).x,({}).y)",
+                            src1->indices[0], src2->indices[0], uv, uv), sat);
+        }
+        break;
+
+    case D3D10_SB_OPCODE_LD:
+        if (dst && src0 && src1)
+        {
+            auto coord = EmitSrc(*src0);
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_fetch_texel(res->tex[{}],(unsigned)(({}).x),(unsigned)(({}).y))",
+                            src1->indices[0], coord, coord), sat);
+        }
+        break;
+
+    case D3D11_SB_OPCODE_LD_UAV_TYPED:
+        if (dst && src0 && src1)
+        {
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_uav_load_typed(res->uav[{}],sw_bits_uint(({}).x))",
+                            src1->indices[0], EmitSrc(*src0)), sat);
+        }
+        break;
+
+    case D3D11_SB_OPCODE_STORE_UAV_TYPED:
+        if (dst && src0 && src1)
+        {
+            w.Line("sw_uav_store_typed(res->uav[{}],sw_bits_uint(({}).x),{});",
+                   dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
+        }
+        break;
+
+    case D3D11_SB_OPCODE_LD_RAW:
+        if (dst && src0 && src1)
+        {
+            auto addr = EmitSrc(*src0);
+            if (src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
-                std::string scalar = "sw_dot4(" + EmitSrc(*src0) + "," + EmitSrc(*src1) + ")";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "    " << dstBase << "." << Comp(i) << " = ";
-                    if (sat) { s << "sw_saturate("; }
-                    s << scalar;
-                    if (sat) { s << ")"; }
-                    s << ";\n";
-                }
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_tgsm_load_raw(tgsm[{}],sw_bits_uint(({}).x))",
+                                src1->indices[0], addr), sat);
             }
-            break;
-
-        case D3D10_SB_OPCODE_MIN:
-            if (src0 && src1)
+            else
             {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_min(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_uav_load_raw(res->uav[{}],sw_bits_uint(({}).x))",
+                                src1->indices[0], addr), sat);
             }
-            break;
+        }
+        break;
 
-        case D3D10_SB_OPCODE_MAX:
-            if (src0 && src1)
+    case D3D11_SB_OPCODE_STORE_RAW:
+        if (dst && src0 && src1)
+        {
+            if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_max(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
+                w.Line("sw_tgsm_store_raw(tgsm[{}],sw_bits_uint(({}).x),{});",
+                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
             }
-            break;
-
-        case D3D10_SB_OPCODE_SQRT:
-            if (src0)
+            else
             {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_sqrt(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
+                w.Line("sw_uav_store_raw(res->uav[{}],sw_bits_uint(({}).x),{});",
+                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
             }
-            break;
+        }
+        break;
 
-        case D3D10_SB_OPCODE_RSQ:
-            if (src0)
+    case D3D11_SB_OPCODE_LD_STRUCTURED:
+        if (dst && src0 && src1 && src2)
+        {
+            auto idx = EmitSrc(*src0);
+            auto offset = EmitSrc(*src1);
+            if (src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_rsq(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_tgsm_load_structured(tgsm[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x))",
+                                src2->indices[0], idx, offset), sat);
             }
-            break;
-
-        case D3D10_SB_OPCODE_LOG:
-            if (src0)
+            else
             {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_log2(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_uav_load_structured(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x))",
+                                src2->indices[0], idx, offset), sat);
             }
-            break;
+        }
+        break;
 
-        case D3D10_SB_OPCODE_EXP:
-            if (src0)
+    case D3D11_SB_OPCODE_STORE_STRUCTURED:
+        if (dst && src0 && src1 && src2)
+        {
+            if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_exp2(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
+                w.Line("sw_tgsm_store_structured(tgsm[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x),{});",
+                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
             }
-            break;
-
-        case D3D10_SB_OPCODE_FRC:
-            if (src0)
+            else
             {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_frc(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
+                w.Line("sw_uav_store_structured(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x),{});",
+                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
             }
-            break;
+        }
+        break;
 
-        case D3D10_SB_OPCODE_ROUND_NE:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_round_ne(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
+    case D3D10_SB_OPCODE_RET:
+    case D3D10_SB_OPCODE_NOP:
+    case D3D10_SB_OPCODE_DCL_TEMPS:
+    case D3D10_SB_OPCODE_DCL_INPUT:
+    case D3D10_SB_OPCODE_DCL_INPUT_PS:
+    case D3D10_SB_OPCODE_DCL_INPUT_SGV:
+    case D3D10_SB_OPCODE_DCL_INPUT_SIV:
+    case D3D10_SB_OPCODE_DCL_INPUT_PS_SGV:
+    case D3D10_SB_OPCODE_DCL_INPUT_PS_SIV:
+    case D3D10_SB_OPCODE_DCL_OUTPUT:
+    case D3D10_SB_OPCODE_DCL_OUTPUT_SGV:
+    case D3D10_SB_OPCODE_DCL_OUTPUT_SIV:
+    case D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER:
+    case D3D10_SB_OPCODE_DCL_RESOURCE:
+    case D3D10_SB_OPCODE_DCL_SAMPLER:
+    case D3D10_SB_OPCODE_DCL_GLOBAL_FLAGS:
+    case D3D11_SB_OPCODE_DCL_THREAD_GROUP:
+    case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED:
+    case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW:
+    case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
+    case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
+    case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED:
+        break;
 
-        case D3D10_SB_OPCODE_ROUND_Z:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_round_z(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
+    case D3D11_SB_OPCODE_SYNC:
+        w.Line("_barrier(_barrier_ctx);");
+        break;
 
-        case D3D10_SB_OPCODE_FTOI:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_ftoi(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_ITOF:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_itof(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_UTOF:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_utof(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_FTOU:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_ftou(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_IADD:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_iadd(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_ISHL:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_ishl(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_ISHR:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_ishr(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_USHR:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_ushr(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_AND:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_and(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_OR:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_or(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_XOR:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_xor(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_NOT:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_not(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_INEG:
-            if (src0)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_ineg(_a." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_IMAX:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_imax(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_IMIN:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_imin(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_UMAX:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_umax(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_UMIN:
-            if (src0 && src1)
-            {
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = sw_umin(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_IEQ:
-        case D3D10_SB_OPCODE_INE:
-        case D3D10_SB_OPCODE_IGE:
-        case D3D10_SB_OPCODE_ILT:
-        case D3D10_SB_OPCODE_UGE:
-        case D3D10_SB_OPCODE_ULT:
-            if (src0 && src1)
-            {
-                const char* fn = nullptr;
-                switch (instr.op)
-                {
-                    case D3D10_SB_OPCODE_IEQ: fn = "sw_ieq"; break;
-                    case D3D10_SB_OPCODE_INE: fn = "sw_ine"; break;
-                    case D3D10_SB_OPCODE_IGE: fn = "sw_ige"; break;
-                    case D3D10_SB_OPCODE_ILT: fn = "sw_ilt"; break;
-                    case D3D10_SB_OPCODE_UGE: fn = "sw_uge"; break;
-                    case D3D10_SB_OPCODE_ULT: fn = "sw_ult"; break;
-                    default: fn = "sw_ieq"; break;
-                }
-                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = " << fn << "(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
-                }
-                s << "    }\n";
-            }
-            break;
-            if (src0 && src1 && src2)
-            {
-                s << "    { SW_float4 _c=" << EmitSrc(*src0)
-                  << ", _t=" << EmitSrc(*src1)
-                  << ", _f=" << EmitSrc(*src2) << ";\n";
-                for (Int i = 0; i < 4; ++i)
-                {
-                    if (!(mask & (1 << i))) { continue; }
-                    s << "      " << dstBase << "." << Comp(i)
-                      << " = (_c." << Comp(i) << " != 0.f) ? _t." << Comp(i)
-                      << " : _f." << Comp(i) << ";\n";
-                }
-                s << "    }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_IF:
-            if (dst)
-            {
-                s << "    if ((" << EmitSrc(*dst) << ".x) ";
-                s << (instr.testNonZero ? "!= 0.f" : "== 0.f");
-                s << ")\n    {\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_ELSE:
-            s << "    }\n    else\n    {\n";
-            break;
-
-        case D3D10_SB_OPCODE_ENDIF:
-            s << "    }\n";
-            break;
-
-        case D3D10_SB_OPCODE_LOOP:
-            s << "    while (true)\n    {\n";
-            break;
-
-        case D3D10_SB_OPCODE_ENDLOOP:
-            s << "    }\n";
-            break;
-
-        case D3D10_SB_OPCODE_BREAK:
-            s << "    break;\n";
-            break;
-
-        case D3D10_SB_OPCODE_BREAKC:
-            if (dst)
-            {
-                s << "    if ((" << EmitSrc(*dst) << ".x) ";
-                s << (instr.testNonZero ? "!= 0.f" : "== 0.f");
-                s << ") { break; }\n";
-            }
-            break;
-
-        case D3D10_SB_OPCODE_SAMPLE:
-            if (dst && src0 && src1 && src2)
-            {
-                Uint32 texSlot = src1->indices[0];
-                Uint32 smpSlot = src2->indices[0];
-                std::string uv = EmitSrc(*src0);
-                s << EmitWrite(dstBase, mask,
-                    "sw_sample_2d(res->tex[" + std::to_string(texSlot) + "],"
-                    "res->smp[" + std::to_string(smpSlot) + "],"
-                    "(" + uv + ").x,(" + uv + ").y)", sat);
-            }
-            break;
-
-        case D3D10_SB_OPCODE_SAMPLE_L:
-            if (dst && src0 && src1 && src2)
-            {
-                Uint32 texSlot = src1->indices[0];
-                Uint32 smpSlot = src2->indices[0];
-                std::string uv = EmitSrc(*src0);
-                s << EmitWrite(dstBase, mask,
-                    "sw_sample_2d(res->tex[" + std::to_string(texSlot) + "],"
-                    "res->smp[" + std::to_string(smpSlot) + "],"
-                    "(" + uv + ").x,(" + uv + ").y)", sat);
-            }
-            break;
-
-        case D3D10_SB_OPCODE_LD:
-            if (dst && src0 && src1)
-            {
-                Uint32 texSlot = src1->indices[0];
-                std::string coord = EmitSrc(*src0);
-                s << EmitWrite(dstBase, mask,
-                    "sw_fetch_texel(res->tex[" + std::to_string(texSlot) + "],"
-                    "(unsigned)((" + coord + ").x),"
-                    "(unsigned)((" + coord + ").y))", sat);
-            }
-            break;
-
-        case D3D11_SB_OPCODE_LD_UAV_TYPED:
-            if (dst && src0 && src1)
-            {
-                Uint32 uavSlot = src1->indices[0];
-                std::string addr = EmitSrc(*src0);
-                s << EmitWrite(dstBase, mask,
-                    "sw_uav_load_typed(res->uav[" + std::to_string(uavSlot) + "],"
-                    "sw_bits_uint((" + addr + ").x))", sat);
-            }
-            break;
-
-        case D3D11_SB_OPCODE_STORE_UAV_TYPED:
-            if (dst && src0 && src1)
-            {
-                Uint32 uavSlot = dst->indices[0];
-                std::string addr = EmitSrc(*src0);
-                std::string val  = EmitSrc(*src1);
-                s << "    sw_uav_store_typed(res->uav[" << uavSlot << "],"
-                  << "sw_bits_uint((" << addr << ").x)," << val << ");\n";
-            }
-            break;
-
-        case D3D11_SB_OPCODE_LD_RAW:
-            if (dst && src0 && src1)
-            {
-                std::string addr = EmitSrc(*src0);
-                if (src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
-                {
-                    Uint32 slot = src1->indices[0];
-                    s << EmitWrite(dstBase, mask,
-                        "sw_tgsm_load_raw(tgsm[" + std::to_string(slot) + "],"
-                        "sw_bits_uint((" + addr + ").x))", sat);
-                }
-                else
-                {
-                    Uint32 uavSlot = src1->indices[0];
-                    s << EmitWrite(dstBase, mask,
-                        "sw_uav_load_raw(res->uav[" + std::to_string(uavSlot) + "],"
-                        "sw_bits_uint((" + addr + ").x))", sat);
-                }
-            }
-            break;
-
-        case D3D11_SB_OPCODE_STORE_RAW:
-            if (dst && src0 && src1)
-            {
-                std::string addr = EmitSrc(*src0);
-                std::string val  = EmitSrc(*src1);
-                if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
-                {
-                    Uint32 slot = dst->indices[0];
-                    s << "    sw_tgsm_store_raw(tgsm[" << slot << "],"
-                      << "sw_bits_uint((" << addr << ").x)," << val << ");\n";
-                }
-                else
-                {
-                    Uint32 uavSlot = dst->indices[0];
-                    s << "    sw_uav_store_raw(res->uav[" << uavSlot << "],"
-                      << "sw_bits_uint((" << addr << ").x)," << val << ");\n";
-                }
-            }
-            break;
-
-        case D3D11_SB_OPCODE_LD_STRUCTURED:
-            if (dst && src0 && src1 && src2)
-            {
-                std::string idx    = EmitSrc(*src0);
-                std::string offset = EmitSrc(*src1);
-                if (src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
-                {
-                    Uint32 slot = src2->indices[0];
-                    s << EmitWrite(dstBase, mask,
-                        "sw_tgsm_load_structured(tgsm[" + std::to_string(slot) + "],"
-                        "sw_bits_uint((" + idx + ").x),"
-                        "sw_bits_uint((" + offset + ").x))", sat);
-                }
-                else
-                {
-                    Uint32 uavSlot = src2->indices[0];
-                    s << EmitWrite(dstBase, mask,
-                        "sw_uav_load_structured(res->uav[" + std::to_string(uavSlot) + "],"
-                        "sw_bits_uint((" + idx + ").x),"
-                        "sw_bits_uint((" + offset + ").x))", sat);
-                }
-            }
-            break;
-
-        case D3D11_SB_OPCODE_STORE_STRUCTURED:
-            if (dst && src0 && src1 && src2)
-            {
-                std::string idx    = EmitSrc(*src0);
-                std::string offset = EmitSrc(*src1);
-                std::string val    = EmitSrc(*src2);
-                if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
-                {
-                    Uint32 slot = dst->indices[0];
-                    s << "    sw_tgsm_store_structured(tgsm[" << slot << "],"
-                      << "sw_bits_uint((" << idx << ").x),"
-                      << "sw_bits_uint((" << offset << ").x)," << val << ");\n";
-                }
-                else
-                {
-                    Uint32 uavSlot = dst->indices[0];
-                    s << "    sw_uav_store_structured(res->uav[" << uavSlot << "],"
-                      << "sw_bits_uint((" << idx << ").x),"
-                      << "sw_bits_uint((" << offset << ").x)," << val << ");\n";
-                }
-            }
-            break;
-
-        case D3D10_SB_OPCODE_RET:
-        case D3D10_SB_OPCODE_NOP:
-        case D3D10_SB_OPCODE_DCL_TEMPS:
-        case D3D10_SB_OPCODE_DCL_INPUT:
-        case D3D10_SB_OPCODE_DCL_INPUT_PS:
-        case D3D10_SB_OPCODE_DCL_INPUT_SGV:
-        case D3D10_SB_OPCODE_DCL_INPUT_SIV:
-        case D3D10_SB_OPCODE_DCL_INPUT_PS_SGV:
-        case D3D10_SB_OPCODE_DCL_INPUT_PS_SIV:
-        case D3D10_SB_OPCODE_DCL_OUTPUT:
-        case D3D10_SB_OPCODE_DCL_OUTPUT_SGV:
-        case D3D10_SB_OPCODE_DCL_OUTPUT_SIV:
-        case D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER:
-        case D3D10_SB_OPCODE_DCL_RESOURCE:
-        case D3D10_SB_OPCODE_DCL_SAMPLER:
-        case D3D10_SB_OPCODE_DCL_GLOBAL_FLAGS:
-        case D3D11_SB_OPCODE_DCL_THREAD_GROUP:
-        case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED:
-        case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW:
-        case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
-        case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
-        case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED:
-            break;
-
-        case D3D11_SB_OPCODE_SYNC:
-            s << "    _barrier(_barrier_ctx);\n";
-            break;
-
-        default:
-            s << "    /* unhandled op=" << (int)instr.op << " */\n";
-            break;
+    default:
+        w.Line("/* unhandled op={} */", (Int)instr.op);
+        break;
     }
-
-    return s.str();
 }
 
-std::string ShaderCodeGen::EmitInstructions(const D3D11SW_ParsedShader& shader) const
+void EmitInstructions(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 {
-    std::ostringstream s;
     for (const auto& instr : shader.instrs)
     {
-        s << EmitInstr(instr, shader);
+        EmitInstr(w, instr, shader);
     }
-    return s.str();
 }
 
-std::string ShaderCodeGen::EmitVS(const D3D11SW_ParsedShader& shader) const
+void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 {
-    std::ostringstream s;
     Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
-    Uint8  svPosReg = FindSVPositionReg(shader);
+    Uint8 svPosReg = FindSVPositionReg(shader);
 
-    s << "extern \"C\" void ShaderMain(const SW_VSInput* in_ptr, SW_VSOutput* out_ptr,"
-         " const SW_Resources* res)\n{\n";
-    s << "    SW_float4 r[" << numTemps << "] = {};\n";
-    s << "    SW_float4 out_v[" << D3D11_VS_OUTPUT_REGISTER_COUNT << "] = {};\n";
-    s << "\n";
+    w.Line("extern \"C\" void ShaderMain(const SW_VSInput* in_ptr, SW_VSOutput* out_ptr,"
+           " const SW_Resources* res)");
+    w.Line("{{");
+    w.Indent();
+    w.Line("SW_float4 r[{}] = {{}};", numTemps);
+    w.Line("SW_float4 out_v[{}] = {{}};", (Int)D3D11_VS_OUTPUT_REGISTER_COUNT);
+    w.Newline();
 
-    s << EmitInstructions(shader);
+    EmitInstructions(w, shader);
 
-    s << "\n";
+    w.Newline();
     for (const auto& e : shader.outputs)
     {
         if (e.svType == D3D_NAME_POSITION)
         {
-            s << "    out_ptr->pos = out_v[" << e.reg << "];\n";
+            w.Line("out_ptr->pos = out_v[{}];", e.reg);
         }
         else
         {
-            s << "    out_ptr->o[" << e.reg << "] = out_v[" << e.reg << "];\n";
+            w.Line("out_ptr->o[{}] = out_v[{}];", e.reg, e.reg);
         }
     }
 
     if (svPosReg == 0xFF && !shader.outputs.empty())
     {
-        s << "    out_ptr->pos = out_v[0];\n";
+        w.Line("out_ptr->pos = out_v[0];");
     }
 
-    s << "}\n";
-    return s.str();
+    w.Dedent();
+    w.Line("}}");
 }
 
-std::string ShaderCodeGen::EmitPS(const D3D11SW_ParsedShader& shader) const
+void EmitPS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 {
-    std::ostringstream s;
     Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
 
-    s << "extern \"C\" void ShaderMain(const SW_PSInput* in_ptr, SW_PSOutput* out_ptr,"
-         " const SW_Resources* res)\n{\n";
-    s << "    SW_float4 r[" << numTemps << "] = {};\n";
-    s << "    SW_float4 out_v[" << D3D11_PS_OUTPUT_REGISTER_COUNT << "] = {};\n";
-    s << "    out_ptr->depthWritten = false;\n";
-    s << "\n";
+    w.Line("extern \"C\" void ShaderMain(const SW_PSInput* in_ptr, SW_PSOutput* out_ptr,"
+           " const SW_Resources* res)");
+    w.Line("{{");
+    w.Indent();
+    w.Line("SW_float4 r[{}] = {{}};", numTemps);
+    w.Line("SW_float4 out_v[{}] = {{}};", (Int)D3D11_PS_OUTPUT_REGISTER_COUNT);
+    w.Line("out_ptr->depthWritten = false;");
+    w.Newline();
 
-    s << EmitInstructions(shader);
+    EmitInstructions(w, shader);
 
-    s << "\n";
+    w.Newline();
     for (Uint32 i = 0; i < D3D11_PS_OUTPUT_REGISTER_COUNT; ++i)
     {
-        s << "    out_ptr->oC[" << i << "] = out_v[" << i << "];\n";
+        w.Line("out_ptr->oC[{}] = out_v[{}];", i, i);
     }
 
-    s << "}\n";
-    return s.str();
+    w.Dedent();
+    w.Line("}}");
 }
 
-std::string ShaderCodeGen::EmitCS(const D3D11SW_ParsedShader& shader) const
+void EmitCS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 {
-    std::ostringstream s;
     Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
 
-    s << "extern \"C\" void ShaderMain(const SW_CSInput* in_ptr,"
-         " SW_Resources* res, SW_TGSM* tgsm, SW_BarrierFn _barrier, void* _barrier_ctx)\n{\n";
-    s << "    SW_float4 r[" << numTemps << "] = {};\n";
-    s << "    SW_float4 _tid   = { sw_uint_bits(in_ptr->dispatchThreadID.x), sw_uint_bits(in_ptr->dispatchThreadID.y), sw_uint_bits(in_ptr->dispatchThreadID.z), 0.f };\n";
-    s << "    SW_float4 _gid   = { sw_uint_bits(in_ptr->groupID.x), sw_uint_bits(in_ptr->groupID.y), sw_uint_bits(in_ptr->groupID.z), 0.f };\n";
-    s << "    SW_float4 _gtid  = { sw_uint_bits(in_ptr->groupThreadID.x), sw_uint_bits(in_ptr->groupThreadID.y), sw_uint_bits(in_ptr->groupThreadID.z), 0.f };\n";
-    s << "    SW_float4 _gi    = { sw_uint_bits(in_ptr->groupIndex), 0.f, 0.f, 0.f };\n";
-    s << "    (void)_tid; (void)_gid; (void)_gtid; (void)_gi; (void)tgsm;\n\n";
+    w.Line("extern \"C\" void ShaderMain(const SW_CSInput* in_ptr,"
+           " SW_Resources* res, SW_TGSM* tgsm, SW_BarrierFn _barrier, void* _barrier_ctx)");
+    w.Line("{{");
+    w.Indent();
+    w.Line("SW_float4 r[{}] = {{}};", numTemps);
+    w.Line("SW_float4 _tid  = {{ sw_uint_bits(in_ptr->dispatchThreadID.x),"
+           " sw_uint_bits(in_ptr->dispatchThreadID.y),"
+           " sw_uint_bits(in_ptr->dispatchThreadID.z), 0.f }};");
+    w.Line("SW_float4 _gid  = {{ sw_uint_bits(in_ptr->groupID.x),"
+           " sw_uint_bits(in_ptr->groupID.y),"
+           " sw_uint_bits(in_ptr->groupID.z), 0.f }};");
+    w.Line("SW_float4 _gtid = {{ sw_uint_bits(in_ptr->groupThreadID.x),"
+           " sw_uint_bits(in_ptr->groupThreadID.y),"
+           " sw_uint_bits(in_ptr->groupThreadID.z), 0.f }};");
+    w.Line("SW_float4 _gi   = {{ sw_uint_bits(in_ptr->groupIndex), 0.f, 0.f, 0.f }};");
+    w.Line("(void)_tid; (void)_gid; (void)_gtid; (void)_gi; (void)tgsm;");
+    w.Newline();
 
-    s << EmitInstructions(shader);
+    EmitInstructions(w, shader);
 
-    s << "}\n";
-    return s.str();
+    w.Dedent();
+    w.Line("}}");
 }
 
-std::string ShaderCodeGen::Emit(const D3D11SW_ParsedShader& shader,
-                                 const std::string& runtimeHeaderPath) const
+} 
+
+std::string EmitShader(const D3D11SW_ParsedShader& shader,
+                       const std::string& runtimeHeaderPath)
 {
-    std::ostringstream s;
-    s << "#include \"" << runtimeHeaderPath << "\"\n\n";
+    CodeWriter w;
+    w.Line("#include \"{}\"", runtimeHeaderPath);
+    w.Newline();
 
     switch (shader.type)
     {
-        case D3D11SW_ShaderType::Vertex:  s << EmitVS(shader); break;
-        case D3D11SW_ShaderType::Pixel:   s << EmitPS(shader); break;
-        case D3D11SW_ShaderType::Compute: s << EmitCS(shader); break;
-        default:
-            s << "extern \"C\" void ShaderMain() {}\n";
-            break;
+    case D3D11SW_ShaderType::Vertex:  EmitVS(w, shader); break;
+    case D3D11SW_ShaderType::Pixel:   EmitPS(w, shader); break;
+    case D3D11SW_ShaderType::Compute: EmitCS(w, shader); break;
+    default:
+        w.Line("extern \"C\" void ShaderMain() {{}}");
+        break;
     }
 
-    return s.str();
+    return w.Take();
 }
 
 }

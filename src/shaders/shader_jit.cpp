@@ -114,8 +114,7 @@ void* ShaderJIT::GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderTyp
         }
         parsed.type = type;
 
-        ShaderCodeGen cg;
-        std::string src = cg.Emit(parsed, "shaders/shader_runtime.h");
+        std::string src = EmitShader(parsed, "shaders/shader_runtime.h");
         if (!WriteCpp(cppPath, src))
         {
             D3D11SW_ERROR("ShaderJIT: failed to write {}", cppPath.c_str());
