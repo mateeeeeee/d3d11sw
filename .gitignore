@@ -11,3 +11,4 @@ out/
 CMakeSettings.json
 CMakeUserPresets.json
 .DS_Store
+tests/golden/results/

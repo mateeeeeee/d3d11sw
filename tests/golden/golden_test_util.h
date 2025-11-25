@@ -13,6 +13,32 @@
 #define D3D11SW_GOLDEN_DIR "."
 #endif
 
+#ifndef D3D11SW_OUTPUT_DIR
+#define D3D11SW_OUTPUT_DIR "."
+#endif
+
+#ifndef D3D11SW_SHADER_DIR
+#define D3D11SW_SHADER_DIR "."
+#endif
+
+inline std::vector<unsigned char> ReadBytecode(const char* path)
+{
+    std::FILE* f = std::fopen(path, "rb");
+    if (!f) return {};
+    std::fseek(f, 0, SEEK_END);
+    long size = std::ftell(f);
+    if (size <= 0) { std::fclose(f); return {}; }
+    std::fseek(f, 0, SEEK_SET);
+    std::vector<unsigned char> data(static_cast<size_t>(size));
+    if (std::fread(data.data(), 1, data.size(), f) != data.size())
+    {
+        std::fclose(f);
+        return {};
+    }
+    std::fclose(f);
+    return data;
+}
+
 inline void WritePPM(const char* path, const float* rgba, unsigned w, unsigned h)
 {
     std::FILE* f = std::fopen(path, "wb");
@@ -147,6 +173,10 @@ inline GoldenResult CheckGolden(const char* testName, const float* actualRGBA,
     std::string refDir  = D3D11SW_GOLDEN_DIR;
     std::string refPath = refDir + "/" + testName + ".ppm";
 
+    std::string outDir = D3D11SW_OUTPUT_DIR;
+    MkdirP(outDir.c_str());
+    WritePPM((outDir + "/" + testName + ".ppm").c_str(), actualRGBA, width, height);
+
     bool updateGolden = false;
     if (const char* env = std::getenv("D3D11SW_UPDATE_GOLDEN"))
         updateGolden = (std::strcmp(env, "1") == 0);
@@ -200,9 +230,6 @@ inline GoldenResult CheckGolden(const char* testName, const float* actualRGBA,
         float maxErr = CompareWithTolerance(quantizedActual.data(), refData.data(), pixelCount);
 
         // Write failure artifacts
-        std::string outDir = "/tmp/d3d11sw/golden_output";
-        MkdirP(outDir.c_str());
-        WritePPM((outDir + "/" + testName + "_actual.ppm").c_str(), actualRGBA, width, height);
         WriteDiffPPM((outDir + "/" + testName + "_diff.ppm").c_str(),
                      quantizedActual.data(), refData.data(), width, height);
 
@@ -230,9 +257,6 @@ inline GoldenResult CheckGolden(const char* testName, const float* actualRGBA,
     }
 
     // Write failure artifacts
-    std::string outDir = "/tmp/d3d11sw/golden_output";
-    MkdirP(outDir.c_str());
-    WritePPM((outDir + "/" + testName + "_actual.ppm").c_str(), actualRGBA, width, height);
     WriteDiffPPM((outDir + "/" + testName + "_diff.ppm").c_str(),
                  quantizedActual.data(), refData.data(), width, height);
 
