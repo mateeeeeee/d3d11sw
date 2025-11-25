@@ -9,11 +9,11 @@ namespace {
 class CodeWriter
 {
 public:
-    template<typename... Args>
-    void Line(std::format_string<Args...> fmt, Args&&... args)
+    template<typename... ArgsT>
+    void Line(std::format_string<ArgsT...> fmt, ArgsT&&... args)
     {
         _buf.append(_depth * 4, ' ');
-        std::format_to(std::back_inserter(_buf), fmt, std::forward<Args>(args)...);
+        std::format_to(std::back_inserter(_buf), fmt, std::forward<ArgsT>(args)...);
         _buf += '\n';
     }
 
@@ -345,6 +345,11 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_UGE:  if (src0 && src1) { EmitPerComp2(w, "sw_uge",  dstBase, mask, *src0, *src1); } break;
     case D3D10_SB_OPCODE_ULT:  if (src0 && src1) { EmitPerComp2(w, "sw_ult",  dstBase, mask, *src0, *src1); } break;
 
+    case D3D10_SB_OPCODE_EQ:   if (src0 && src1) { EmitPerComp2(w, "sw_feq",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_NE:   if (src0 && src1) { EmitPerComp2(w, "sw_fne",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_GE:   if (src0 && src1) { EmitPerComp2(w, "sw_fge",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_LT:   if (src0 && src1) { EmitPerComp2(w, "sw_flt",  dstBase, mask, *src0, *src1); } break;
+
     case D3D10_SB_OPCODE_MOVC:
         if (src0 && src1 && src2)
         {
@@ -396,6 +401,87 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
                         continue;
                     }
                     w.Line("  {}.{} = sw_umod(_a.{}, _b.{});", rBase, Comp(i), Comp(i), Comp(i));
+                }
+            }
+            w.Line("}}");
+        }
+        break;
+    }
+
+    case D3D10_SB_OPCODE_IMUL:
+    {
+        //operands: dst_hi, dst_lo, src_a, src_b
+        const SM4Operand* dstHi = dst;
+        const SM4Operand* dstLo = src0;
+        const SM4Operand* srcA  = src1;
+        const SM4Operand* srcB  = src2;
+        if (srcA && srcB)
+        {
+            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            if (dstHi && dstHi->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string hBase = EmitDstBase(*dstHi);
+                Uint8 hMask = dstHi->writeMask ? dstHi->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(hMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_imul_hi(_a.{}, _b.{});", hBase, Comp(i), Comp(i), Comp(i));
+                }
+            }
+            if (dstLo && dstLo->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string lBase = EmitDstBase(*dstLo);
+                Uint8 lMask = dstLo->writeMask ? dstLo->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(lMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_imul_lo(_a.{}, _b.{});", lBase, Comp(i), Comp(i), Comp(i));
+                }
+            }
+            w.Line("}}");
+        }
+        break;
+    }
+
+    case D3D10_SB_OPCODE_SINCOS:
+    {
+        // operands: dst_sin, dst_cos, src
+        const SM4Operand* dstSin = dst;
+        const SM4Operand* dstCos = src0;
+        const SM4Operand* srcVal = src1;
+        if (srcVal)
+        {
+            w.Line("{{ SW_float4 _a = {};", EmitSrc(*srcVal));
+            if (dstSin && dstSin->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string sBase = EmitDstBase(*dstSin);
+                Uint8 sMask = dstSin->writeMask ? dstSin->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(sMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_sin(_a.{});", sBase, Comp(i), Comp(i));
+                }
+            }
+            if (dstCos && dstCos->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string cBase = EmitDstBase(*dstCos);
+                Uint8 cMask = dstCos->writeMask ? dstCos->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(cMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_cos(_a.{});", cBase, Comp(i), Comp(i));
                 }
             }
             w.Line("}}");
@@ -558,6 +644,9 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         break;
 
     case D3D10_SB_OPCODE_RET:
+        w.Line("return;");
+        break;
+
     case D3D10_SB_OPCODE_NOP:
     case D3D10_SB_OPCODE_DCL_TEMPS:
     case D3D10_SB_OPCODE_DCL_INPUT:

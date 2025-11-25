@@ -27,6 +27,8 @@ inline float sw_exp2(float v)         { return std::exp2(v); }
 inline float sw_frc(float v)          { return v - std::floor(v); }
 inline float sw_round_ne(float v)     { return std::nearbyint(v); }
 inline float sw_round_z(float v)      { return std::trunc(v); }
+inline float sw_sin(float v)          { return std::sin(v); }
+inline float sw_cos(float v)          { return std::cos(v); }
 inline float sw_min(float a, float b) { return std::fmin(a, b); }
 inline float sw_max(float a, float b) { return std::fmax(a, b); }
 inline float sw_abs(float v)          { return std::fabs(v); }
@@ -61,6 +63,12 @@ inline float sw_uge(float a, float b)  { return sw_uint_bits(sw_bits_uint(a) >= 
 inline float sw_ult(float a, float b)  { return sw_uint_bits(sw_bits_uint(a) <  sw_bits_uint(b) ? 0xFFFFFFFFu : 0u); }
 inline float sw_udiv(float a, float b) { unsigned ub = sw_bits_uint(b); return ub ? sw_uint_bits(sw_bits_uint(a) / ub) : sw_uint_bits(0xFFFFFFFFu); }
 inline float sw_umod(float a, float b) { unsigned ub = sw_bits_uint(b); return ub ? sw_uint_bits(sw_bits_uint(a) % ub) : 0.f; }
+inline float sw_imul_hi(float a, float b) { long long r = (long long)sw_bits_int(a) * (long long)sw_bits_int(b); return sw_int_bits((int)(r >> 32)); }
+inline float sw_imul_lo(float a, float b) { return sw_int_bits(sw_bits_int(a) * sw_bits_int(b)); }
+inline float sw_feq(float a, float b) { return sw_uint_bits(a == b ? 0xFFFFFFFFu : 0u); }
+inline float sw_fne(float a, float b) { return sw_uint_bits(a != b ? 0xFFFFFFFFu : 0u); }
+inline float sw_fge(float a, float b) { return sw_uint_bits(a >= b ? 0xFFFFFFFFu : 0u); }
+inline float sw_flt(float a, float b) { return sw_uint_bits(a <  b ? 0xFFFFFFFFu : 0u); }
 inline float sw_and(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) & sw_bits_uint(b)); }
 inline float sw_or(float a, float b)    { return sw_uint_bits(sw_bits_uint(a) | sw_bits_uint(b)); }
 inline float sw_xor(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) ^ sw_bits_uint(b)); }

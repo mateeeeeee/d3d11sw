@@ -682,3 +682,166 @@ TEST_F(ShaderCodeGenTests, LdTexEmitted)
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
     EXPECT_NE(src.find("sw_fetch_texel"), std::string::npos);
 }
+
+static SM4Operand MakeNull()
+{
+    SM4Operand op{};
+    op.type = D3D10_SB_OPERAND_TYPE_NULL;
+    return op;
+}
+
+TEST_F(ShaderCodeGenTests, EqEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_EQ, { MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_feq"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, NeEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_NE, { MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_fne"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, GeEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_GE, { MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_fge"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, LtEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_LT, { MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_flt"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ImulLoEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_IMUL, { MakeNull(), MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_imul_lo"), std::string::npos);
+    EXPECT_EQ(src.find("sw_imul_hi"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ImulHiEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_IMUL, { MakeTemp(0), MakeNull(), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_imul_hi"), std::string::npos);
+    EXPECT_EQ(src.find("sw_imul_lo"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ImulBothEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_IMUL, { MakeTemp(0), MakeTemp(1), MakeTemp(1), MakeTemp(1) })
+    }, 3);
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_imul_hi"), std::string::npos);
+    EXPECT_NE(src.find("sw_imul_lo"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, SincosSinEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_SINCOS, { MakeTemp(0), MakeNull(), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_sin"), std::string::npos);
+    EXPECT_EQ(src.find("sw_cos"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, SincosCosEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_SINCOS, { MakeNull(), MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_cos"), std::string::npos);
+    EXPECT_EQ(src.find("sw_sin"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, SincosBothEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_SINCOS, { MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_sin"), std::string::npos);
+    EXPECT_NE(src.find("sw_cos"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UdivQuotientEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_UDIV, { MakeTemp(0), MakeNull(), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_udiv"), std::string::npos);
+    EXPECT_EQ(src.find("sw_umod"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UdivRemainderEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_UDIV, { MakeNull(), MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_umod"), std::string::npos);
+    EXPECT_EQ(src.find("sw_udiv"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, RetEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("return;"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, IeqEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_IEQ, { MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_ieq"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UgeEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_UGE, { MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_uge"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, LoopEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_LOOP));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_ENDLOOP));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("while (true)"), std::string::npos);
+}
