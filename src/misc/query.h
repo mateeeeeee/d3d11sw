@@ -10,11 +10,22 @@ class D3D11QuerySW final : public DeviceChildImpl<ID3D11Query1>
 public:
     explicit D3D11QuerySW(ID3D11Device* device);
 
+    HRESULT Init(const D3D11_QUERY_DESC1* pDesc);
+
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     UINT STDMETHODCALLTYPE GetDataSize() override;
     void STDMETHODCALLTYPE GetDesc(D3D11_QUERY_DESC* pDesc) override;
     void STDMETHODCALLTYPE GetDesc1(D3D11_QUERY_DESC1* pDesc) override;
+
+    void    Begin();
+    void    End();
+    HRESULT GetData(void* pData, UINT DataSize);
+
+private:
+    D3D11_QUERY_DESC1 _desc{};
+    UINT64            _timestamp = 0;
+    bool              _ended = false;
 };
 
 class D3D11PredicateSW final : public DeviceChildImpl<ID3D11Predicate>

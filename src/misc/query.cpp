@@ -1,4 +1,6 @@
 #include "misc/query.h"
+#include <chrono>
+#include <cstring>
 
 namespace d3d11sw {
 
@@ -101,16 +103,44 @@ HRESULT STDMETHODCALLTYPE D3D11CounterSW::QueryInterface(REFIID riid, void** ppv
 D3D11QuerySW::D3D11QuerySW(ID3D11Device* device)
     : DeviceChildImpl(device) {}
 
+HRESULT D3D11QuerySW::Init(const D3D11_QUERY_DESC1* pDesc)
+{
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    switch (pDesc->Query)
+    {
+    case D3D11_QUERY_TIMESTAMP:
+    case D3D11_QUERY_TIMESTAMP_DISJOINT:
+    case D3D11_QUERY_EVENT:
+        break;
+    default:
+        return E_NOTIMPL;
+    }
+
+    _desc = *pDesc;
+    return S_OK;
+}
+
 UINT STDMETHODCALLTYPE D3D11QuerySW::GetDataSize()
 {
-    return 0;
+    switch (_desc.Query)
+    {
+    case D3D11_QUERY_TIMESTAMP:          return sizeof(UINT64);
+    case D3D11_QUERY_TIMESTAMP_DISJOINT: return sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT);
+    case D3D11_QUERY_EVENT:              return sizeof(BOOL);
+    default:                             return 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11QuerySW::GetDesc(D3D11_QUERY_DESC* pDesc)
 {
     if (pDesc)
     {
-        *pDesc = {};
+        pDesc->Query    = _desc.Query;
+        pDesc->MiscFlags = _desc.MiscFlags;
     }
 }
 
@@ -118,7 +148,72 @@ void STDMETHODCALLTYPE D3D11QuerySW::GetDesc1(D3D11_QUERY_DESC1* pDesc)
 {
     if (pDesc)
     {
-        *pDesc = {};
+        *pDesc = _desc;
+    }
+}
+
+void D3D11QuerySW::Begin()
+{
+    _ended = false;
+}
+
+void D3D11QuerySW::End()
+{
+    if (_desc.Query == D3D11_QUERY_TIMESTAMP)
+    {
+        auto now = std::chrono::steady_clock::now();
+        _timestamp = static_cast<UINT64>(now.time_since_epoch().count());
+        using period = std::chrono::steady_clock::period;
+        _timestamp = _timestamp * period::num * (1'000'000'000 / period::den);
+    }
+    _ended = true;
+}
+
+HRESULT D3D11QuerySW::GetData(void* pData, UINT DataSize)
+{
+    if (!_ended)
+    {
+        return S_FALSE;
+    }
+
+    if (!pData)
+    {
+        return S_OK;
+    }
+
+    switch (_desc.Query)
+    {
+    case D3D11_QUERY_TIMESTAMP:
+    {
+        if (DataSize < sizeof(UINT64))
+        {
+            return E_INVALIDARG;
+        }
+        std::memcpy(pData, &_timestamp, sizeof(UINT64));
+        return S_OK;
+    }
+    case D3D11_QUERY_TIMESTAMP_DISJOINT:
+    {
+        if (DataSize < sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_QUERY_DATA_TIMESTAMP_DISJOINT data;
+        data.Frequency = 1'000'000'000;
+        data.Disjoint  = FALSE;
+        std::memcpy(pData, &data, sizeof(data));
+        return S_OK;
+    }
+    case D3D11_QUERY_EVENT:
+    {
+        if (DataSize < sizeof(BOOL))
+            return E_INVALIDARG;
+        BOOL done = TRUE;
+        std::memcpy(pData, &done, sizeof(BOOL));
+        return S_OK;
+    }
+    default:
+        return E_NOTIMPL;
     }
 }
 

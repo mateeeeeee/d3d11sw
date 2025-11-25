@@ -18,6 +18,7 @@
 #include "states/depth_stencil_state.h"
 #include "states/rasterizer_state.h"
 #include "states/sampler_state.h"
+#include "misc/query.h"
 #include "util/format.h"
 
 namespace d3d11sw {
@@ -769,7 +770,30 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery(
     const D3D11_QUERY_DESC* pQueryDesc,
     ID3D11Query** ppQuery)
 {
-    return E_NOTIMPL;
+    if (!pQueryDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11_QUERY_DESC1 desc1{};
+    desc1.Query     = pQueryDesc->Query;
+    desc1.MiscFlags = pQueryDesc->MiscFlags;
+
+    D3D11QuerySW* query = nullptr;
+    HRESULT hr = CreateAndInit(&query, &desc1);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppQuery)
+    {
+        query->Release();
+        return S_FALSE;
+    }
+
+    *ppQuery = query;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreatePredicate(
@@ -1200,7 +1224,26 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView1(ID3D11Resource*
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery1(const D3D11_QUERY_DESC1* pQueryDesc, ID3D11Query1** ppQuery)
 {
-    return E_NOTIMPL;
+    if (!pQueryDesc)
+    {
+        return E_INVALIDARG;
+    }
+
+    D3D11QuerySW* query = nullptr;
+    HRESULT hr = CreateAndInit(&query, pQueryDesc);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    if (!ppQuery)
+    {
+        query->Release();
+        return S_FALSE;
+    }
+
+    *ppQuery = query;
+    return S_OK;
 }
 
 void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext3(ID3D11DeviceContext3** ppImmediateContext)

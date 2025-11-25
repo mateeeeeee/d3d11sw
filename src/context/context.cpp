@@ -21,6 +21,7 @@
 #include "views/unordered_access_view.h"
 #include "context/context_util.h"
 #include "context/dispatch_executor.h"
+#include "misc/query.h"
 
 namespace d3d11sw {
 
@@ -732,15 +733,50 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ResolveSubresource(ID3D11Resource* 
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Begin(ID3D11Asynchronous* pAsync)
 {
+    if (!pAsync)
+    {
+        return;
+    }
+
+    ID3D11Query* query = nullptr;
+    if (SUCCEEDED(pAsync->QueryInterface(__uuidof(ID3D11Query), reinterpret_cast<void**>(&query))))
+    {
+        static_cast<D3D11QuerySW*>(query)->Begin();
+        query->Release();
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::End(ID3D11Asynchronous* pAsync)
 {
+    if (!pAsync)
+    {
+        return;
+    }
+
+    ID3D11Query* query = nullptr;
+    if (SUCCEEDED(pAsync->QueryInterface(__uuidof(ID3D11Query), reinterpret_cast<void**>(&query))))
+    {
+        static_cast<D3D11QuerySW*>(query)->End();
+        query->Release();
+    }
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::GetData(ID3D11Asynchronous* pAsync, void* pData, UINT DataSize, UINT GetDataFlags)
 {
-    return E_NOTIMPL;
+    if (!pAsync)
+    {
+        return E_INVALIDARG;
+    }
+
+    ID3D11Query* query = nullptr;
+    if (SUCCEEDED(pAsync->QueryInterface(__uuidof(ID3D11Query), reinterpret_cast<void**>(&query))))
+    {
+        HRESULT hr = static_cast<D3D11QuerySW*>(query)->GetData(pData, DataSize);
+        query->Release();
+        return hr;
+    }
+
+    return E_INVALIDARG;
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ExecuteCommandList(ID3D11CommandList* pCommandList, BOOL RestoreContextState)

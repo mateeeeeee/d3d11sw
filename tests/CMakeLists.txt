@@ -43,6 +43,7 @@ target_compile_definitions(test_shader_jit PRIVATE
 )
 add_gtest(test_shaders         unit/test_shaders.cpp)
 add_gtest(test_dispatch        unit/test_dispatch.cpp)
+add_gtest(test_query           unit/test_query.cpp)
 
 # Golden tests
 add_gtest(golden_cs_gradient   golden/test_cs_gradient.cpp)
