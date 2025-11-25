@@ -221,9 +221,10 @@ TEST_F(SM4DecoderTests, EmptyStreamFails)
 {
     SM4Decoder decoder;
     std::vector<SM4Instruction> out;
+    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    EXPECT_FALSE(decoder.Decode(nullptr, 0, out, numTemps, tgs));
+    EXPECT_FALSE(decoder.Decode(nullptr, 0, out, numTemps, tgs, tgsmDecls));
 }
 
 TEST_F(SM4DecoderTests, RetOnly)
@@ -236,9 +237,10 @@ TEST_F(SM4DecoderTests, RetOnly)
 
     SM4Decoder decoder;
     std::vector<SM4Instruction> out;
+    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    EXPECT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), out, numTemps, tgs));
+    EXPECT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), out, numTemps, tgs, tgsmDecls));
     ASSERT_EQ(out.size(), 1u);
     EXPECT_EQ(out[0].op, D3D10_SB_OPCODE_RET);
 }
@@ -248,9 +250,10 @@ TEST_F(SM4DecoderTests, DclTempsExtractsCount)
     auto tokens = MakeMinimalVSTokens();
     SM4Decoder decoder;
     std::vector<SM4Instruction> instrs;
+    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    ASSERT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs));
+    ASSERT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
     EXPECT_EQ(numTemps, 1u);
 }
 
@@ -270,9 +273,10 @@ TEST_F(SM4DecoderTests, DclThreadGroupExtractsSize)
 
     SM4Decoder decoder;
     std::vector<SM4Instruction> instrs;
+    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    ASSERT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs));
+    ASSERT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
     EXPECT_EQ(tgs[0], 8u);
     EXPECT_EQ(tgs[1], 1u);
     EXPECT_EQ(tgs[2], 1u);

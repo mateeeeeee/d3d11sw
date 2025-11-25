@@ -104,6 +104,10 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
             std::memcpy(&op.imm[i], &tokens[offset + consumed], 4);
             consumed++;
         }
+        if (count == 1)
+        {
+            op.imm[1] = op.imm[2] = op.imm[3] = op.imm[0];
+        }
     }
 
     return consumed;
@@ -112,7 +116,8 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
 Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
                          std::vector<SM4Instruction>& out,
                          Uint32& numTempsOut,
-                         Uint32  threadGroupSizeOut[3])
+                         Uint32  threadGroupSizeOut[3],
+                         std::vector<D3D11SW_TGSMDecl>& tgsmOut)
 {
     numTempsOut = 0;
     threadGroupSizeOut[0] = threadGroupSizeOut[1] = threadGroupSizeOut[2] = 1;
@@ -168,6 +173,55 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
                 threadGroupSizeOut[1] = instr.threadGroupSize[1] = tokens[pos + 2];
                 threadGroupSizeOut[2] = instr.threadGroupSize[2] = tokens[pos + 3];
             }
+            pos = instrEnd;
+            out.push_back(std::move(instr));
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW)
+        {
+            //Format: opcode, operand(g#), element_count (# of 32-bit scalars)
+            Uint32 cur = pos + 1;
+            SM4Operand gOp{};
+            cur += ReadOperand(tokens, cur, gOp);
+            Uint32 elementCount = (cur < instrEnd) ? tokens[cur] : 0;
+            instr.tgsmSlot   = gOp.indices[0];
+            instr.tgsmSize   = elementCount * 4; 
+            instr.tgsmStride = 0; // raw
+            D3D11SW_TGSMDecl decl{};
+            decl.slot   = instr.tgsmSlot;
+            decl.size   = instr.tgsmSize;
+            decl.stride = 0;
+            tgsmOut.push_back(decl);
+            pos = instrEnd;
+            out.push_back(std::move(instr));
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED)
+        {
+            //Format: opcode, operand(g#), struct_byte_stride, struct_count
+            Uint32 cur = pos + 1;
+            SM4Operand gOp{};
+            cur += ReadOperand(tokens, cur, gOp);
+            Uint32 stride = (cur < instrEnd) ? tokens[cur] : 0;
+            cur++;
+            Uint32 count  = (cur < instrEnd) ? tokens[cur] : 0;
+            instr.tgsmSlot   = gOp.indices[0];
+            instr.tgsmStride = stride;
+            instr.tgsmSize   = stride * count;
+            D3D11SW_TGSMDecl decl{};
+            decl.slot   = instr.tgsmSlot;
+            decl.size   = instr.tgsmSize;
+            decl.stride = stride;
+            tgsmOut.push_back(decl);
+            pos = instrEnd;
+            out.push_back(std::move(instr));
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_SYNC)
+        {
             pos = instrEnd;
             out.push_back(std::move(instr));
             continue;

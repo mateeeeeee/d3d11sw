@@ -39,6 +39,9 @@ std::string ShaderCodeGen::EmitDstBase(const SM4Operand& op) const
         case D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW:
             s << "res->uav[" << op.indices[0] << "]";
             break;
+        case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:
+            s << "tgsm[" << op.indices[0] << "]";
+            break;
         default:
             s << "r[0]";
             break;
@@ -75,6 +78,12 @@ std::string ShaderCodeGen::EmitSrc(const SM4Operand& op) const
                 break;
             case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP:
                 b << "_gtid";
+                break;
+            case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP_FLATTENED:
+                b << "_gi";
+                break;
+            case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:
+                b << "tgsm[" << op.indices[0] << "]";
                 break;
             case D3D10_SB_OPERAND_TYPE_IMMEDIATE32:
             {
@@ -113,7 +122,13 @@ std::string ShaderCodeGen::EmitSrc(const SM4Operand& op) const
     }
 
     if (op.absolute) { result = "sw_abs4(" + result + ")"; }
-    if (op.negate)   { result = "(-(" + result + "))"; }
+    if (op.negate)
+    {
+        if (op.intContext)
+            result = "sw_ineg4(" + result + ")";
+        else
+            result = "(-(" + result + "))";
+    }
 
     return result;
 }
@@ -141,10 +156,41 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
 {
     std::ostringstream s;
 
-    const SM4Operand* dst  = instr.operands.size() > 0 ? &instr.operands[0] : nullptr;
-    const SM4Operand* src0 = instr.operands.size() > 1 ? &instr.operands[1] : nullptr;
-    const SM4Operand* src1 = instr.operands.size() > 2 ? &instr.operands[2] : nullptr;
-    const SM4Operand* src2 = instr.operands.size() > 3 ? &instr.operands[3] : nullptr;
+    // Detect integer instructions for correct negate modifier behavior
+    Bool isIntOp = false;
+    switch (instr.op)
+    {
+        case D3D10_SB_OPCODE_IADD: case D3D10_SB_OPCODE_IMUL: case D3D10_SB_OPCODE_IMAD:
+        case D3D10_SB_OPCODE_ISHL: case D3D10_SB_OPCODE_ISHR: case D3D10_SB_OPCODE_USHR:
+        case D3D10_SB_OPCODE_AND:  case D3D10_SB_OPCODE_OR:   case D3D10_SB_OPCODE_XOR:
+        case D3D10_SB_OPCODE_NOT:  case D3D10_SB_OPCODE_INEG:
+        case D3D10_SB_OPCODE_IMAX: case D3D10_SB_OPCODE_IMIN:
+        case D3D10_SB_OPCODE_UMAX: case D3D10_SB_OPCODE_UMIN:
+        case D3D10_SB_OPCODE_IEQ:  case D3D10_SB_OPCODE_INE:
+        case D3D10_SB_OPCODE_IGE:  case D3D10_SB_OPCODE_ILT:
+        case D3D10_SB_OPCODE_UGE:  case D3D10_SB_OPCODE_ULT:
+        case D3D10_SB_OPCODE_UDIV:
+            isIntOp = true;
+            break;
+        default: break;
+    }
+
+    // Make mutable copies with intContext set for integer ops
+    auto fixOp = [&](const SM4Operand* op) -> SM4Operand {
+        SM4Operand copy = op ? *op : SM4Operand{};
+        if (isIntOp) copy.intContext = true;
+        return copy;
+    };
+
+    SM4Operand op0 = instr.operands.size() > 0 ? fixOp(&instr.operands[0]) : SM4Operand{};
+    SM4Operand op1 = instr.operands.size() > 1 ? fixOp(&instr.operands[1]) : SM4Operand{};
+    SM4Operand op2 = instr.operands.size() > 2 ? fixOp(&instr.operands[2]) : SM4Operand{};
+    SM4Operand op3 = instr.operands.size() > 3 ? fixOp(&instr.operands[3]) : SM4Operand{};
+
+    const SM4Operand* dst  = instr.operands.size() > 0 ? &op0 : nullptr;
+    const SM4Operand* src0 = instr.operands.size() > 1 ? &op1 : nullptr;
+    const SM4Operand* src1 = instr.operands.size() > 2 ? &op2 : nullptr;
+    const SM4Operand* src2 = instr.operands.size() > 3 ? &op3 : nullptr;
 
     std::string dstBase = dst ? EmitDstBase(*dst) : "r[0]";
     Uint8 mask = dst ? (dst->writeMask ? dst->writeMask : 0xF) : 0xF;
@@ -710,48 +756,88 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
         case D3D11_SB_OPCODE_LD_RAW:
             if (dst && src0 && src1)
             {
-                Uint32 uavSlot = src1->indices[0];
                 std::string addr = EmitSrc(*src0);
-                s << EmitWrite(dstBase, mask,
-                    "sw_uav_load_raw(res->uav[" + std::to_string(uavSlot) + "],"
-                    "sw_bits_uint((" + addr + ").x))", sat);
+                if (src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+                {
+                    Uint32 slot = src1->indices[0];
+                    s << EmitWrite(dstBase, mask,
+                        "sw_tgsm_load_raw(tgsm[" + std::to_string(slot) + "],"
+                        "sw_bits_uint((" + addr + ").x))", sat);
+                }
+                else
+                {
+                    Uint32 uavSlot = src1->indices[0];
+                    s << EmitWrite(dstBase, mask,
+                        "sw_uav_load_raw(res->uav[" + std::to_string(uavSlot) + "],"
+                        "sw_bits_uint((" + addr + ").x))", sat);
+                }
             }
             break;
 
         case D3D11_SB_OPCODE_STORE_RAW:
             if (dst && src0 && src1)
             {
-                Uint32 uavSlot = dst->indices[0];
                 std::string addr = EmitSrc(*src0);
                 std::string val  = EmitSrc(*src1);
-                s << "    sw_uav_store_raw(res->uav[" << uavSlot << "],"
-                  << "sw_bits_uint((" << addr << ").x)," << val << ");\n";
+                if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+                {
+                    Uint32 slot = dst->indices[0];
+                    s << "    sw_tgsm_store_raw(tgsm[" << slot << "],"
+                      << "sw_bits_uint((" << addr << ").x)," << val << ");\n";
+                }
+                else
+                {
+                    Uint32 uavSlot = dst->indices[0];
+                    s << "    sw_uav_store_raw(res->uav[" << uavSlot << "],"
+                      << "sw_bits_uint((" << addr << ").x)," << val << ");\n";
+                }
             }
             break;
 
         case D3D11_SB_OPCODE_LD_STRUCTURED:
             if (dst && src0 && src1 && src2)
             {
-                Uint32 uavSlot     = src2->indices[0];
                 std::string idx    = EmitSrc(*src0);
                 std::string offset = EmitSrc(*src1);
-                s << EmitWrite(dstBase, mask,
-                    "sw_uav_load_structured(res->uav[" + std::to_string(uavSlot) + "],"
-                    "sw_bits_uint((" + idx + ").x),"
-                    "sw_bits_uint((" + offset + ").x))", sat);
+                if (src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+                {
+                    Uint32 slot = src2->indices[0];
+                    s << EmitWrite(dstBase, mask,
+                        "sw_tgsm_load_structured(tgsm[" + std::to_string(slot) + "],"
+                        "sw_bits_uint((" + idx + ").x),"
+                        "sw_bits_uint((" + offset + ").x))", sat);
+                }
+                else
+                {
+                    Uint32 uavSlot = src2->indices[0];
+                    s << EmitWrite(dstBase, mask,
+                        "sw_uav_load_structured(res->uav[" + std::to_string(uavSlot) + "],"
+                        "sw_bits_uint((" + idx + ").x),"
+                        "sw_bits_uint((" + offset + ").x))", sat);
+                }
             }
             break;
 
         case D3D11_SB_OPCODE_STORE_STRUCTURED:
             if (dst && src0 && src1 && src2)
             {
-                Uint32 uavSlot     = dst->indices[0];
                 std::string idx    = EmitSrc(*src0);
                 std::string offset = EmitSrc(*src1);
                 std::string val    = EmitSrc(*src2);
-                s << "    sw_uav_store_structured(res->uav[" << uavSlot << "],"
-                  << "sw_bits_uint((" << idx << ").x),"
-                  << "sw_bits_uint((" << offset << ").x)," << val << ");\n";
+                if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+                {
+                    Uint32 slot = dst->indices[0];
+                    s << "    sw_tgsm_store_structured(tgsm[" << slot << "],"
+                      << "sw_bits_uint((" << idx << ").x),"
+                      << "sw_bits_uint((" << offset << ").x)," << val << ");\n";
+                }
+                else
+                {
+                    Uint32 uavSlot = dst->indices[0];
+                    s << "    sw_uav_store_structured(res->uav[" << uavSlot << "],"
+                      << "sw_bits_uint((" << idx << ").x),"
+                      << "sw_bits_uint((" << offset << ").x)," << val << ");\n";
+                }
             }
             break;
 
@@ -770,10 +856,17 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
         case D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER:
         case D3D10_SB_OPCODE_DCL_RESOURCE:
         case D3D10_SB_OPCODE_DCL_SAMPLER:
+        case D3D10_SB_OPCODE_DCL_GLOBAL_FLAGS:
         case D3D11_SB_OPCODE_DCL_THREAD_GROUP:
         case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED:
         case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW:
         case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
+        case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
+        case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED:
+            break;
+
+        case D3D11_SB_OPCODE_SYNC:
+            s << "    _barrier(_barrier_ctx);\n";
             break;
 
         default:
@@ -860,12 +953,13 @@ std::string ShaderCodeGen::EmitCS(const D3D11SW_ParsedShader& shader) const
     Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
 
     s << "extern \"C\" void ShaderMain(const SW_CSInput* in_ptr,"
-         " SW_Resources* res)\n{\n";
+         " SW_Resources* res, SW_TGSM* tgsm, SW_BarrierFn _barrier, void* _barrier_ctx)\n{\n";
     s << "    SW_float4 r[" << numTemps << "] = {};\n";
     s << "    SW_float4 _tid   = { sw_uint_bits(in_ptr->dispatchThreadID.x), sw_uint_bits(in_ptr->dispatchThreadID.y), sw_uint_bits(in_ptr->dispatchThreadID.z), 0.f };\n";
     s << "    SW_float4 _gid   = { sw_uint_bits(in_ptr->groupID.x), sw_uint_bits(in_ptr->groupID.y), sw_uint_bits(in_ptr->groupID.z), 0.f };\n";
     s << "    SW_float4 _gtid  = { sw_uint_bits(in_ptr->groupThreadID.x), sw_uint_bits(in_ptr->groupThreadID.y), sw_uint_bits(in_ptr->groupThreadID.z), 0.f };\n";
-    s << "    (void)_tid; (void)_gid; (void)_gtid;\n\n";
+    s << "    SW_float4 _gi    = { sw_uint_bits(in_ptr->groupIndex), 0.f, 0.f, 0.f };\n";
+    s << "    (void)_tid; (void)_gid; (void)_gtid; (void)_gi; (void)tgsm;\n\n";
 
     s << EmitInstructions(shader);
 

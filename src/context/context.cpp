@@ -68,7 +68,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::QueryInterface(REFIID riid, void
 
 D3D11DeviceContextSW::D3D11DeviceContextSW(ID3D11Device* device)
     : DeviceChildImpl(device)
-    , _dispatchExecutor(std::make_unique<SingleThreadedDispatchExecutor>())
+    , _dispatchExecutor(std::make_unique<SWDispatchExecutor>())
 {
     _state.blendFactor[0] = _state.blendFactor[1] =
     _state.blendFactor[2] = _state.blendFactor[3] = 1.0f;
@@ -348,9 +348,6 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UI
     }
 
     const D3D11SW_ParsedShader& reflection = _state.cs->GetReflection();
-    UINT csX = reflection.threadGroupX > 0 ? reflection.threadGroupX : 1;
-    UINT csY = reflection.threadGroupY > 0 ? reflection.threadGroupY : 1;
-    UINT csZ = reflection.threadGroupZ > 0 ? reflection.threadGroupZ : 1;
 
     SW_Resources res{};
     for (UINT i = 0; i < SW_MAX_CBUFS; ++i)
@@ -423,8 +420,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UI
         }
     }
 
-    _dispatchExecutor->DispatchCS(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ,
-                                   csX, csY, csZ, fn, res);
+    _dispatchExecutor->DispatchCS(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ, fn, res, reflection);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)

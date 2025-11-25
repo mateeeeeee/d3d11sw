@@ -115,16 +115,14 @@ Bool DXBCParser::ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedS
 
     SM4Decoder decoder;
     Uint32 threadGroup[3] = {1, 1, 1};
-    Uint32 numTemps = 0;
-    if (!decoder.Decode(tokens, numDwords, out.instrs, numTemps, threadGroup))
+    if (!decoder.Decode(tokens, numDwords, out.instrs, out.numTemps, threadGroup,
+                        out.tgsm))
     {
         return false;
     }
-
-    out.numTemps     = numTemps;
-    out.threadGroupX = threadGroup[0];
-    out.threadGroupY = threadGroup[1];
-    out.threadGroupZ = threadGroup[2];
+    out.threadGroupX  = threadGroup[0];
+    out.threadGroupY  = threadGroup[1];
+    out.threadGroupZ  = threadGroup[2];
     return true;
 }
 

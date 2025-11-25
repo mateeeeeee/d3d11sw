@@ -20,14 +20,18 @@ struct SM4Operand
     Float          imm[4]       = {};
     Bool           negate       = false;
     Bool           absolute     = false;
+    Bool           intContext   = false;
 };
 
 struct SM4Instruction
 {
     SM4OpCode               op            = D3D10_SB_OPCODE_NOP;
     Bool                    saturate      = false;
-    Bool                    testNonZero   = true;  
+    Bool                    testNonZero   = true;
     Uint32                  threadGroupSize[3] = {1, 1, 1};
+    Uint32                  tgsmSlot      = 0;
+    Uint32                  tgsmSize      = 0;
+    Uint32                  tgsmStride    = 0;
     std::vector<SM4Operand> operands;
 };
 

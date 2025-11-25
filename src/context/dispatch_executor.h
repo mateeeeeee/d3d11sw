@@ -1,24 +1,15 @@
 #pragma once
 #include "shaders/shader_abi.h"
+#include "shaders/dxbc_parser.h"
 
 namespace d3d11sw {
 
-class ISWDispatchExecutor
-{
-public:
-    virtual ~ISWDispatchExecutor() = default;
-
-    virtual void DispatchCS(UINT groupCountX, UINT groupCountY, UINT groupCountZ,
-                            UINT threadGroupX, UINT threadGroupY, UINT threadGroupZ,
-                            SW_CSFn fn, SW_Resources& res) = 0;
-};
-
-class SingleThreadedDispatchExecutor final : public ISWDispatchExecutor
+class SWDispatchExecutor
 {
 public:
     void DispatchCS(UINT groupCountX, UINT groupCountY, UINT groupCountZ,
-                    UINT threadGroupX, UINT threadGroupY, UINT threadGroupZ,
-                    SW_CSFn fn, SW_Resources& res) override;
+                    SW_CSFn fn, SW_Resources& res,
+                    const D3D11SW_ParsedShader& shader);
 };
 
 }

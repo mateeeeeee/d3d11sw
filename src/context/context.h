@@ -173,7 +173,7 @@ public:
 
 private:
     D3D11SW_PIPELINE_STATE                 _state{};
-    std::unique_ptr<ISWDispatchExecutor>   _dispatchExecutor;
+    std::unique_ptr<SWDispatchExecutor>    _dispatchExecutor;
 };
 
 }

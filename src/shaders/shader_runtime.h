@@ -64,6 +64,11 @@ inline SW_float4 sw_abs4(SW_float4 v)
     return { sw_abs(v.x), sw_abs(v.y), sw_abs(v.z), sw_abs(v.w) };
 }
 
+inline SW_float4 sw_ineg4(SW_float4 v)
+{
+    return { sw_ineg(v.x), sw_ineg(v.y), sw_ineg(v.z), sw_ineg(v.w) };
+}
+
 inline SW_float4 sw_saturate4(SW_float4 v)
 {
     return { sw_saturate(v.x), sw_saturate(v.y), sw_saturate(v.z), sw_saturate(v.w) };
@@ -275,4 +280,37 @@ static inline void sw_uav_store_structured(SW_UAV& u, unsigned idx, unsigned byt
     unsigned base = idx * u.stride + byteOffset;
     unsigned v = (unsigned)val.x;
     std::memcpy(static_cast<unsigned char*>(u.data) + base, &v, 4);
+}
+
+// TGSM load/store
+static inline SW_float4 sw_tgsm_load_raw(SW_TGSM& g, unsigned byteOffset)
+{
+    if (!g.data) { return {0,0,0,0}; }
+    unsigned v;
+    std::memcpy(&v, static_cast<const unsigned char*>(g.data) + byteOffset, 4);
+    return { sw_uint_bits(v), 0, 0, 0 };
+}
+
+static inline void sw_tgsm_store_raw(SW_TGSM& g, unsigned byteOffset, SW_float4 val)
+{
+    if (!g.data) { return; }
+    unsigned v = sw_bits_uint(val.x);
+    std::memcpy(static_cast<unsigned char*>(g.data) + byteOffset, &v, 4);
+}
+
+static inline SW_float4 sw_tgsm_load_structured(SW_TGSM& g, unsigned idx, unsigned byteOffset)
+{
+    if (!g.data || !g.stride) { return {0,0,0,0}; }
+    unsigned base = idx * g.stride + byteOffset;
+    unsigned v;
+    std::memcpy(&v, static_cast<const unsigned char*>(g.data) + base, 4);
+    return { sw_uint_bits(v), 0, 0, 0 };
+}
+
+static inline void sw_tgsm_store_structured(SW_TGSM& g, unsigned idx, unsigned byteOffset, SW_float4 val)
+{
+    if (!g.data || !g.stride) { return; }
+    unsigned base = idx * g.stride + byteOffset;
+    unsigned v = sw_bits_uint(val.x);
+    std::memcpy(static_cast<unsigned char*>(g.data) + base, &v, 4);
 }

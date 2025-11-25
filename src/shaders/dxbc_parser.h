@@ -38,6 +38,13 @@ struct D3D11SW_TexBinding
     Uint32 dimension; 
 };
 
+struct D3D11SW_TGSMDecl
+{
+    Uint32 slot;
+    Uint32 size;    
+    Uint32 stride;  
+};
+
 struct D3D11SW_ParsedShader
 {
     D3D11SW_ShaderType                           type;
@@ -50,9 +57,10 @@ struct D3D11SW_ParsedShader
     Uint32                                       threadGroupX;
     Uint32                                       threadGroupY;
     Uint32                                       threadGroupZ;
+    std::vector<D3D11SW_TGSMDecl>                tgsm;
 };
 
-D3D11SW_TODO(no state, should it be free function?);
+D3D11SW_TODO(no state, should it be free functions?);
 class DXBCParser
 {
 public:

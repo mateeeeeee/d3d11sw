@@ -10,6 +10,7 @@ static constexpr unsigned SW_MAX_CBUFS      = D3D11_COMMONSHADER_CONSTANT_BUFFER
 static constexpr unsigned SW_MAX_TEXTURES   = D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT;
 static constexpr unsigned SW_MAX_SAMPLERS   = D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT;
 static constexpr unsigned SW_MAX_UAVS       = D3D11_1_UAV_SLOT_COUNT;
+static constexpr unsigned SW_MAX_TGSM       = 8;
 
 struct SW_float4
 {
@@ -77,10 +78,20 @@ struct SW_CSInput
     SW_uint3 groupID;
     SW_uint3 groupThreadID;
     SW_uint3 dispatchThreadID;
+    unsigned groupIndex;
 };
 
 using SW_VSFn = void(*)(const SW_VSInput*, SW_VSOutput*, const SW_Resources*);
 using SW_PSFn = void(*)(const SW_PSInput*, SW_PSOutput*, const SW_Resources*);
-using SW_CSFn = void(*)(const SW_CSInput*, SW_Resources*);
+
+struct SW_TGSM
+{
+    void*    data;
+    unsigned size;    
+    unsigned stride;  
+};
+
+using SW_BarrierFn = void(*)(void*);
+using SW_CSFn = void(*)(const SW_CSInput*, SW_Resources*, SW_TGSM*, SW_BarrierFn, void*);
 
 }

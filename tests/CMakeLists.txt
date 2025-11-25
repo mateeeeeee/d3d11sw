@@ -80,3 +80,12 @@ target_compile_definitions(golden_cs_math PRIVATE
     D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
     D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
 )
+
+add_gtest(golden_cs_shared_sum     golden/test_cs_shared_sum.cpp)
+target_compile_definitions(golden_cs_shared_sum PRIVATE
+    D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
+    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
+    D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
+    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
+    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+)

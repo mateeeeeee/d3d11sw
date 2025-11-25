@@ -13,16 +13,28 @@ using namespace d3d11sw;
 static std::atomic<int> gInvocationCount{0};
 static SW_CSInput        gLastInput{};
 
-static void MockCS(const SW_CSInput* input, SW_Resources* res)
+static void MockCS(const SW_CSInput* input, SW_Resources* res,
+                   SW_TGSM* tgsm, SW_BarrierFn barrier, void* barrierCtx)
 {
     ++gInvocationCount;
     gLastInput = *input;
 }
 
+static D3D11SW_ParsedShader MakeShader(UINT tgX, UINT tgY, UINT tgZ)
+{
+    D3D11SW_ParsedShader s{};
+    s.type         = D3D11SW_ShaderType::Compute;
+    s.numTemps     = 1;
+    s.threadGroupX = tgX;
+    s.threadGroupY = tgY;
+    s.threadGroupZ = tgZ;
+    return s;
+}
+
 struct DispatchExecutorTests : ::testing::Test
 {
-    SingleThreadedDispatchExecutor exec;
-    SW_Resources                   res{};
+    SWDispatchExecutor exec;
+    SW_Resources       res{};
 
     void SetUp() override
     {
@@ -33,36 +45,28 @@ struct DispatchExecutorTests : ::testing::Test
 
 TEST_F(DispatchExecutorTests, InvocationCount)
 {
-    exec.DispatchCS(2, 3, 1,  
-                    4, 1, 1,  
-                    MockCS, res);
+    auto s = MakeShader(4, 1, 1);
+    exec.DispatchCS(2, 3, 1, MockCS, res, s);
     EXPECT_EQ(gInvocationCount, 2 * 3 * 1 * 4 * 1 * 1);
 }
 
 TEST_F(DispatchExecutorTests, InvocationCount3D)
 {
-    exec.DispatchCS(2, 2, 2,
-                    4, 4, 4,
-                    MockCS, res);
+    auto s = MakeShader(4, 4, 4);
+    exec.DispatchCS(2, 2, 2, MockCS, res, s);
     EXPECT_EQ(gInvocationCount, 2 * 2 * 2 * 4 * 4 * 4);
 }
 
 TEST_F(DispatchExecutorTests, GroupID)
 {
-    std::vector<SW_uint3> groupIDs;
-    SW_Resources r{};
-
-    auto fn = [](const SW_CSInput* input, SW_Resources*) {
-        (void)input;
-    };
-
     struct Capture { std::vector<SW_uint3>* ids; };
     static Capture cap;
     static std::vector<SW_uint3> captured;
     captured.clear();
     cap.ids = &captured;
 
-    auto captureFn = [](const SW_CSInput* input, SW_Resources*) {
+    auto captureFn = [](const SW_CSInput* input, SW_Resources*,
+                        SW_TGSM*, SW_BarrierFn, void*) {
         if (input->groupThreadID.x == 0 &&
             input->groupThreadID.y == 0 &&
             input->groupThreadID.z == 0)
@@ -71,7 +75,8 @@ TEST_F(DispatchExecutorTests, GroupID)
         }
     };
 
-    exec.DispatchCS(2, 2, 1, 1, 1, 1, captureFn, res);
+    auto s = MakeShader(1, 1, 1);
+    exec.DispatchCS(2, 2, 1, captureFn, res, s);
 
     ASSERT_EQ(captured.size(), 4u);
     EXPECT_EQ(captured[0].x, 0u); EXPECT_EQ(captured[0].y, 0u);
@@ -84,11 +89,13 @@ TEST_F(DispatchExecutorTests, DispatchThreadID)
 {
     static SW_uint3 lastDispatchID{};
 
-    auto fn = [](const SW_CSInput* input, SW_Resources*) {
+    auto fn = [](const SW_CSInput* input, SW_Resources*,
+                 SW_TGSM*, SW_BarrierFn, void*) {
         lastDispatchID = input->dispatchThreadID;
     };
 
-    exec.DispatchCS(1, 1, 1, 4, 1, 1, fn, res);
+    auto s = MakeShader(4, 1, 1);
+    exec.DispatchCS(1, 1, 1, fn, res, s);
 
     EXPECT_EQ(lastDispatchID.x, 3u);
     EXPECT_EQ(lastDispatchID.y, 0u);
@@ -99,19 +106,37 @@ TEST_F(DispatchExecutorTests, DispatchThreadIDMultiGroup)
 {
     static SW_uint3 lastDispatchID{};
 
-    auto fn = [](const SW_CSInput* input, SW_Resources*) {
+    auto fn = [](const SW_CSInput* input, SW_Resources*,
+                 SW_TGSM*, SW_BarrierFn, void*) {
         lastDispatchID = input->dispatchThreadID;
     };
 
-    exec.DispatchCS(2, 1, 1, 4, 1, 1, fn, res);
+    auto s = MakeShader(4, 1, 1);
+    exec.DispatchCS(2, 1, 1, fn, res, s);
 
     EXPECT_EQ(lastDispatchID.x, 7u);
 }
 
 TEST_F(DispatchExecutorTests, ZeroGroupsNoInvocations)
 {
-    exec.DispatchCS(0, 1, 1, 4, 1, 1, MockCS, res);
+    auto s = MakeShader(4, 1, 1);
+    exec.DispatchCS(0, 1, 1, MockCS, res, s);
     EXPECT_EQ(gInvocationCount, 0);
+}
+
+TEST_F(DispatchExecutorTests, GroupIndexComputed)
+{
+    static unsigned lastGroupIndex = 0xFFFFFFFF;
+
+    auto fn = [](const SW_CSInput* input, SW_Resources*,
+                 SW_TGSM*, SW_BarrierFn, void*) {
+        lastGroupIndex = input->groupIndex;
+    };
+
+    //index = 0*4*2 + 1*4 + 3 = 7
+    auto s = MakeShader(4, 2, 1);
+    exec.DispatchCS(1, 1, 1, fn, res, s);
+    EXPECT_EQ(lastGroupIndex, 7u);
 }
 
 static std::vector<Uint8> BuildDXBCBlob(Uint32 chunkFourCC, const std::vector<Uint8>& payload)
