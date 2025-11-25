@@ -53,6 +53,12 @@ inline float sw_imax(float a, float b)  { int ia = sw_bits_int(a), ib = sw_bits_
 inline float sw_imin(float a, float b)  { int ia = sw_bits_int(a), ib = sw_bits_int(b); return sw_int_bits(ia < ib ? ia : ib); }
 inline float sw_umax(float a, float b)  { unsigned ua = sw_bits_uint(a), ub = sw_bits_uint(b); return sw_uint_bits(ua > ub ? ua : ub); }
 inline float sw_umin(float a, float b)  { unsigned ua = sw_bits_uint(a), ub = sw_bits_uint(b); return sw_uint_bits(ua < ub ? ua : ub); }
+inline float sw_ieq(float a, float b)  { return sw_uint_bits(sw_bits_int(a) == sw_bits_int(b) ? 0xFFFFFFFFu : 0u); }
+inline float sw_ine(float a, float b)  { return sw_uint_bits(sw_bits_int(a) != sw_bits_int(b) ? 0xFFFFFFFFu : 0u); }
+inline float sw_ige(float a, float b)  { return sw_uint_bits(sw_bits_int(a) >= sw_bits_int(b) ? 0xFFFFFFFFu : 0u); }
+inline float sw_ilt(float a, float b)  { return sw_uint_bits(sw_bits_int(a) <  sw_bits_int(b) ? 0xFFFFFFFFu : 0u); }
+inline float sw_uge(float a, float b)  { return sw_uint_bits(sw_bits_uint(a) >= sw_bits_uint(b) ? 0xFFFFFFFFu : 0u); }
+inline float sw_ult(float a, float b)  { return sw_uint_bits(sw_bits_uint(a) <  sw_bits_uint(b) ? 0xFFFFFFFFu : 0u); }
 inline float sw_and(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) & sw_bits_uint(b)); }
 inline float sw_or(float a, float b)    { return sw_uint_bits(sw_bits_uint(a) | sw_bits_uint(b)); }
 inline float sw_xor(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) ^ sw_bits_uint(b)); }

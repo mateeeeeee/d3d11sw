@@ -638,7 +638,35 @@ std::string ShaderCodeGen::EmitInstr(const SM4Instruction& instr,
             }
             break;
 
-        case D3D10_SB_OPCODE_MOVC:
+        case D3D10_SB_OPCODE_IEQ:
+        case D3D10_SB_OPCODE_INE:
+        case D3D10_SB_OPCODE_IGE:
+        case D3D10_SB_OPCODE_ILT:
+        case D3D10_SB_OPCODE_UGE:
+        case D3D10_SB_OPCODE_ULT:
+            if (src0 && src1)
+            {
+                const char* fn = nullptr;
+                switch (instr.op)
+                {
+                    case D3D10_SB_OPCODE_IEQ: fn = "sw_ieq"; break;
+                    case D3D10_SB_OPCODE_INE: fn = "sw_ine"; break;
+                    case D3D10_SB_OPCODE_IGE: fn = "sw_ige"; break;
+                    case D3D10_SB_OPCODE_ILT: fn = "sw_ilt"; break;
+                    case D3D10_SB_OPCODE_UGE: fn = "sw_uge"; break;
+                    case D3D10_SB_OPCODE_ULT: fn = "sw_ult"; break;
+                    default: fn = "sw_ieq"; break;
+                }
+                s << "    { SW_float4 _a=" << EmitSrc(*src0) << ", _b=" << EmitSrc(*src1) << ";\n";
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(mask & (1 << i))) { continue; }
+                    s << "      " << dstBase << "." << Comp(i)
+                      << " = " << fn << "(_a." << Comp(i) << ",_b." << Comp(i) << ");\n";
+                }
+                s << "    }\n";
+            }
+            break;
             if (src0 && src1 && src2)
             {
                 s << "    { SW_float4 _c=" << EmitSrc(*src0)

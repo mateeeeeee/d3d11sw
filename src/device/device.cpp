@@ -869,7 +869,98 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckFeatureSupport(
     void* pFeatureSupportData,
     UINT FeatureSupportDataSize)
 {
-    return E_NOTIMPL;
+    if (!pFeatureSupportData)
+    {
+        return E_INVALIDARG;
+    }
+
+    switch (Feature)
+    {
+    case D3D11_FEATURE_THREADING:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_THREADING))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_THREADING* data = static_cast<D3D11_FEATURE_DATA_THREADING*>(pFeatureSupportData);
+        data->DriverConcurrentCreates = FALSE;
+        data->DriverCommandLists      = FALSE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_DOUBLES:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_DOUBLES))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_DOUBLES* data = static_cast<D3D11_FEATURE_DATA_DOUBLES*>(pFeatureSupportData);
+        data->DoublePrecisionFloatShaderOps = FALSE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_FORMAT_SUPPORT:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_FORMAT_SUPPORT))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_FORMAT_SUPPORT* data = static_cast<D3D11_FEATURE_DATA_FORMAT_SUPPORT*>(pFeatureSupportData);
+        data->OutFormatSupport = GetFormatSupport(data->InFormat);
+        return S_OK;
+    }
+    case D3D11_FEATURE_FORMAT_SUPPORT2:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_FORMAT_SUPPORT2))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_FORMAT_SUPPORT2* data = static_cast<D3D11_FEATURE_DATA_FORMAT_SUPPORT2*>(pFeatureSupportData);
+        data->OutFormatSupport2 = 0;
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D10_X_HARDWARE_OPTIONS:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D10_X_HARDWARE_OPTIONS))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D10_X_HARDWARE_OPTIONS* data = static_cast<D3D11_FEATURE_DATA_D3D10_X_HARDWARE_OPTIONS*>(pFeatureSupportData);
+        data->ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x = TRUE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_D3D11_OPTIONS:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_D3D11_OPTIONS))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_D3D11_OPTIONS* data = static_cast<D3D11_FEATURE_DATA_D3D11_OPTIONS*>(pFeatureSupportData);
+        memset(data, 0, sizeof(*data));
+        return S_OK;
+    }
+    case D3D11_FEATURE_ARCHITECTURE_INFO:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_ARCHITECTURE_INFO))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_ARCHITECTURE_INFO* data = static_cast<D3D11_FEATURE_DATA_ARCHITECTURE_INFO*>(pFeatureSupportData);
+        data->TileBasedDeferredRenderer = FALSE;
+        return S_OK;
+    }
+    case D3D11_FEATURE_SHADER_MIN_PRECISION_SUPPORT:
+    {
+        if (FeatureSupportDataSize != sizeof(D3D11_FEATURE_DATA_SHADER_MIN_PRECISION_SUPPORT))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_FEATURE_DATA_SHADER_MIN_PRECISION_SUPPORT* data = static_cast<D3D11_FEATURE_DATA_SHADER_MIN_PRECISION_SUPPORT*>(pFeatureSupportData);
+        data->PixelShaderMinPrecision              = 0;
+        data->AllOtherShaderStagesMinPrecision     = 0;
+        return S_OK;
+    }
+    default:
+        return E_INVALIDARG;
+    }
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::GetPrivateData(

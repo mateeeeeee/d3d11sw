@@ -37,56 +37,34 @@ add_gtest(test_views           unit/test_views.cpp)
 add_gtest(test_dxbc_parser     unit/test_dxbc_parser.cpp)
 add_gtest(test_shader_codegen  unit/test_shader_codegen.cpp)
 add_gtest(test_shader_jit      unit/test_shader_jit.cpp)
-target_compile_definitions(test_shader_jit PRIVATE
-    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
-    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
-)
 add_gtest(test_shaders         unit/test_shaders.cpp)
 add_gtest(test_dispatch        unit/test_dispatch.cpp)
 add_gtest(test_query           unit/test_query.cpp)
 
+target_compile_definitions(test_shader_jit PRIVATE
+    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
+    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+)
+
 # Golden tests
-add_gtest(golden_cs_gradient   golden/test_cs_gradient.cpp)
-target_compile_definitions(golden_cs_gradient PRIVATE
-    D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
-    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
-    D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
-    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
-    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
-)
+macro(add_golden_test name file)
+  add_gtest(${name} ${file})
+  target_compile_definitions(${name} PRIVATE
+      D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
+      D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
+      D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
+      D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
+      D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+  )
+endmacro()
 
-add_gtest(golden_cs_solid_fill     golden/test_cs_solid_fill.cpp)
-target_compile_definitions(golden_cs_solid_fill PRIVATE
-    D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
-    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
-    D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
-    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
-    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
-)
+add_golden_test(golden_cs_gradient      golden/test_cs_gradient.cpp)
+add_golden_test(golden_cs_solid_fill    golden/test_cs_solid_fill.cpp)
+add_golden_test(golden_cs_checkerboard  golden/test_cs_checkerboard.cpp)
+add_golden_test(golden_cs_math          golden/test_cs_math.cpp)
+add_golden_test(golden_cs_shared_sum    golden/test_cs_shared_sum.cpp)
+add_golden_test(golden_cs_cbuffer       golden/test_cs_cbuffer.cpp)
+add_golden_test(golden_cs_multi_group   golden/test_cs_multi_group.cpp)
+add_golden_test(golden_cs_loop          golden/test_cs_loop.cpp)
 
-add_gtest(golden_cs_checkerboard   golden/test_cs_checkerboard.cpp)
-target_compile_definitions(golden_cs_checkerboard PRIVATE
-    D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
-    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
-    D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
-    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
-    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
-)
-
-add_gtest(golden_cs_math           golden/test_cs_math.cpp)
-target_compile_definitions(golden_cs_math PRIVATE
-    D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
-    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
-    D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
-    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
-    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
-)
-
-add_gtest(golden_cs_shared_sum     golden/test_cs_shared_sum.cpp)
-target_compile_definitions(golden_cs_shared_sum PRIVATE
-    D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
-    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
-    D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
-    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
-    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
-)
+add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
