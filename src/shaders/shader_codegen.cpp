@@ -184,6 +184,39 @@ void EmitPerComp2(CodeWriter& w, const Char* fn,
     w.Line("}}");
 }
 
+void EmitPerComp3(CodeWriter& w, const Char* fn,
+                  std::string_view dst, Uint8 mask,
+                  const SM4Operand& a, const SM4Operand& b, const SM4Operand& c)
+{
+    w.Line("{{ SW_float4 _a = {}, _b = {}, _c = {};", EmitSrc(a), EmitSrc(b), EmitSrc(c));
+    for (Int i = 0; i < 4; ++i)
+    {
+        if (!(mask & (1 << i)))
+        {
+            continue;
+        }
+        w.Line("  {}.{} = {}(_a.{}, _b.{}, _c.{});", dst, Comp(i), fn, Comp(i), Comp(i), Comp(i));
+    }
+    w.Line("}}");
+}
+
+void EmitPerComp4(CodeWriter& w, const Char* fn,
+                  std::string_view dst, Uint8 mask,
+                  const SM4Operand& a, const SM4Operand& b,
+                  const SM4Operand& c, const SM4Operand& d)
+{
+    w.Line("{{ SW_float4 _a = {}, _b = {}, _c = {}, _d = {};", EmitSrc(a), EmitSrc(b), EmitSrc(c), EmitSrc(d));
+    for (Int i = 0; i < 4; ++i)
+    {
+        if (!(mask & (1 << i)))
+        {
+            continue;
+        }
+        w.Line("  {}.{} = {}(_a.{}, _b.{}, _c.{}, _d.{});", dst, Comp(i), fn, Comp(i), Comp(i), Comp(i), Comp(i));
+    }
+    w.Line("}}");
+}
+
 void EmitScalarBroadcast(CodeWriter& w, std::string_view dst, Uint8 mask,
                          std::string_view scalar, Bool sat)
 {
@@ -220,6 +253,10 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_IGE:  case D3D10_SB_OPCODE_ILT:
     case D3D10_SB_OPCODE_UGE:  case D3D10_SB_OPCODE_ULT:
     case D3D10_SB_OPCODE_UDIV:
+    case D3D11_SB_OPCODE_COUNTBITS:
+    case D3D11_SB_OPCODE_FIRSTBIT_HI: case D3D11_SB_OPCODE_FIRSTBIT_LO: case D3D11_SB_OPCODE_FIRSTBIT_SHI:
+    case D3D11_SB_OPCODE_BFREV:
+    case D3D11_SB_OPCODE_UBFE: case D3D11_SB_OPCODE_IBFE: case D3D11_SB_OPCODE_BFI:
         isIntOp = true;
         break;
     default: break;
@@ -239,11 +276,13 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     SM4Operand op1 = instr.operands.size() > 1 ? fixOp(&instr.operands[1]) : SM4Operand{};
     SM4Operand op2 = instr.operands.size() > 2 ? fixOp(&instr.operands[2]) : SM4Operand{};
     SM4Operand op3 = instr.operands.size() > 3 ? fixOp(&instr.operands[3]) : SM4Operand{};
+    SM4Operand op4 = instr.operands.size() > 4 ? fixOp(&instr.operands[4]) : SM4Operand{};
 
     const SM4Operand* dst  = instr.operands.size() > 0 ? &op0 : nullptr;
     const SM4Operand* src0 = instr.operands.size() > 1 ? &op1 : nullptr;
     const SM4Operand* src1 = instr.operands.size() > 2 ? &op2 : nullptr;
     const SM4Operand* src2 = instr.operands.size() > 3 ? &op3 : nullptr;
+    const SM4Operand* src3 = instr.operands.size() > 4 ? &op4 : nullptr;
 
     std::string dstBase = dst ? EmitDstBase(*dst) : "r[0]";
     Uint8 mask = dst ? (dst->writeMask ? dst->writeMask : 0xF) : 0xF;
@@ -318,6 +357,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_FRC:      if (src0) { EmitPerComp1(w, "sw_frc",      dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_ROUND_NE: if (src0) { EmitPerComp1(w, "sw_round_ne", dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_ROUND_Z:  if (src0) { EmitPerComp1(w, "sw_round_z",  dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_ROUND_NI: if (src0) { EmitPerComp1(w, "sw_round_ni", dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_ROUND_PI: if (src0) { EmitPerComp1(w, "sw_round_pi", dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_FTOI:     if (src0) { EmitPerComp1(w, "sw_ftoi",     dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_ITOF:     if (src0) { EmitPerComp1(w, "sw_itof",     dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_UTOF:     if (src0) { EmitPerComp1(w, "sw_utof",     dstBase, mask, *src0); } break;
@@ -349,6 +390,16 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_NE:   if (src0 && src1) { EmitPerComp2(w, "sw_fne",  dstBase, mask, *src0, *src1); } break;
     case D3D10_SB_OPCODE_GE:   if (src0 && src1) { EmitPerComp2(w, "sw_fge",  dstBase, mask, *src0, *src1); } break;
     case D3D10_SB_OPCODE_LT:   if (src0 && src1) { EmitPerComp2(w, "sw_flt",  dstBase, mask, *src0, *src1); } break;
+
+    case D3D10_SB_OPCODE_IMAD:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_imad", dstBase, mask, *src0, *src1, *src2); } break;
+    case D3D11_SB_OPCODE_COUNTBITS:   if (src0) { EmitPerComp1(w, "sw_countbits",   dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_FIRSTBIT_HI: if (src0) { EmitPerComp1(w, "sw_firstbit_hi", dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_FIRSTBIT_LO: if (src0) { EmitPerComp1(w, "sw_firstbit_lo", dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_FIRSTBIT_SHI:if (src0) { EmitPerComp1(w, "sw_firstbit_shi",dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_BFREV:       if (src0) { EmitPerComp1(w, "sw_bfrev",       dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_UBFE:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_ubfe", dstBase, mask, *src0, *src1, *src2); } break;
+    case D3D11_SB_OPCODE_IBFE:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_ibfe", dstBase, mask, *src0, *src1, *src2); } break;
+    case D3D11_SB_OPCODE_BFI:         if (src0 && src1 && src2 && src3) { EmitPerComp4(w, "sw_bfi", dstBase, mask, *src0, *src1, *src2, *src3); } break;
 
     case D3D10_SB_OPCODE_MOVC:
         if (src0 && src1 && src2)

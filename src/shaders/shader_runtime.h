@@ -27,6 +27,8 @@ inline float sw_exp2(float v)         { return std::exp2(v); }
 inline float sw_frc(float v)          { return v - std::floor(v); }
 inline float sw_round_ne(float v)     { return std::nearbyint(v); }
 inline float sw_round_z(float v)      { return std::trunc(v); }
+inline float sw_round_ni(float v)     { return std::floor(v); }
+inline float sw_round_pi(float v)     { return std::ceil(v); }
 inline float sw_sin(float v)          { return std::sin(v); }
 inline float sw_cos(float v)          { return std::cos(v); }
 inline float sw_min(float a, float b) { return std::fmin(a, b); }
@@ -73,6 +75,15 @@ inline float sw_and(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) & 
 inline float sw_or(float a, float b)    { return sw_uint_bits(sw_bits_uint(a) | sw_bits_uint(b)); }
 inline float sw_xor(float a, float b)   { return sw_uint_bits(sw_bits_uint(a) ^ sw_bits_uint(b)); }
 inline float sw_not(float a)            { return sw_uint_bits(~sw_bits_uint(a)); }
+inline float sw_imad(float a, float b, float c) { return sw_int_bits(sw_bits_int(a) * sw_bits_int(b) + sw_bits_int(c)); }
+inline float sw_countbits(float a)     { unsigned v = sw_bits_uint(a); v = v - ((v >> 1) & 0x55555555u); v = (v & 0x33333333u) + ((v >> 2) & 0x33333333u); return sw_uint_bits(((v + (v >> 4)) & 0x0F0F0F0Fu) * 0x01010101u >> 24); }
+inline float sw_firstbit_hi(float a)   { unsigned v = sw_bits_uint(a); if (!v) { return sw_uint_bits(0xFFFFFFFFu); } unsigned n = 0; if (!(v & 0xFFFF0000u)) { n += 16; v <<= 16; } if (!(v & 0xFF000000u)) { n += 8; v <<= 8; } if (!(v & 0xF0000000u)) { n += 4; v <<= 4; } if (!(v & 0xC0000000u)) { n += 2; v <<= 2; } if (!(v & 0x80000000u)) { n += 1; } return sw_uint_bits(n); }
+inline float sw_firstbit_lo(float a)   { unsigned v = sw_bits_uint(a); if (!v) { return sw_uint_bits(0xFFFFFFFFu); } unsigned n = 0; if (!(v & 0xFFFFu)) { n += 16; v >>= 16; } if (!(v & 0xFFu)) { n += 8; v >>= 8; } if (!(v & 0xFu)) { n += 4; v >>= 4; } if (!(v & 0x3u)) { n += 2; v >>= 2; } if (!(v & 0x1u)) { n += 1; } return sw_uint_bits(n); }
+inline float sw_firstbit_shi(float a)  { int v = sw_bits_int(a); if (v == 0 || v == -1) { return sw_uint_bits(0xFFFFFFFFu); } if (v < 0) { v = ~v; } return sw_firstbit_hi(sw_uint_bits((unsigned)v)); }
+inline float sw_bfrev(float a)         { unsigned v = sw_bits_uint(a); v = ((v >> 1) & 0x55555555u) | ((v & 0x55555555u) << 1); v = ((v >> 2) & 0x33333333u) | ((v & 0x33333333u) << 2); v = ((v >> 4) & 0x0F0F0F0Fu) | ((v & 0x0F0F0F0Fu) << 4); v = ((v >> 8) & 0x00FF00FFu) | ((v & 0x00FF00FFu) << 8); v = (v >> 16) | (v << 16); return sw_uint_bits(v); }
+inline float sw_ubfe(float a, float b, float c) { unsigned width = sw_bits_uint(a) & 31; unsigned offset = sw_bits_uint(b) & 31; if (width == 0) { return 0.f; } unsigned v = sw_bits_uint(c); return sw_uint_bits((v >> offset) & ((1u << width) - 1u)); }
+inline float sw_ibfe(float a, float b, float c) { unsigned width = sw_bits_uint(a) & 31; unsigned offset = sw_bits_uint(b) & 31; if (width == 0) { return 0.f; } int v = sw_bits_int(c); v = v << (32 - width - offset); v = v >> (32 - width); return sw_int_bits(v); }
+inline float sw_bfi(float a, float b, float c, float d) { unsigned width = sw_bits_uint(a) & 31; unsigned offset = sw_bits_uint(b) & 31; unsigned src = sw_bits_uint(c); unsigned dst = sw_bits_uint(d); if (width == 0) { return sw_uint_bits(dst); } unsigned mask = ((1u << width) - 1u) << offset; return sw_uint_bits((dst & ~mask) | ((src << offset) & mask)); }
 
 // float4 intrinsics
 inline SW_float4 sw_abs4(SW_float4 v)

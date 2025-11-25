@@ -845,3 +845,102 @@ TEST_F(ShaderCodeGenTests, LoopEmitted)
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
     EXPECT_NE(src.find("while (true)"), std::string::npos);
 }
+
+TEST_F(ShaderCodeGenTests, RoundNiEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_ROUND_NI, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_round_ni"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, RoundPiEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_ROUND_PI, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_round_pi"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ImadEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_IMAD, { MakeTemp(0), MakeTemp(1), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_imad"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, CountbitsEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_COUNTBITS, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_countbits"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, FirstbitHiEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_FIRSTBIT_HI, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_firstbit_hi"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, FirstbitLoEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_FIRSTBIT_LO, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_firstbit_lo"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, FirstbitShiEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_FIRSTBIT_SHI, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_firstbit_shi"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, BfrevEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_BFREV, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_bfrev"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UbfeEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_UBFE, { MakeTemp(0), MakeTemp(1), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_ubfe"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, IbfeEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_IBFE, { MakeTemp(0), MakeTemp(1), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_ibfe"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, BfiEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_BFI, { MakeTemp(0), MakeTemp(1), MakeTemp(1), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_bfi"), std::string::npos);
+}
