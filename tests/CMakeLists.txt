@@ -24,7 +24,7 @@ macro(add_gtest name file)
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:SHELL:-include ${CMAKE_SOURCE_DIR}/src/common/types.h -include ${CMAKE_SOURCE_DIR}/src/common/macros.h>
   )
 
-  gtest_discover_tests(${name})
+  gtest_discover_tests(${name} DISCOVERY_MODE PRE_TEST)
 endmacro()
 
 # Unit tests
