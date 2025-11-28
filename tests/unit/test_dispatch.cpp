@@ -88,34 +88,34 @@ TEST_F(DispatchExecutorTests, GroupID)
 
 TEST_F(DispatchExecutorTests, DispatchThreadID)
 {
-    static SW_uint3 lastDispatchID{};
+    static std::atomic<unsigned> seenMask{0};
+    seenMask.store(0);
 
     auto fn = [](const SW_CSInput* input, SW_Resources*,
                  SW_TGSM*, SW_BarrierFn, void*) {
-        lastDispatchID = input->dispatchThreadID;
+        seenMask.fetch_or(1u << input->dispatchThreadID.x, std::memory_order_relaxed);
     };
 
     auto s = MakeShader(4, 1, 1);
     exec.DispatchCS(1, 1, 1, fn, res, s);
 
-    EXPECT_EQ(lastDispatchID.x, 3u);
-    EXPECT_EQ(lastDispatchID.y, 0u);
-    EXPECT_EQ(lastDispatchID.z, 0u);
+    EXPECT_EQ(seenMask.load(), 0xFu); // threads 0,1,2,3
 }
 
 TEST_F(DispatchExecutorTests, DispatchThreadIDMultiGroup)
 {
-    static SW_uint3 lastDispatchID{};
+    static std::atomic<unsigned> seenMask{0};
+    seenMask.store(0);
 
     auto fn = [](const SW_CSInput* input, SW_Resources*,
                  SW_TGSM*, SW_BarrierFn, void*) {
-        lastDispatchID = input->dispatchThreadID;
+        seenMask.fetch_or(1u << input->dispatchThreadID.x, std::memory_order_relaxed);
     };
 
     auto s = MakeShader(4, 1, 1);
     exec.DispatchCS(2, 1, 1, fn, res, s);
 
-    EXPECT_EQ(lastDispatchID.x, 7u);
+    EXPECT_EQ(seenMask.load(), 0xFFu); // threads 0-7 across both groups
 }
 
 TEST_F(DispatchExecutorTests, ZeroGroupsNoInvocations)
