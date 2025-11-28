@@ -5,7 +5,7 @@
 namespace d3d11sw {
 
 
-class D3D11QuerySW final : public DeviceChildImpl<ID3D11Query1>
+class D3D11SW_API D3D11QuerySW final : public DeviceChildImpl<ID3D11Query1>
 {
 public:
     explicit D3D11QuerySW(ID3D11Device* device);
@@ -28,7 +28,7 @@ private:
     bool              _ended = false;
 };
 
-class D3D11PredicateSW final : public DeviceChildImpl<ID3D11Predicate>
+class D3D11SW_API D3D11PredicateSW final : public DeviceChildImpl<ID3D11Predicate>
 {
 public:
     explicit D3D11PredicateSW(ID3D11Device* device);
@@ -39,7 +39,7 @@ public:
     void STDMETHODCALLTYPE GetDesc(D3D11_QUERY_DESC* pDesc) override;
 };
 
-class D3D11CounterSW final : public DeviceChildImpl<ID3D11Counter>
+class D3D11SW_API D3D11CounterSW final : public DeviceChildImpl<ID3D11Counter>
 {
 public:
     explicit D3D11CounterSW(ID3D11Device* device);

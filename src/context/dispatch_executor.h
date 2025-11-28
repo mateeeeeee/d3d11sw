@@ -4,7 +4,7 @@
 
 namespace d3d11sw {
 
-class SWDispatchExecutor
+class D3D11SW_API SWDispatchExecutor
 {
 public:
     void DispatchCS(UINT groupCountX, UINT groupCountY, UINT groupCountZ,

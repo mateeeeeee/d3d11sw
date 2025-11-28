@@ -6,7 +6,7 @@
 namespace d3d11sw {
 
 
-class D3D11DepthStencilViewSW final : public DeviceChildImpl<ID3D11DepthStencilView>
+class D3D11SW_API D3D11DepthStencilViewSW final : public DeviceChildImpl<ID3D11DepthStencilView>
 {
 public:
     explicit D3D11DepthStencilViewSW(ID3D11Device* device);

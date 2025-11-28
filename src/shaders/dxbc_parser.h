@@ -61,7 +61,7 @@ struct D3D11SW_ParsedShader
 };
 
 D3D11SW_TODO(no state, should it be free functions?);
-class DXBCParser
+class D3D11SW_API DXBCParser
 {
 public:
     Bool Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out);

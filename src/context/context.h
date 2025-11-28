@@ -8,7 +8,7 @@
 namespace d3d11sw {
 
 
-class D3D11DeviceContextSW final : public DeviceChildImpl<ID3D11DeviceContext4>
+class D3D11SW_API D3D11DeviceContextSW final : public DeviceChildImpl<ID3D11DeviceContext4>
 {
 public:
     explicit D3D11DeviceContextSW(ID3D11Device* device);

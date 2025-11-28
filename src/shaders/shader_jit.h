@@ -9,7 +9,7 @@
 
 namespace d3d11sw {
 
-class ShaderJIT
+class D3D11SW_API ShaderJIT
 {
 public:
     ShaderJIT();
@@ -28,6 +28,6 @@ private:
     std::vector<std::unique_ptr<DynamicLibrary>>   _handles;
 };
 
-ShaderJIT& GetShaderJIT();
+D3D11SW_API ShaderJIT& GetShaderJIT();
 
 }

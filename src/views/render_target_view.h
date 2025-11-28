@@ -6,7 +6,7 @@
 namespace d3d11sw {
 
 
-class D3D11RenderTargetViewSW final : public DeviceChildImpl<ID3D11RenderTargetView1>
+class D3D11SW_API D3D11RenderTargetViewSW final : public DeviceChildImpl<ID3D11RenderTargetView1>
 {
 public:
     explicit D3D11RenderTargetViewSW(ID3D11Device* device);

@@ -6,7 +6,7 @@
 namespace d3d11sw {
 
 
-class D3D11UnorderedAccessViewSW final : public DeviceChildImpl<ID3D11UnorderedAccessView1>
+class D3D11SW_API D3D11UnorderedAccessViewSW final : public DeviceChildImpl<ID3D11UnorderedAccessView1>
 {
 public:
     explicit D3D11UnorderedAccessViewSW(ID3D11Device* device);
