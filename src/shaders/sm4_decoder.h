@@ -9,7 +9,7 @@ D3D11SW_TODO(no state, should it be free function?);
 class SM4Decoder
 {
 public:
-    Bool Decode(const Uint32* tokens, Uint32 numDwords,
+    D3D11SW_API Bool Decode(const Uint32* tokens, Uint32 numDwords,
                 std::vector<SM4Instruction>& out,
                 Uint32& numTempsOut,
                 Uint32  threadGroupSizeOut[3],

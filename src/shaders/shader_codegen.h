@@ -4,7 +4,7 @@
 
 namespace d3d11sw {
 
-std::string EmitShader(const D3D11SW_ParsedShader& shader,
-                       const std::string& runtimeHeaderPath);
+D3D11SW_API std::string EmitShader(const D3D11SW_ParsedShader& shader,
+                                   const std::string& runtimeHeaderPath);
 
 }
