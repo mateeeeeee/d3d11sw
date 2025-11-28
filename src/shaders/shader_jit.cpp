@@ -43,17 +43,18 @@ Bool ShaderJIT::WriteCpp(const std::string& path, const std::string& src) const
 
 Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) const
 {
+    std::string logPath = libPath + ".log";
     std::ostringstream cmd;
 #ifdef _MSC_VER
     cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
-        << " /nologo /LD /MD /std:c++20 /O2 /fp:fast /EHsc"
+        << " /nologo /LD /MD /std:c++20 /O2 /fp:precise /EHsc"
         << " /I\"" << D3D11SW_SRC_DIR << "\""
         << " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
         << " \"" << srcPath << "\""
         << " /Fe\"" << libPath << "\""
         << " /Fo\"" << libPath << ".obj\""
         << " /link /NOIMPLIB\""
-        << " > nul 2>&1";
+        << " > \"" << logPath << "\" 2>&1";
 #else
     cmd << "\"" << D3D11SW_CXX_COMPILER << "\""
         << " -std=c++20 -O2 -ffast-math -march=native"
@@ -64,10 +65,25 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
         << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "/directx-headers\""
         << " \"" << srcPath << "\""
         << " -o \"" << libPath << "\""
-        << " 2>&1";
+        << " > \"" << logPath << "\" 2>&1";
 #endif
+    D3D11SW_INFO("ShaderJIT: {}", srcPath.c_str());
     Int rc = std::system(cmd.str().c_str());
-    return rc == 0;
+    if (rc != 0)
+    {
+        D3D11SW_ERROR("ShaderJIT: compile failed (rc={}) for {}", rc, srcPath.c_str());
+        std::ifstream log(logPath);
+        if (log.is_open())
+        {
+            std::string line;
+            while (std::getline(log, line))
+            {
+                D3D11SW_ERROR("  {}", line.c_str());
+            }
+        }
+        return false;
+    }
+    return true;
 }
 
 void* ShaderJIT::LoadSymbol(const std::string& libPath)

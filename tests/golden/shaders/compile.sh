@@ -43,6 +43,10 @@ compile_shader() {
         return
     fi
 
+    if [ -f "$out" ] && [ "$out" -nt "$hlsl" ]; then
+        return
+    fi
+
     $FXC2 -T cs_5_0 -E main -Fo"$out" "$hlsl"
     echo "  $name -> $(basename "$out")"
 }
