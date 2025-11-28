@@ -45,14 +45,14 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
 {
     std::ostringstream cmd;
 #ifdef _MSC_VER
-    cmd << "\"" << D3D11SW_CXX_COMPILER << "\""
+    cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
         << " /nologo /LD /MD /std:c++20 /O2 /fp:fast /EHsc"
         << " /I\"" << D3D11SW_SRC_DIR << "\""
         << " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
         << " \"" << srcPath << "\""
         << " /Fe\"" << libPath << "\""
         << " /Fo\"" << libPath << ".obj\""
-        << " /link /NOIMPLIB"
+        << " /link /NOIMPLIB\""
         << " > nul 2>&1";
 #else
     cmd << "\"" << D3D11SW_CXX_COMPILER << "\""
