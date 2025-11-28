@@ -1,6 +1,7 @@
 // File included at top for every generated C++ shader
 #pragma once
 #include "shaders/shader_abi.h"
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <algorithm>
@@ -282,13 +283,14 @@ static inline SW_float4 sw_uav_load_raw(const SW_UAV& u, unsigned byteOffset)
     if (!u.data) { return {0,0,0,0}; }
     unsigned v;
     std::memcpy(&v, static_cast<const unsigned char*>(u.data) + byteOffset, 4);
-    return { (float)v, 0, 0, 0 };
+    float f = sw_uint_bits(v);
+    return { f, f, f, f };
 }
 
 static inline void sw_uav_store_raw(SW_UAV& u, unsigned byteOffset, SW_float4 val)
 {
     if (!u.data) { return; }
-    unsigned v = (unsigned)val.x;
+    unsigned v = sw_bits_uint(val.x);
     std::memcpy(static_cast<unsigned char*>(u.data) + byteOffset, &v, 4);
 }
 
@@ -298,14 +300,15 @@ static inline SW_float4 sw_uav_load_structured(const SW_UAV& u, unsigned idx, un
     unsigned base = idx * u.stride + byteOffset;
     unsigned v;
     std::memcpy(&v, static_cast<const unsigned char*>(u.data) + base, 4);
-    return { (float)v, 0, 0, 0 };
+    float f = sw_uint_bits(v);
+    return { f, f, f, f };
 }
 
 static inline void sw_uav_store_structured(SW_UAV& u, unsigned idx, unsigned byteOffset, SW_float4 val)
 {
     if (!u.data || !u.stride) { return; }
     unsigned base = idx * u.stride + byteOffset;
-    unsigned v = (unsigned)val.x;
+    unsigned v = sw_bits_uint(val.x);
     std::memcpy(static_cast<unsigned char*>(u.data) + base, &v, 4);
 }
 
@@ -315,7 +318,8 @@ static inline SW_float4 sw_tgsm_load_raw(SW_TGSM& g, unsigned byteOffset)
     if (!g.data) { return {0,0,0,0}; }
     unsigned v;
     std::memcpy(&v, static_cast<const unsigned char*>(g.data) + byteOffset, 4);
-    return { sw_uint_bits(v), 0, 0, 0 };
+    float f = sw_uint_bits(v);
+    return { f, f, f, f };
 }
 
 static inline void sw_tgsm_store_raw(SW_TGSM& g, unsigned byteOffset, SW_float4 val)
@@ -331,7 +335,8 @@ static inline SW_float4 sw_tgsm_load_structured(SW_TGSM& g, unsigned idx, unsign
     unsigned base = idx * g.stride + byteOffset;
     unsigned v;
     std::memcpy(&v, static_cast<const unsigned char*>(g.data) + base, 4);
-    return { sw_uint_bits(v), 0, 0, 0 };
+    float f = sw_uint_bits(v);
+    return { f, f, f, f };
 }
 
 static inline void sw_tgsm_store_structured(SW_TGSM& g, unsigned idx, unsigned byteOffset, SW_float4 val)
@@ -340,4 +345,126 @@ static inline void sw_tgsm_store_structured(SW_TGSM& g, unsigned idx, unsigned b
     unsigned base = idx * g.stride + byteOffset;
     unsigned v = sw_bits_uint(val.x);
     std::memcpy(static_cast<unsigned char*>(g.data) + base, &v, 4);
+}
+
+static inline std::atomic_ref<unsigned> sw_uav_atomic_ref(SW_UAV& u, unsigned idx)
+{
+    return std::atomic_ref<unsigned>(*reinterpret_cast<unsigned*>(
+        static_cast<unsigned char*>(u.data) + idx * 4u));
+}
+
+static inline std::atomic_ref<unsigned> sw_tgsm_atomic_ref(SW_TGSM& g, unsigned byteOffset)
+{
+    return std::atomic_ref<unsigned>(*reinterpret_cast<unsigned*>(
+        static_cast<unsigned char*>(g.data) + byteOffset));
+}
+
+#define SW_DEF_ATOMIC_FETCH(name, method)                                                    \
+static inline void sw_uav_##name(SW_UAV& u, unsigned idx, float val)                        \
+{                                                                                            \
+    sw_uav_atomic_ref(u, idx).method(sw_bits_uint(val), std::memory_order_relaxed);          \
+}                                                                                            \
+static inline float sw_uav_imm_##name(SW_UAV& u, unsigned idx, float val)                   \
+{                                                                                            \
+    unsigned old = sw_uav_atomic_ref(u, idx).method(sw_bits_uint(val),                       \
+                                                    std::memory_order_relaxed);              \
+    return sw_uint_bits(old);                                                                \
+}                                                                                            \
+static inline void sw_tgsm_##name(SW_TGSM& g, unsigned off, float val)                      \
+{                                                                                            \
+    sw_tgsm_atomic_ref(g, off).method(sw_bits_uint(val), std::memory_order_relaxed);         \
+}                                                                                            \
+static inline float sw_tgsm_imm_##name(SW_TGSM& g, unsigned off, float val)                 \
+{                                                                                            \
+    unsigned old = sw_tgsm_atomic_ref(g, off).method(sw_bits_uint(val),                      \
+                                                     std::memory_order_relaxed);             \
+    return sw_uint_bits(old);                                                                \
+}
+
+SW_DEF_ATOMIC_FETCH(atomic_iadd, fetch_add)
+SW_DEF_ATOMIC_FETCH(atomic_and,  fetch_and)
+SW_DEF_ATOMIC_FETCH(atomic_or,   fetch_or)
+SW_DEF_ATOMIC_FETCH(atomic_xor,  fetch_xor)
+
+#undef SW_DEF_ATOMIC_FETCH
+
+#define SW_DEF_ATOMIC_CAS_LOOP(name, pick_new)                                               \
+static inline void sw_uav_##name(SW_UAV& u, unsigned idx, float val)                        \
+{                                                                                            \
+    auto ref = sw_uav_atomic_ref(u, idx);                                                    \
+    unsigned b = sw_bits_uint(val);                                                          \
+    unsigned a = ref.load(std::memory_order_relaxed);                                        \
+    while (!ref.compare_exchange_weak(a, (pick_new), std::memory_order_relaxed)) {}          \
+}                                                                                            \
+static inline float sw_uav_imm_##name(SW_UAV& u, unsigned idx, float val)                   \
+{                                                                                            \
+    auto ref = sw_uav_atomic_ref(u, idx);                                                    \
+    unsigned b = sw_bits_uint(val);                                                          \
+    unsigned a = ref.load(std::memory_order_relaxed);                                        \
+    while (!ref.compare_exchange_weak(a, (pick_new), std::memory_order_relaxed)) {}          \
+    return sw_uint_bits(a);                                                                  \
+}                                                                                            \
+static inline void sw_tgsm_##name(SW_TGSM& g, unsigned off, float val)                      \
+{                                                                                            \
+    auto ref = sw_tgsm_atomic_ref(g, off);                                                   \
+    unsigned b = sw_bits_uint(val);                                                          \
+    unsigned a = ref.load(std::memory_order_relaxed);                                        \
+    while (!ref.compare_exchange_weak(a, (pick_new), std::memory_order_relaxed)) {}          \
+}                                                                                            \
+static inline float sw_tgsm_imm_##name(SW_TGSM& g, unsigned off, float val)                 \
+{                                                                                            \
+    auto ref = sw_tgsm_atomic_ref(g, off);                                                   \
+    unsigned b = sw_bits_uint(val);                                                          \
+    unsigned a = ref.load(std::memory_order_relaxed);                                        \
+    while (!ref.compare_exchange_weak(a, (pick_new), std::memory_order_relaxed)) {}          \
+    return sw_uint_bits(a);                                                                  \
+}
+
+SW_DEF_ATOMIC_CAS_LOOP(atomic_imax, ((int)a > (int)b) ? a : b)
+SW_DEF_ATOMIC_CAS_LOOP(atomic_imin, ((int)a < (int)b) ? a : b)
+SW_DEF_ATOMIC_CAS_LOOP(atomic_umax, (a > b) ? a : b)
+SW_DEF_ATOMIC_CAS_LOOP(atomic_umin, (a < b) ? a : b)
+
+#undef SW_DEF_ATOMIC_CAS_LOOP
+
+static inline void sw_uav_atomic_cmp_store(SW_UAV& u, unsigned idx, float cmp, float val)
+{
+    unsigned expected = sw_bits_uint(cmp);
+    sw_uav_atomic_ref(u, idx).compare_exchange_strong(expected, sw_bits_uint(val),
+                                                      std::memory_order_relaxed);
+}
+
+static inline void sw_tgsm_atomic_cmp_store(SW_TGSM& g, unsigned off, float cmp, float val)
+{
+    unsigned expected = sw_bits_uint(cmp);
+    sw_tgsm_atomic_ref(g, off).compare_exchange_strong(expected, sw_bits_uint(val),
+                                                       std::memory_order_relaxed);
+}
+
+static inline float sw_uav_imm_atomic_exch(SW_UAV& u, unsigned idx, float val)
+{
+    return sw_uint_bits(sw_uav_atomic_ref(u, idx).exchange(sw_bits_uint(val),
+                                                           std::memory_order_relaxed));
+}
+
+static inline float sw_tgsm_imm_atomic_exch(SW_TGSM& g, unsigned off, float val)
+{
+    return sw_uint_bits(sw_tgsm_atomic_ref(g, off).exchange(sw_bits_uint(val),
+                                                            std::memory_order_relaxed));
+}
+
+static inline float sw_uav_imm_atomic_cmp_exch(SW_UAV& u, unsigned idx, float cmp, float val)
+{
+    unsigned expected = sw_bits_uint(cmp);
+    sw_uav_atomic_ref(u, idx).compare_exchange_strong(expected, sw_bits_uint(val),
+                                                      std::memory_order_relaxed);
+    return sw_uint_bits(expected);
+}
+
+static inline float sw_tgsm_imm_atomic_cmp_exch(SW_TGSM& g, unsigned off, float cmp, float val)
+{
+    unsigned expected = sw_bits_uint(cmp);
+    sw_tgsm_atomic_ref(g, off).compare_exchange_strong(expected, sw_bits_uint(val),
+                                                       std::memory_order_relaxed);
+    return sw_uint_bits(expected);
 }

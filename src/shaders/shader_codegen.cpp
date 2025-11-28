@@ -694,6 +694,114 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         }
         break;
 
+    case D3D11_SB_OPCODE_ATOMIC_IADD:
+    case D3D11_SB_OPCODE_ATOMIC_AND:
+    case D3D11_SB_OPCODE_ATOMIC_OR:
+    case D3D11_SB_OPCODE_ATOMIC_XOR:
+    case D3D11_SB_OPCODE_ATOMIC_IMAX:
+    case D3D11_SB_OPCODE_ATOMIC_IMIN:
+    case D3D11_SB_OPCODE_ATOMIC_UMAX:
+    case D3D11_SB_OPCODE_ATOMIC_UMIN:
+        if (dst && src0 && src1)
+        {
+            const Char* fn = nullptr;
+            switch (instr.op)
+            {
+            case D3D11_SB_OPCODE_ATOMIC_IADD: fn = "atomic_iadd"; break;
+            case D3D11_SB_OPCODE_ATOMIC_AND:  fn = "atomic_and";  break;
+            case D3D11_SB_OPCODE_ATOMIC_OR:   fn = "atomic_or";   break;
+            case D3D11_SB_OPCODE_ATOMIC_XOR:  fn = "atomic_xor";  break;
+            case D3D11_SB_OPCODE_ATOMIC_IMAX: fn = "atomic_imax"; break;
+            case D3D11_SB_OPCODE_ATOMIC_IMIN: fn = "atomic_imin"; break;
+            case D3D11_SB_OPCODE_ATOMIC_UMAX: fn = "atomic_umax"; break;
+            case D3D11_SB_OPCODE_ATOMIC_UMIN: fn = "atomic_umin"; break;
+            default: break;
+            }
+            if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            {
+                w.Line("sw_tgsm_{}(tgsm[{}],sw_bits_uint(({}).x),({}).x);",
+                       fn, dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
+            }
+            else
+            {
+                w.Line("sw_uav_{}(res->uav[{}],sw_bits_uint(({}).x),({}).x);",
+                       fn, dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
+            }
+        }
+        break;
+
+    case D3D11_SB_OPCODE_ATOMIC_CMP_STORE:
+        if (dst && src0 && src1 && src2)
+        {
+            if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            {
+                w.Line("sw_tgsm_atomic_cmp_store(tgsm[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
+                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
+            }
+            else
+            {
+                w.Line("sw_uav_atomic_cmp_store(res->uav[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
+                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
+            }
+        }
+        break;
+
+    case D3D11_SB_OPCODE_IMM_ATOMIC_IADD:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_AND:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_OR:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_XOR:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_EXCH:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_IMAX:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_IMIN:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_UMAX:
+    case D3D11_SB_OPCODE_IMM_ATOMIC_UMIN:
+        if (dst && src0 && src1 && src2)
+        {
+            const Char* fn = nullptr;
+            switch (instr.op)
+            {
+            case D3D11_SB_OPCODE_IMM_ATOMIC_IADD: fn = "imm_atomic_iadd"; break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_AND:  fn = "imm_atomic_and";  break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_OR:   fn = "imm_atomic_or";   break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_XOR:  fn = "imm_atomic_xor";  break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_EXCH: fn = "imm_atomic_exch"; break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_IMAX: fn = "imm_atomic_imax"; break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_IMIN: fn = "imm_atomic_imin"; break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_UMAX: fn = "imm_atomic_umax"; break;
+            case D3D11_SB_OPCODE_IMM_ATOMIC_UMIN: fn = "imm_atomic_umin"; break;
+            default: break;
+            }
+            std::string retBase = EmitDstBase(*dst);
+            if (src0->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            {
+                w.Line("{}.x = sw_tgsm_{}(tgsm[{}],sw_bits_uint(({}).x),({}).x);",
+                       retBase, fn, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2));
+            }
+            else
+            {
+                w.Line("{}.x = sw_uav_{}(res->uav[{}],sw_bits_uint(({}).x),({}).x);",
+                       retBase, fn, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2));
+            }
+        }
+        break;
+
+    case D3D11_SB_OPCODE_IMM_ATOMIC_CMP_EXCH:
+        if (dst && src0 && src1 && src2 && src3)
+        {
+            std::string retBase = EmitDstBase(*dst);
+            if (src0->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            {
+                w.Line("{}.x = sw_tgsm_imm_atomic_cmp_exch(tgsm[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
+                       retBase, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2), EmitSrc(*src3));
+            }
+            else
+            {
+                w.Line("{}.x = sw_uav_imm_atomic_cmp_exch(res->uav[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
+                       retBase, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2), EmitSrc(*src3));
+            }
+        }
+        break;
+
     case D3D10_SB_OPCODE_RET:
         w.Line("return;");
         break;
