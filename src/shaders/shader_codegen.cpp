@@ -627,34 +627,48 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (dst && src0 && src1)
         {
             auto addr = EmitSrc(*src0);
-            if (src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            Bool isTgsm = src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
+            std::string ref = isTgsm
+                ? std::format("tgsm[{}]", src1->indices[0])
+                : std::format("res->uav[{}]", src1->indices[0]);
+            std::string fn = isTgsm ? "sw_tgsm_load_raw" : "sw_uav_load_raw";
+            w.Line("{{ unsigned _addr = sw_bits_uint(({}).x);", addr);
+            Int off = 0;
+            for (Int i = 0; i < 4; ++i)
             {
-                EmitWrite(w, dstBase, mask,
-                    std::format("sw_tgsm_load_raw(tgsm[{}],sw_bits_uint(({}).x))",
-                                src1->indices[0], addr), sat);
+                if (!(mask & (1 << i)))
+                {
+                    continue;
+                }
+                w.Line("  {}.{} = {}({}, _addr + {}).x;", dstBase, Comp(i), fn, ref, off);
+                off += 4;
             }
-            else
-            {
-                EmitWrite(w, dstBase, mask,
-                    std::format("sw_uav_load_raw(res->uav[{}],sw_bits_uint(({}).x))",
-                                src1->indices[0], addr), sat);
-            }
+            w.Line("}}");
         }
         break;
 
     case D3D11_SB_OPCODE_STORE_RAW:
         if (dst && src0 && src1)
         {
-            if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            auto addr = EmitSrc(*src0);
+            auto val = EmitSrc(*src1);
+            Bool isTgsm = dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
+            std::string ref = isTgsm
+                ? std::format("tgsm[{}]", dst->indices[0])
+                : std::format("res->uav[{}]", dst->indices[0]);
+            std::string fn = isTgsm ? "sw_tgsm_store_raw" : "sw_uav_store_raw";
+            w.Line("{{ unsigned _addr = sw_bits_uint(({}).x); SW_float4 _v = {};", addr, val);
+            Int off = 0;
+            for (Int i = 0; i < 4; ++i)
             {
-                w.Line("sw_tgsm_store_raw(tgsm[{}],sw_bits_uint(({}).x),{});",
-                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
+                if (!(mask & (1 << i)))
+                {
+                    continue;
+                }
+                w.Line("  {}({}, _addr + {}, SW_float4{{_v.{},0,0,0}});", fn, ref, off, Comp(i));
+                off += 4;
             }
-            else
-            {
-                w.Line("sw_uav_store_raw(res->uav[{}],sw_bits_uint(({}).x),{});",
-                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
-            }
+            w.Line("}}");
         }
         break;
 
@@ -663,34 +677,50 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto idx = EmitSrc(*src0);
             auto offset = EmitSrc(*src1);
-            if (src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            Bool isTgsm = src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
+            std::string ref = isTgsm
+                ? std::format("tgsm[{}]", src2->indices[0])
+                : std::format("res->uav[{}]", src2->indices[0]);
+            std::string fn = isTgsm ? "sw_tgsm_load_structured" : "sw_uav_load_structured";
+            w.Line("{{ unsigned _idx = sw_bits_uint(({}).x), _off = sw_bits_uint(({}).x);", idx, offset);
+            Int off = 0;
+            for (Int i = 0; i < 4; ++i)
             {
-                EmitWrite(w, dstBase, mask,
-                    std::format("sw_tgsm_load_structured(tgsm[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x))",
-                                src2->indices[0], idx, offset), sat);
+                if (!(mask & (1 << i)))
+                {
+                    continue;
+                }
+                w.Line("  {}.{} = {}({}, _idx, _off + {}).x;", dstBase, Comp(i), fn, ref, off);
+                off += 4;
             }
-            else
-            {
-                EmitWrite(w, dstBase, mask,
-                    std::format("sw_uav_load_structured(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x))",
-                                src2->indices[0], idx, offset), sat);
-            }
+            w.Line("}}");
         }
         break;
 
     case D3D11_SB_OPCODE_STORE_STRUCTURED:
         if (dst && src0 && src1 && src2)
         {
-            if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            auto idx = EmitSrc(*src0);
+            auto offset = EmitSrc(*src1);
+            auto val = EmitSrc(*src2);
+            Bool isTgsm = dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
+            std::string ref = isTgsm
+                ? std::format("tgsm[{}]", dst->indices[0])
+                : std::format("res->uav[{}]", dst->indices[0]);
+            std::string fn = isTgsm ? "sw_tgsm_store_structured" : "sw_uav_store_structured";
+            w.Line("{{ unsigned _idx = sw_bits_uint(({}).x), _off = sw_bits_uint(({}).x); SW_float4 _v = {};",
+                   idx, offset, val);
+            Int off = 0;
+            for (Int i = 0; i < 4; ++i)
             {
-                w.Line("sw_tgsm_store_structured(tgsm[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x),{});",
-                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
+                if (!(mask & (1 << i)))
+                {
+                    continue;
+                }
+                w.Line("  {}({}, _idx, _off + {}, SW_float4{{_v.{},0,0,0}});", fn, ref, off, Comp(i));
+                off += 4;
             }
-            else
-            {
-                w.Line("sw_uav_store_structured(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).x),{});",
-                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
-            }
+            w.Line("}}");
         }
         break;
 
