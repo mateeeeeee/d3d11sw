@@ -882,7 +882,7 @@ void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
     Uint8 svPosReg = FindSVPositionReg(shader);
 
-    w.Line("extern \"C\" void ShaderMain(const SW_VSInput* in_ptr, SW_VSOutput* out_ptr,"
+    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain(const SW_VSInput* in_ptr, SW_VSOutput* out_ptr,"
            " const SW_Resources* res)");
     w.Line("{{");
     w.Indent();
@@ -918,7 +918,7 @@ void EmitPS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 {
     Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
 
-    w.Line("extern \"C\" void ShaderMain(const SW_PSInput* in_ptr, SW_PSOutput* out_ptr,"
+    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain(const SW_PSInput* in_ptr, SW_PSOutput* out_ptr,"
            " const SW_Resources* res)");
     w.Line("{{");
     w.Indent();
@@ -943,7 +943,7 @@ void EmitCS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 {
     Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
 
-    w.Line("extern \"C\" void ShaderMain(const SW_CSInput* in_ptr,"
+    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain(const SW_CSInput* in_ptr,"
            " SW_Resources* res, SW_TGSM* tgsm, SW_BarrierFn _barrier, void* _barrier_ctx)");
     w.Line("{{");
     w.Indent();
@@ -982,7 +982,7 @@ std::string EmitShader(const D3D11SW_ParsedShader& shader,
     case D3D11SW_ShaderType::Pixel:   EmitPS(w, shader); break;
     case D3D11SW_ShaderType::Compute: EmitCS(w, shader); break;
     default:
-        w.Line("extern \"C\" void ShaderMain() {{}}");
+        w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain() {{}}");
         break;
     }
 

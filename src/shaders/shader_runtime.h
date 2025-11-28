@@ -6,6 +6,12 @@
 #include <cstring>
 #include <algorithm>
 
+#ifdef _WIN32
+#define SW_JIT_EXPORT __declspec(dllexport)
+#else
+#define SW_JIT_EXPORT
+#endif
+
 using namespace d3d11sw;
 
 // float4 operators
