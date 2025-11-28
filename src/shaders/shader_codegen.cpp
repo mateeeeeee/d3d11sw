@@ -412,7 +412,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
                 {
                     continue;
                 }
-                w.Line("  {}.{} = (_c.{} != 0.f) ? _t.{} : _f.{};",
+                w.Line("  {}.{} = (sw_bits_uint(_c.{}) != 0u) ? _t.{} : _f.{};",
                        dstBase, Comp(i), Comp(i), Comp(i), Comp(i));
             }
             w.Line("}}");
@@ -543,7 +543,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_IF:
         if (dst)
         {
-            w.Line("if (({}.x) {} 0.f)", EmitSrc(*dst), instr.testNonZero ? "!=" : "==");
+            w.Line("if (sw_bits_uint({}.x) {} 0u)", EmitSrc(*dst), instr.testNonZero ? "!=" : "==");
             w.Line("{{");
             w.Indent();
         }
@@ -580,7 +580,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_BREAKC:
         if (dst)
         {
-            w.Line("if (({}.x) {} 0.f) {{ break; }}", EmitSrc(*dst),
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ break; }}", EmitSrc(*dst),
                    instr.testNonZero ? "!=" : "==");
         }
         break;

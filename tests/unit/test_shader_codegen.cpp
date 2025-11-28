@@ -195,7 +195,7 @@ TEST_F(ShaderCodeGenTests, IfNonZero)
     s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
 
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("!= 0.f"), std::string::npos);
+    EXPECT_NE(src.find("!= 0u"), std::string::npos);
 }
 
 TEST_F(ShaderCodeGenTests, IfZero)
@@ -211,7 +211,7 @@ TEST_F(ShaderCodeGenTests, IfZero)
     s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
 
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("== 0.f"), std::string::npos);
+    EXPECT_NE(src.find("== 0u"), std::string::npos);
 }
 
 TEST_F(ShaderCodeGenTests, Dp4Emitted)
@@ -270,7 +270,7 @@ TEST_F(ShaderCodeGenTests, BreakcNonZero)
     s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
 
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("!= 0.f"), std::string::npos);
+    EXPECT_NE(src.find("!= 0u"), std::string::npos);
     EXPECT_NE(src.find("break;"), std::string::npos);
 }
 
@@ -288,7 +288,7 @@ TEST_F(ShaderCodeGenTests, BreakcZero)
     s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
 
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("== 0.f"), std::string::npos);
+    EXPECT_NE(src.find("== 0u"), std::string::npos);
     EXPECT_NE(src.find("break;"), std::string::npos);
 }
 
@@ -587,7 +587,7 @@ TEST_F(ShaderCodeGenTests, MovcEmitted)
         MakeInstr(D3D10_SB_OPCODE_MOVC, { MakeTemp(0), MakeTemp(1), MakeTemp(1), MakeTemp(1) })
     });
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("!= 0.f"), std::string::npos);
+    EXPECT_NE(src.find("!= 0u"), std::string::npos);
     EXPECT_NE(src.find("?"), std::string::npos);
 }
 
