@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <d3d11_4.h>
 #include <d3d11TokenizedProgramFormat.hpp>
+#include <atomic>
 #include "context/dispatch_executor.h"
 #include "shaders/dxbc.h"
 #include <vector>
@@ -126,17 +127,17 @@ TEST_F(DispatchExecutorTests, ZeroGroupsNoInvocations)
 
 TEST_F(DispatchExecutorTests, GroupIndexComputed)
 {
-    static unsigned lastGroupIndex = 0xFFFFFFFF;
+    static std::atomic<unsigned> seenMask{0};
 
     auto fn = [](const SW_CSInput* input, SW_Resources*,
                  SW_TGSM*, SW_BarrierFn, void*) {
-        lastGroupIndex = input->groupIndex;
+        seenMask.fetch_or(1u << input->groupIndex, std::memory_order_relaxed);
     };
 
-    //index = 0*4*2 + 1*4 + 3 = 7
+    seenMask.store(0);
     auto s = MakeShader(4, 2, 1);
     exec.DispatchCS(1, 1, 1, fn, res, s);
-    EXPECT_EQ(lastGroupIndex, 7u);
+    EXPECT_EQ(seenMask.load(), 0xFFu);
 }
 
 static std::vector<Uint8> BuildDXBCBlob(Uint32 chunkFourCC, const std::vector<Uint8>& payload)
