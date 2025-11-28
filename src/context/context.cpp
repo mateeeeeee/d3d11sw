@@ -69,7 +69,6 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::QueryInterface(REFIID riid, void
 
 D3D11DeviceContextSW::D3D11DeviceContextSW(ID3D11Device* device)
     : DeviceChildImpl(device)
-    , _dispatchExecutor(std::make_unique<SWDispatchExecutor>())
 {
     _state.blendFactor[0] = _state.blendFactor[1] =
     _state.blendFactor[2] = _state.blendFactor[3] = 1.0f;
@@ -421,7 +420,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UI
         }
     }
 
-    _dispatchExecutor->DispatchCS(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ, fn, res, reflection);
+    _dispatchExecutor.DispatchCS(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ, fn, res, reflection);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)

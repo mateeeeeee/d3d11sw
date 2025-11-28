@@ -9,13 +9,13 @@
 
 namespace d3d11sw {
 
-class D3D11SW_API ShaderJIT
+class ShaderJIT
 {
 public:
-    ShaderJIT();
-    ~ShaderJIT();
+    D3D11SW_API ShaderJIT();
+    D3D11SW_API ~ShaderJIT();
 
-    void* GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderType type);
+    D3D11SW_API void* GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderType type);
 
 private:
     std::string CacheDir() const;

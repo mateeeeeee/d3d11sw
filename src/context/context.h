@@ -172,8 +172,8 @@ public:
     HRESULT STDMETHODCALLTYPE Wait(ID3D11Fence* pFence, UINT64 Value) override;
 
 private:
-    D3D11SW_PIPELINE_STATE                 _state{};
-    std::unique_ptr<SWDispatchExecutor>    _dispatchExecutor;
+    D3D11SW_PIPELINE_STATE  _state{};
+    SWDispatchExecutor      _dispatchExecutor;
 };
 
 }
