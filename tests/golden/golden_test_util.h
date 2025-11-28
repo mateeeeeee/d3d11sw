@@ -7,7 +7,11 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#ifdef _WIN32
+#include <direct.h>
+#else
 #include <sys/stat.h>
+#endif
 
 #ifndef D3D11SW_GOLDEN_DIR
 #define D3D11SW_GOLDEN_DIR "."
@@ -157,14 +161,23 @@ inline void MkdirP(const char* path)
     std::string p(path);
     for (size_t i = 1; i < p.size(); ++i)
     {
-        if (p[i] == '/')
+        if (p[i] == '/' || p[i] == '\\')
         {
+            char saved = p[i];
             p[i] = '\0';
+#ifdef _WIN32
+            _mkdir(p.c_str());
+#else
             mkdir(p.c_str(), 0755);
-            p[i] = '/';
+#endif
+            p[i] = saved;
         }
     }
+#ifdef _WIN32
+    _mkdir(p.c_str());
+#else
     mkdir(p.c_str(), 0755);
+#endif
 }
 
 inline GoldenResult CheckGolden(const char* testName, const float* actualRGBA,

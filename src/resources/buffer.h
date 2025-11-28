@@ -26,7 +26,7 @@ public:
     UINT64                     GetDataSize()                           const { return _data.size(); }
     D3D11_USAGE                GetUsage()                              const { return _desc.Usage; }
     UINT                       GetSubresourceCount()                   const { return 1; }
-    D3D11SW_SUBRESOURCE_LAYOUT GetSubresourceLayout(UINT Subresource)  const;
+    D3D11SW_API D3D11SW_SUBRESOURCE_LAYOUT GetSubresourceLayout(UINT Subresource) const;
 
 private:
     std::vector<Uint8> _data;

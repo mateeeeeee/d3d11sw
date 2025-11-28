@@ -122,6 +122,9 @@ if(WIN32)
         OUTPUT_NAME "d3d11"
         MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/d3d11sw.def"
     )
+    target_include_directories(d3d11 PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party
+    )
 else()
     target_include_directories(d3d11 PRIVATE
         ${CMAKE_SOURCE_DIR}/third_party
@@ -143,4 +146,5 @@ target_compile_options(d3d11 PRIVATE
 target_compile_definitions(d3d11 PRIVATE
     D3D11SW_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
     D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+    $<$<BOOL:${WIN32}>:D3D11SW_BUILDING_DLL>
 )

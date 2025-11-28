@@ -5,7 +5,11 @@ macro(add_gtest name file)
   target_link_libraries(${name} PRIVATE d3d11 GTest::gtest_main)
   target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-  if(NOT WIN32)
+  if(WIN32)
+    target_include_directories(${name} PRIVATE
+      ${CMAKE_SOURCE_DIR}/third_party
+    )
+  elseif(NOT WIN32)
     target_include_directories(${name} PRIVATE
       ${CMAKE_SOURCE_DIR}/third_party
       ${CMAKE_SOURCE_DIR}/third_party/native-windows

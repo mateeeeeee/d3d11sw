@@ -56,6 +56,16 @@
 #define D3D11SW_PLATFORM_MACOS
 #endif
 
+#ifdef D3D11SW_PLATFORM_WINDOWS
+#  ifdef D3D11SW_BUILDING_DLL
+#    define D3D11SW_API __declspec(dllexport)
+#  else
+#    define D3D11SW_API __declspec(dllimport)
+#  endif
+#else
+#  define D3D11SW_API
+#endif
+
 #define D3D11SW_NONCOPYABLE(Class)                   \
         Class(Class const&)            = delete; \
         Class& operator=(Class const&) = delete;
