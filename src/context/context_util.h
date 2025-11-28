@@ -5,6 +5,7 @@
 #include "resources/texture1d.h"
 #include "resources/texture2d.h"
 #include "resources/texture3d.h"
+#include <algorithm>
 
 namespace d3d11sw {
 
