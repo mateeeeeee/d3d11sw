@@ -20,6 +20,8 @@ set(D3D11SW_SOURCES
     context/pipeline_state.h
     context/dispatcher.h
     context/dispatcher.cpp
+    context/rasterizer.h
+    context/rasterizer.cpp
 
     resources/buffer.cpp
     resources/buffer.h

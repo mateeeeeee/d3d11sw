@@ -47,8 +47,17 @@ compile_shader() {
         return
     fi
 
-    $FXC2 -T cs_5_0 -E main -Fo"$out" "$hlsl"
-    echo "  $name -> $(basename "$out")"
+    local profile="cs_5_0"
+    case "$name" in
+        vs_*) profile="vs_5_0" ;;
+        ps_*) profile="ps_5_0" ;;
+        gs_*) profile="gs_5_0" ;;
+        hs_*) profile="hs_5_0" ;;
+        ds_*) profile="ds_5_0" ;;
+    esac
+
+    $FXC2 -T "$profile" -E main -Fo"$out" "$hlsl"
+    echo "  $name -> $(basename "$out") [$profile]"
 }
 
 echo "Compiling golden shaders..."
