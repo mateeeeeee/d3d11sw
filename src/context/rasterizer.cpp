@@ -4,7 +4,9 @@
 #include "shaders/vertex_shader.h"
 #include "shaders/pixel_shader.h"
 #include "states/rasterizer_state.h"
+#include "states/depth_stencil_state.h"
 #include "views/render_target_view.h"
+#include "views/depth_stencil_view.h"
 #include "views/shader_resource_view.h"
 #include "states/sampler_state.h"
 #include <algorithm>
@@ -32,6 +34,97 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const UINT8* src, SW_float4& ou
             break;
         default:
             break;
+    }
+}
+
+static Float ReadDepth(DXGI_FORMAT fmt, const UINT8* src)
+{
+    switch (fmt)
+    {
+        case DXGI_FORMAT_D32_FLOAT:
+        {
+            Float d;
+            std::memcpy(&d, src, 4);
+            return d;
+        }
+        case DXGI_FORMAT_D16_UNORM:
+        {
+            UINT16 u;
+            std::memcpy(&u, src, 2);
+            return u / 65535.f;
+        }
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        {
+            UINT32 u;
+            std::memcpy(&u, src, 4);
+            return (u & 0x00FFFFFF) / 16777215.f;
+        }
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        {
+            Float d;
+            std::memcpy(&d, src, 4);
+            return d;
+        }
+        default:
+            return 1.f;
+    }
+}
+
+static void WriteDepth(DXGI_FORMAT fmt, UINT8* dst, Float depth)
+{
+    switch (fmt)
+    {
+        case DXGI_FORMAT_D32_FLOAT:
+            std::memcpy(dst, &depth, 4);
+            break;
+        case DXGI_FORMAT_D16_UNORM:
+        {
+            UINT16 u = static_cast<UINT16>(std::clamp(depth, 0.f, 1.f) * 65535.f + 0.5f);
+            std::memcpy(dst, &u, 2);
+            break;
+        }
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        {
+            UINT32 existing;
+            std::memcpy(&existing, dst, 4);
+            UINT32 d24 = static_cast<UINT32>(std::clamp(depth, 0.f, 1.f) * 16777215.f + 0.5f);
+            existing = (existing & 0xFF000000) | (d24 & 0x00FFFFFF);
+            std::memcpy(dst, &existing, 4);
+            break;
+        }
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+            std::memcpy(dst, &depth, 4);
+            break;
+        default:
+            break;
+    }
+}
+
+static UINT DepthPixelStride(DXGI_FORMAT fmt)
+{
+    switch (fmt)
+    {
+        case DXGI_FORMAT_D32_FLOAT:            return 4;
+        case DXGI_FORMAT_D16_UNORM:            return 2;
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:    return 4;
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT: return 8;
+        default:                               return 4;
+    }
+}
+
+static Bool DepthTest(D3D11_COMPARISON_FUNC func, Float src, Float dst)
+{
+    switch (func)
+    {
+        case D3D11_COMPARISON_NEVER:         return false;
+        case D3D11_COMPARISON_LESS:          return src < dst;
+        case D3D11_COMPARISON_EQUAL:         return src == dst;
+        case D3D11_COMPARISON_LESS_EQUAL:    return src <= dst;
+        case D3D11_COMPARISON_GREATER:       return src > dst;
+        case D3D11_COMPARISON_NOT_EQUAL:     return src != dst;
+        case D3D11_COMPARISON_GREATER_EQUAL: return src >= dst;
+        case D3D11_COMPARISON_ALWAYS:        return true;
+        default:                             return true;
     }
 }
 
@@ -312,6 +405,26 @@ void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput& v2 = tri[i2];
     Float iw0 = invW[0], iw1 = invW[1], iw2 = invW[2];
 
+    Bool depthEnabled = true;
+    D3D11_COMPARISON_FUNC depthFunc = D3D11_COMPARISON_LESS;
+    D3D11_DEPTH_WRITE_MASK depthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    if (state.depthStencilState)
+    {
+        D3D11_DEPTH_STENCIL_DESC dsDesc{};
+        state.depthStencilState->GetDesc(&dsDesc);
+        depthEnabled   = dsDesc.DepthEnable ? true : false;
+        depthFunc      = dsDesc.DepthFunc;
+        depthWriteMask = dsDesc.DepthWriteMask;
+    }
+
+    D3D11DepthStencilViewSW* dsv = state.depthStencilView;
+    UINT8* dsvData     = dsv ? dsv->GetDataPtr() : nullptr;
+    DXGI_FORMAT dsvFmt = dsv ? dsv->GetFormat()  : DXGI_FORMAT_UNKNOWN;
+    UINT dsvRowPitch   = dsv ? dsv->GetLayout().RowPitch : 0;
+    UINT dsvPixStride  = dsv ? DepthPixelStride(dsvFmt) : 0;
+
+    if (!dsv) { depthEnabled = false; }
+
     D3D11RenderTargetViewSW* rtv0 = (state.numRenderTargets > 0) ? state.renderTargets[0] : nullptr;
     if (!rtv0) { return; }
 
@@ -343,6 +456,13 @@ void SWRasterizer::RasterizeTriangle(
             Float depth = static_cast<Float>(b0 * ndcZ[0] + b1 * ndcZ[1] + b2 * ndcZ[2]);
             depth = std::clamp(depth, vp.MinDepth, vp.MaxDepth);
 
+            if (depthEnabled)
+            {
+                UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
+                Float existing = ReadDepth(dsvFmt, dsvPx);
+                if (!DepthTest(depthFunc, depth, existing)) { continue; }
+            }
+
             SW_PSInput psIn{};
 
             if (svPosRegPS >= 0)
@@ -372,6 +492,13 @@ void SWRasterizer::RasterizeTriangle(
 
             SW_PSOutput psOut{};
             psFn(&psIn, &psOut, &psRes);
+
+            if (depthEnabled && depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+            {
+                Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
+                UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
+                WriteDepth(dsvFmt, dsvPx, writeD);
+            }
 
             FLOAT finalColor[4] = { psOut.oC[0].x, psOut.oC[0].y, psOut.oC[0].z, psOut.oC[0].w };
 

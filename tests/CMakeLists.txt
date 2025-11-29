@@ -79,5 +79,6 @@ add_golden_test(golden_cs_sample_cmp    golden/test_cs_sample_cmp.cpp)
 add_golden_test(golden_cs_gather        golden/test_cs_gather.cpp)
 
 add_golden_test(golden_draw_solid_triangle  golden/test_draw_solid_triangle.cpp)
+add_golden_test(golden_draw_depth           golden/test_draw_depth.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
