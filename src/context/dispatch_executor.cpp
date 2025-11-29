@@ -30,7 +30,10 @@ public:
     ~GroupThreadPool()
     {
         _stop.store(true, std::memory_order_release);
-        _start.release(_n);
+        for (auto& s : _slots)
+        {
+            s.start.release();
+        }
         for (auto& t : _threads)
         {
             t.join();
@@ -46,24 +49,24 @@ public:
         for (Uint32 i = 0; i < _n; ++i)
         {
             _slots[i].work = work[i];
+            _slots[i].start.release();
         }
-        _start.release(_n);
         done.wait();
     }
 
 private:
     struct Slot
     {
-        GroupWork work{};
+        GroupWork             work{};
+        std::binary_semaphore start{0};
     };
 
     Uint32                     _n;
-    std::vector<Slot>        _slots;
-    std::vector<std::thread>                          _threads;
-    std::barrier<>                                    _barrier;
-    std::counting_semaphore<D3D11_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP> _start{0};
-    std::latch*                                       _done{nullptr};
-    std::atomic<Bool>                                 _stop{false};
+    std::vector<Slot>          _slots;
+    std::vector<std::thread>   _threads;
+    std::barrier<>             _barrier;
+    std::latch*                _done{nullptr};
+    std::atomic<Bool>          _stop{false};
 
 private:
     static void BarrierCb(void* ctx)
@@ -75,11 +78,8 @@ private:
     {
         while (true)
         {
-            _start.acquire();
-            if (_stop.load(std::memory_order_acquire))
-            {
-                return;
-            }
+            _slots[i].start.acquire();
+            if (_stop.load(std::memory_order_acquire)) { return; }
             GroupWork& w = _slots[i].work;
             w.fn(&w.input, w.res, w.tgsm, BarrierCb, &_barrier);
             _done->count_down();

@@ -22,7 +22,11 @@ ShaderJIT& GetShaderJIT()
 
 std::string ShaderJIT::CacheDir() const
 {
+#ifdef D3D11SW_PLATFORM_WINDOWS
     return (std::filesystem::temp_directory_path() / "d3d11sw").string() + "/";
+#else
+    return "/tmp/d3d11sw/";
+#endif
 }
 
 Uint64 ShaderJIT::Hash(const void* data, Usize len) const
@@ -56,7 +60,7 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
         << " /link /NOIMPLIB\""
         << " > \"" << logPath << "\" 2>&1";
 #else
-    cmd << "\"" << D3D11SW_CXX_COMPILER << "\""
+    cmd << "clang++"
         << " -std=c++20 -O2 -ffast-math -march=native"
         << " -fPIC -shared"
         << " -I\"" << D3D11SW_SRC_DIR << "\""
