@@ -20,7 +20,7 @@
 #include "views/shader_resource_view.h"
 #include "views/unordered_access_view.h"
 #include "context/context_util.h"
-#include "context/dispatch_executor.h"
+#include "context/dispatcher.h"
 #include "misc/query.h"
 
 namespace d3d11sw {
@@ -423,7 +423,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UI
         }
     }
 
-    _dispatchExecutor.DispatchCS(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ, fn, res, reflection);
+    _dispatcher.DispatchCS(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ, fn, res, reflection);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)

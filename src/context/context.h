@@ -2,7 +2,7 @@
 #include "common/common.h"
 #include "common/device_child_impl.h"
 #include "context/pipeline_state.h"
-#include "context/dispatch_executor.h"
+#include "context/dispatcher.h"
 #include <memory>
 
 namespace d3d11sw {
@@ -173,7 +173,7 @@ public:
 
 private:
     D3D11SW_PIPELINE_STATE  _state{};
-    SWDispatchExecutor      _dispatchExecutor;
+    SWDispatcher            _dispatcher;
 };
 
 }

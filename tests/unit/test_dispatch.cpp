@@ -2,7 +2,7 @@
 #include <d3d11_4.h>
 #include <d3d11TokenizedProgramFormat.hpp>
 #include <atomic>
-#include "context/dispatch_executor.h"
+#include "context/dispatcher.h"
 #include "shaders/dxbc.h"
 #include <vector>
 #include <cstring>
@@ -34,7 +34,7 @@ static D3D11SW_ParsedShader MakeShader(UINT tgX, UINT tgY, UINT tgZ)
 
 struct DispatchExecutorTests : ::testing::Test
 {
-    SWDispatchExecutor exec;
+    SWDispatcher exec;
     SW_Resources       res{};
 
     void SetUp() override

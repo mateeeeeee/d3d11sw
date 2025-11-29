@@ -7,11 +7,11 @@ namespace d3d11sw {
 
 class GroupThreadPool;
 
-class D3D11SW_API SWDispatchExecutor
+class D3D11SW_API SWDispatcher
 {
 public:
-    SWDispatchExecutor();
-    ~SWDispatchExecutor();
+    SWDispatcher();
+    ~SWDispatcher();
 
     void DispatchCS(Uint32 groupCountX, Uint32 groupCountY, Uint32 groupCountZ,
                     SW_CSFn fn, SW_Resources& res,

@@ -1,4 +1,4 @@
-#include "context/dispatch_executor.h"
+#include "context/dispatcher.h"
 #include <barrier>
 #include <cstdlib>
 #include <latch>
@@ -87,10 +87,10 @@ private:
     }
 };
 
-SWDispatchExecutor::SWDispatchExecutor()  = default;
-SWDispatchExecutor::~SWDispatchExecutor() = default;
+SWDispatcher::SWDispatcher()  = default;
+SWDispatcher::~SWDispatcher() = default;
 
-void SWDispatchExecutor::DispatchCS(
+void SWDispatcher::DispatchCS(
     Uint32 groupCountX, Uint32 groupCountY, Uint32 groupCountZ,
     SW_CSFn fn, SW_Resources& res,
     const D3D11SW_ParsedShader& shader)
@@ -160,4 +160,4 @@ void SWDispatchExecutor::DispatchCS(
     }
 }
 
-} // namespace d3d11sw
+} 
