@@ -1,31 +1,118 @@
 #include "context/dispatch_executor.h"
 #include <barrier>
 #include <cstdlib>
+#include <latch>
+#include <semaphore>
 #include <thread>
 #include <vector>
 
 namespace d3d11sw {
 
-static void barrierFn(void* ctx)
+struct GroupWork
 {
-    static_cast<std::barrier<>*>(ctx)->arrive_and_wait();
-}
+    SW_CSInput    input{};
+    SW_CSFn       fn{};
+    SW_Resources* res{};
+    SW_TGSM*      tgsm{};
+};
+
+class GroupThreadPool
+{
+public:
+    explicit GroupThreadPool(Uint32 n) : _n(n), _slots(n), _barrier(n)
+    {
+        for (Uint32 i = 0; i < n; ++i)
+        {
+            _threads.emplace_back([this, i]() { Run(i); });
+        }
+    }
+
+    ~GroupThreadPool()
+    {
+        _stop.store(true, std::memory_order_release);
+        _start.release(_n);
+        for (auto& t : _threads)
+        {
+            t.join();
+        }
+    }
+
+    Uint32 Size() const { return _n; }
+
+    void Dispatch(std::vector<GroupWork>& work)
+    {
+        std::latch done(_n);
+        _done = &done;
+        for (Uint32 i = 0; i < _n; ++i)
+        {
+            _slots[i].work = work[i];
+        }
+        _start.release(_n);
+        done.wait();
+    }
+
+private:
+    struct Slot
+    {
+        GroupWork work{};
+    };
+
+    Uint32                     _n;
+    std::vector<Slot>        _slots;
+    std::vector<std::thread>                          _threads;
+    std::barrier<>                                    _barrier;
+    std::counting_semaphore<D3D11_CS_THREAD_GROUP_MAX_THREADS_PER_GROUP> _start{0};
+    std::latch*                                       _done{nullptr};
+    std::atomic<Bool>                                 _stop{false};
+
+private:
+    static void BarrierCb(void* ctx)
+    {
+        static_cast<std::barrier<>*>(ctx)->arrive_and_wait();
+    }
+
+    void Run(Uint32 i)
+    {
+        while (true)
+        {
+            _start.acquire();
+            if (_stop.load(std::memory_order_acquire))
+            {
+                return;
+            }
+            GroupWork& w = _slots[i].work;
+            w.fn(&w.input, w.res, w.tgsm, BarrierCb, &_barrier);
+            _done->count_down();
+        }
+    }
+};
+
+SWDispatchExecutor::SWDispatchExecutor()  = default;
+SWDispatchExecutor::~SWDispatchExecutor() = default;
 
 void SWDispatchExecutor::DispatchCS(
-    UINT groupCountX, UINT groupCountY, UINT groupCountZ,
+    Uint32 groupCountX, Uint32 groupCountY, Uint32 groupCountZ,
     SW_CSFn fn, SW_Resources& res,
     const D3D11SW_ParsedShader& shader)
 {
-    UINT threadGroupX = shader.threadGroupX > 0 ? shader.threadGroupX : 1;
-    UINT threadGroupY = shader.threadGroupY > 0 ? shader.threadGroupY : 1;
-    UINT threadGroupZ = shader.threadGroupZ > 0 ? shader.threadGroupZ : 1;
-    UINT numThreads   = threadGroupX * threadGroupY * threadGroupZ;
+    Uint32 threadGroupX = shader.threadGroupX > 0 ? shader.threadGroupX : 1;
+    Uint32 threadGroupY = shader.threadGroupY > 0 ? shader.threadGroupY : 1;
+    Uint32 threadGroupZ = shader.threadGroupZ > 0 ? shader.threadGroupZ : 1;
+    Uint32 numThreads   = threadGroupX * threadGroupY * threadGroupZ;
 
-    for (UINT gz = 0; gz < groupCountZ; ++gz)
+    if (!_pool || _pool->Size() != numThreads)
     {
-        for (UINT gy = 0; gy < groupCountY; ++gy)
+        _pool = std::make_unique<GroupThreadPool>(numThreads);
+    }
+
+    std::vector<GroupWork> work;
+    work.reserve(numThreads);
+
+    for (Uint32 gz = 0; gz < groupCountZ; ++gz)
+    {
+        for (Uint32 gy = 0; gy < groupCountY; ++gy)
         {
-            for (UINT gx = 0; gx < groupCountX; ++gx)
+            for (Uint32 gx = 0; gx < groupCountX; ++gx)
             {
                 SW_TGSM tgsm[SW_MAX_TGSM] = {};
                 for (const auto& decl : shader.tgsm)
@@ -38,40 +125,33 @@ void SWDispatchExecutor::DispatchCS(
                     }
                 }
 
-                std::barrier barrier(numThreads);
-                std::vector<std::thread> threads;
-                threads.reserve(numThreads);
-                D3D11SW_TODO("Use thread pool");
-                for (UINT tz = 0; tz < threadGroupZ; ++tz)
+                work.clear();
+                for (Uint32 tz = 0; tz < threadGroupZ; ++tz)
                 {
-                    for (UINT ty = 0; ty < threadGroupY; ++ty)
+                    for (Uint32 ty = 0; ty < threadGroupY; ++ty)
                     {
-                        for (UINT tx = 0; tx < threadGroupX; ++tx)
+                        for (Uint32 tx = 0; tx < threadGroupX; ++tx)
                         {
-                            UINT threadIdx = tz * threadGroupX * threadGroupY
+                            Uint32 threadIdx = tz * threadGroupX * threadGroupY
                                            + ty * threadGroupX + tx;
-
-                            SW_CSInput input{};
-                            input.groupID          = { gx, gy, gz };
-                            input.groupThreadID    = { tx, ty, tz };
-                            input.dispatchThreadID = { gx * threadGroupX + tx,
-                                                       gy * threadGroupY + ty,
-                                                       gz * threadGroupZ + tz };
-                            input.groupIndex       = threadIdx;
-                            threads.emplace_back([=, &res, &tgsm, &barrier]() 
-                            {
-                                fn(&input, &res, tgsm, barrierFn, &barrier);
-                            });
+                            GroupWork gw{};
+                            gw.fn  = fn;
+                            gw.res = &res;
+                            gw.tgsm = tgsm;
+                            gw.input.groupID          = { gx, gy, gz };
+                            gw.input.groupThreadID    = { tx, ty, tz };
+                            gw.input.dispatchThreadID = { gx * threadGroupX + tx,
+                                                          gy * threadGroupY + ty,
+                                                          gz * threadGroupZ + tz };
+                            gw.input.groupIndex       = threadIdx;
+                            work.push_back(gw);
                         }
                     }
                 }
 
-                for (auto& t : threads) 
-                { 
-                    t.join();
-                }
+                _pool->Dispatch(work);
 
-                for (UINT i = 0; i < SW_MAX_TGSM; ++i)
+                for (Uint32 i = 0; i < SW_MAX_TGSM; ++i)
                 {
                     std::free(tgsm[i].data);
                 }
@@ -80,4 +160,4 @@ void SWDispatchExecutor::DispatchCS(
     }
 }
 
-}
+} // namespace d3d11sw
