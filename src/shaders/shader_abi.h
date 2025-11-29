@@ -43,6 +43,7 @@ struct SW_Sampler
     float                      mipLODBias;
     float                      minLOD;
     float                      maxLOD;
+    D3D11_COMPARISON_FUNC      comparisonFunc;
 };
 
 struct SW_UAV

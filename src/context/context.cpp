@@ -382,13 +382,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UI
 
         D3D11_SAMPLER_DESC desc{};
         smp->GetDesc(&desc);
-        res.smp[i].filter     = desc.Filter;
-        res.smp[i].addressU   = desc.AddressU;
-        res.smp[i].addressV   = desc.AddressV;
-        res.smp[i].addressW   = desc.AddressW;
-        res.smp[i].mipLODBias = desc.MipLODBias;
-        res.smp[i].minLOD     = desc.MinLOD;
-        res.smp[i].maxLOD     = desc.MaxLOD;
+        res.smp[i].filter          = desc.Filter;
+        res.smp[i].addressU        = desc.AddressU;
+        res.smp[i].addressV        = desc.AddressV;
+        res.smp[i].addressW        = desc.AddressW;
+        res.smp[i].mipLODBias      = desc.MipLODBias;
+        res.smp[i].minLOD          = desc.MinLOD;
+        res.smp[i].maxLOD          = desc.MaxLOD;
+        res.smp[i].comparisonFunc  = desc.ComparisonFunc;
     }
 
     for (UINT i = 0; i < SW_MAX_UAVS; ++i)

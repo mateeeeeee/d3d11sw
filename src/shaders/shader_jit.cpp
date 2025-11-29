@@ -112,7 +112,23 @@ void* ShaderJIT::LoadSymbol(const std::string& libPath)
 
 void* ShaderJIT::GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderType type)
 {
-    Uint64 hash = Hash(bytecode, len);
+    if (_runtimeHash == 0)
+    {
+        std::string rtPath = std::string(D3D11SW_SRC_DIR) + "/shaders/shader_runtime.h";
+        std::ifstream rtFile(rtPath, std::ios::binary);
+        if (rtFile.is_open())
+        {
+            std::string rtSrc((std::istreambuf_iterator<char>(rtFile)),
+                               std::istreambuf_iterator<char>());
+            _runtimeHash = Hash(rtSrc.data(), rtSrc.size());
+        }
+        if (_runtimeHash == 0)
+        {
+            _runtimeHash = 1;
+        }
+    }
+
+    Uint64 hash = Hash(bytecode, len) ^ _runtimeHash;
 
     auto it = _cache.find(hash);
     if (it != _cache.end())

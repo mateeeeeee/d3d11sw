@@ -586,13 +586,59 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         break;
 
     case D3D10_SB_OPCODE_SAMPLE:
-    case D3D10_SB_OPCODE_SAMPLE_L:
         if (dst && src0 && src1 && src2)
         {
             auto uv = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d(res->tex[{}],res->smp[{}],({}).x,({}).y)",
                             src1->indices[0], src2->indices[0], uv, uv), sat);
+        }
+        break;
+
+    case D3D10_SB_OPCODE_SAMPLE_L:
+    case D3D10_SB_OPCODE_SAMPLE_B:
+    case D3D10_SB_OPCODE_SAMPLE_D:
+        if (dst && src0 && src1 && src2)
+        {
+            auto uv = EmitSrc(*src0);
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_sample_2d(res->tex[{}],res->smp[{}],({}).x,({}).y)",
+                            src1->indices[0], src2->indices[0], uv, uv), sat);
+        }
+        break;
+
+    case D3D10_SB_OPCODE_SAMPLE_C:
+    case D3D10_SB_OPCODE_SAMPLE_C_LZ:
+        if (dst && src0 && src1 && src2 && src3)
+        {
+            auto uv  = EmitSrc(*src0);
+            auto ref = EmitSrc(*src3);
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_sample_2d_cmp(res->tex[{}],res->smp[{}],({}).x,({}).y,({}).x)",
+                            src1->indices[0], src2->indices[0], uv, uv, ref), sat);
+        }
+        break;
+
+    case D3D10_1_SB_OPCODE_GATHER4:
+        if (dst && src0 && src1 && src2)
+        {
+            auto uv   = EmitSrc(*src0);
+            int  comp = src1->swizzle[0];
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_gather_2d(res->tex[{}],res->smp[{}],({}).x,({}).y,{})",
+                            src1->indices[0], src2->indices[0], uv, uv, comp), sat);
+        }
+        break;
+
+    case D3D11_SB_OPCODE_GATHER4_C:
+        if (dst && src0 && src1 && src2 && src3)
+        {
+            auto uv   = EmitSrc(*src0);
+            auto ref  = EmitSrc(*src3);
+            int  comp = src1->swizzle[0];
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_gather_2d_cmp(res->tex[{}],res->smp[{}],({}).x,({}).y,({}).x,{})",
+                            src1->indices[0], src2->indices[0], uv, uv, ref, comp), sat);
         }
         break;
 
@@ -859,6 +905,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
     case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
     case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED:
+    case D3D11_SB_OPCODE_GATHER4_PO:
+    case D3D11_SB_OPCODE_GATHER4_PO_C:
         break;
 
     case D3D11_SB_OPCODE_SYNC:

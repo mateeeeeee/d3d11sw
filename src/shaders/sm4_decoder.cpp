@@ -251,7 +251,13 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
         Uint32 cur = pos + 1;
         if (DECODE_IS_D3D10_SB_OPCODE_EXTENDED(opTok))
         {
+            Uint32 ext = tokens[cur];
             cur++;
+            while (ext >> 31)
+            {
+                ext = tokens[cur];
+                cur++;
+            }
         }
 
         while (cur < instrEnd)

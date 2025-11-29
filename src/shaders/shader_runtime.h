@@ -147,6 +147,13 @@ static inline SW_float4 sw_fetch_texel(const SW_Texture& t, unsigned x, unsigned
                                    + (unsigned long long)y * t.rowPitch + x * 4u;
             return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
         }
+        case DXGI_FORMAT_R32_FLOAT:
+        {
+            float v;
+            std::memcpy(&v, static_cast<const unsigned char*>(t.data)
+                         + (unsigned long long)y * t.rowPitch + x * 4u, 4);
+            return { v, v, v, v };
+        }
         case DXGI_FORMAT_R32G32B32A32_FLOAT:
         {
             float v[4];
@@ -175,8 +182,8 @@ static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
     float fx = su * (float)t.width  - 0.5f;
     float fy = sv * (float)t.height - 0.5f;
 
-    if (s.filter == D3D11_FILTER_MIN_MAG_MIP_POINT ||
-        s.filter == D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR)
+    if ((s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_MIP_POINT ||
+        (s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR)
     {
         unsigned px = (unsigned)std::max(fx + 0.5f, 0.f);
         unsigned py = (unsigned)std::max(fy + 0.5f, 0.f);
@@ -198,6 +205,86 @@ static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
     };
 
     return lerp4(lerp4(s00, s10, tx), lerp4(s01, s11, tx), ty);
+}
+
+static inline float sw_apply_cmp(D3D11_COMPARISON_FUNC fn, float val, float ref)
+{
+    switch (fn)
+    {
+    case D3D11_COMPARISON_NEVER:         return 0.f;
+    case D3D11_COMPARISON_LESS:          return val < ref  ? 1.f : 0.f;
+    case D3D11_COMPARISON_EQUAL:         return val == ref ? 1.f : 0.f;
+    case D3D11_COMPARISON_LESS_EQUAL:    return val <= ref ? 1.f : 0.f;
+    case D3D11_COMPARISON_GREATER:       return val > ref  ? 1.f : 0.f;
+    case D3D11_COMPARISON_NOT_EQUAL:     return val != ref ? 1.f : 0.f;
+    case D3D11_COMPARISON_GREATER_EQUAL: return val >= ref ? 1.f : 0.f;
+    case D3D11_COMPARISON_ALWAYS:        return 1.f;
+    default:                             return 0.f;
+    }
+}
+
+static inline SW_float4 sw_sample_2d_cmp(const SW_Texture& t, const SW_Sampler& s,
+                                          float u, float v, float ref)
+{
+    SW_float4 c = sw_sample_2d(t, s, u, v);
+    float r = sw_apply_cmp(s.comparisonFunc, c.x, ref);
+    return { r, r, r, r };
+}
+
+static inline SW_float4 sw_gather_2d(const SW_Texture& t, const SW_Sampler& s,
+                                      float u, float v, int comp)
+{
+    float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
+    float sv = sw_addr(v, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressV));
+
+    float fx = su * (float)t.width  - 0.5f;
+    float fy = sv * (float)t.height - 0.5f;
+
+    int x0 = (int)std::floor(fx);
+    int y0 = (int)std::floor(fy);
+
+    SW_float4 s00 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0,   0));
+    SW_float4 s10 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0,   0));
+    SW_float4 s01 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0+1, 0));
+    SW_float4 s11 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0+1, 0));
+
+    const float* c00 = &s00.x;
+    const float* c10 = &s10.x;
+    const float* c01 = &s01.x;
+    const float* c11 = &s11.x;
+
+    return { c01[comp], c11[comp], c10[comp], c00[comp] };
+}
+
+static inline SW_float4 sw_gather_2d_cmp(const SW_Texture& t, const SW_Sampler& s,
+                                          float u, float v, float ref, int comp)
+{
+    float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
+    float sv = sw_addr(v, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressV));
+
+    float fx = su * (float)t.width  - 0.5f;
+    float fy = sv * (float)t.height - 0.5f;
+
+    int x0 = (int)std::floor(fx);
+    int y0 = (int)std::floor(fy);
+
+    SW_float4 s00 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0,   0));
+    SW_float4 s10 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0,   0));
+    SW_float4 s01 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0+1, 0));
+    SW_float4 s11 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0+1, 0));
+
+    const float* c00 = &s00.x;
+    const float* c10 = &s10.x;
+    const float* c01 = &s01.x;
+    const float* c11 = &s11.x;
+
+    D3D11_COMPARISON_FUNC fn = s.comparisonFunc;
+    return {
+        sw_apply_cmp(fn, c01[comp], ref),
+        sw_apply_cmp(fn, c11[comp], ref),
+        sw_apply_cmp(fn, c10[comp], ref),
+        sw_apply_cmp(fn, c00[comp], ref)
+    };
 }
 
 static inline SW_float4 sw_uav_load_typed(const SW_UAV& u, unsigned x, unsigned y)

@@ -20,6 +20,7 @@ public:
 private:
     std::unordered_map<Uint64, void*>              _cache;
     std::vector<std::unique_ptr<DynamicLibrary>>   _handles;
+    Uint64                                         _runtimeHash = 0;
 
 private:
 	std::string CacheDir() const;
