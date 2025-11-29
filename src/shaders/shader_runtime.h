@@ -200,8 +200,9 @@ static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
     return lerp4(lerp4(s00, s10, tx), lerp4(s01, s11, tx), ty);
 }
 
-static inline SW_float4 sw_uav_load_typed(const SW_UAV& u, unsigned idx)
+static inline SW_float4 sw_uav_load_typed(const SW_UAV& u, unsigned x, unsigned y)
 {
+    unsigned idx = (u.dimension == D3D11_UAV_DIMENSION_BUFFER) ? x : y * u.width + x;
     if (!u.data || idx >= u.elementCount) { return {0,0,0,0}; }
     switch (u.format)
     {
@@ -240,8 +241,9 @@ static inline SW_float4 sw_uav_load_typed(const SW_UAV& u, unsigned idx)
     }
 }
 
-static inline void sw_uav_store_typed(SW_UAV& u, unsigned idx, SW_float4 val)
+static inline void sw_uav_store_typed(SW_UAV& u, unsigned x, unsigned y, SW_float4 val)
 {
+    unsigned idx = (u.dimension == D3D11_UAV_DIMENSION_BUFFER) ? x : y * u.width + x;
     if (!u.data || idx >= u.elementCount) { return; }
     switch (u.format)
     {

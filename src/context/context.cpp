@@ -412,11 +412,13 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UI
         }
         else
         {
-            uav.width      = layout.RowPitch / layout.PixelStride;
-            uav.height     = layout.NumRows;
-            uav.depth      = layout.NumSlices;
-            uav.rowPitch   = layout.RowPitch;
-            uav.slicePitch = layout.DepthPitch;
+            uav.width        = layout.RowPitch / layout.PixelStride;
+            uav.height       = layout.NumRows;
+            uav.depth        = layout.NumSlices;
+            uav.rowPitch     = layout.RowPitch;
+            uav.slicePitch   = layout.DepthPitch;
+            uav.stride       = layout.PixelStride;
+            uav.elementCount = uav.width * uav.height;
         }
     }
 

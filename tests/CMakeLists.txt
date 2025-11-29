@@ -74,5 +74,6 @@ add_golden_test(golden_cs_structured    golden/test_cs_structured.cpp)
 add_golden_test(golden_cs_sincos        golden/test_cs_sincos.cpp)
 add_golden_test(golden_cs_atomic        golden/test_cs_atomic.cpp)
 add_golden_test(golden_cs_kitchen_sink  golden/test_cs_kitchen_sink.cpp)
+add_golden_test(golden_cs_texture       golden/test_cs_texture.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)

@@ -601,7 +601,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto coord = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_fetch_texel(res->tex[{}],(unsigned)(({}).x),(unsigned)(({}).y))",
+                std::format("sw_fetch_texel(res->tex[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y))",
                             src1->indices[0], coord, coord), sat);
         }
         break;
@@ -609,17 +609,19 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_LD_UAV_TYPED:
         if (dst && src0 && src1)
         {
+            auto addr = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_uav_load_typed(res->uav[{}],sw_bits_uint(({}).x))",
-                            src1->indices[0], EmitSrc(*src0)), sat);
+                std::format("sw_uav_load_typed(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y))",
+                            src1->indices[0], addr, addr), sat);
         }
         break;
 
     case D3D11_SB_OPCODE_STORE_UAV_TYPED:
         if (dst && src0 && src1)
         {
-            w.Line("sw_uav_store_typed(res->uav[{}],sw_bits_uint(({}).x),{});",
-                   dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
+            auto addr = EmitSrc(*src0);
+            w.Line("sw_uav_store_typed(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),{});",
+                   dst->indices[0], addr, addr, EmitSrc(*src1));
         }
         break;
 
