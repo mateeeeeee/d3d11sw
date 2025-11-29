@@ -881,8 +881,9 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         break;
 
     case D3D10_SB_OPCODE_RET:
-        w.Line("return;");
+        w.Line("goto _sw_end;");
         break;
+
 
     case D3D10_SB_OPCODE_NOP:
     case D3D10_SB_OPCODE_DCL_TEMPS:
@@ -943,6 +944,7 @@ void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     EmitInstructions(w, shader);
 
     w.Newline();
+    w.Line("_sw_end:;");
     for (const auto& e : shader.outputs)
     {
         if (e.svType == D3D_NAME_POSITION)
@@ -980,6 +982,7 @@ void EmitPS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     EmitInstructions(w, shader);
 
     w.Newline();
+    w.Line("_sw_end:;");
     for (Uint32 i = 0; i < D3D11_PS_OUTPUT_REGISTER_COUNT; ++i)
     {
         w.Line("out_ptr->oC[{}] = out_v[{}];", i, i);
@@ -1013,11 +1016,13 @@ void EmitCS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 
     EmitInstructions(w, shader);
 
+    w.Newline();
+    w.Line("_sw_end:;");
     w.Dedent();
     w.Line("}}");
 }
 
-} 
+}
 
 std::string EmitShader(const D3D11SW_ParsedShader& shader,
                        const std::string& runtimeHeaderPath)
