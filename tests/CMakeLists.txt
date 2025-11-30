@@ -85,5 +85,6 @@ add_golden_test(golden_draw_scissor         golden/test_draw_scissor.cpp)
 add_golden_test(golden_draw_gradient_triangle golden/test_draw_gradient_triangle.cpp)
 add_golden_test(golden_draw_topologies       golden/test_draw_topologies.cpp)
 add_golden_test(golden_draw_mrt              golden/test_draw_mrt.cpp)
+add_golden_test(golden_draw_textured         golden/test_draw_textured.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
