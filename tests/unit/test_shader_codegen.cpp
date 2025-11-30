@@ -813,7 +813,7 @@ TEST_F(ShaderCodeGenTests, RetEmitted)
     s.numTemps = 1;
     s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("return;"), std::string::npos);
+    EXPECT_NE(src.find("goto _sw_end;"), std::string::npos);
 }
 
 TEST_F(ShaderCodeGenTests, IeqEmitted)
