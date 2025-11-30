@@ -38,6 +38,25 @@ private:
                            SW_PSFn psFn,
                            SW_Resources& psRes,
                            D3D11SW_PIPELINE_STATE& state);
+
+    void RasterizeLine(const SW_VSOutput endpts[2],
+                       const D3D11SW_ParsedShader& vsReflection,
+                       const D3D11SW_ParsedShader& psReflection,
+                       SW_PSFn psFn,
+                       SW_Resources& psRes,
+                       D3D11SW_PIPELINE_STATE& state);
+
+    void RasterizePoint(const SW_VSOutput& point,
+                        const D3D11SW_ParsedShader& vsReflection,
+                        const D3D11SW_ParsedShader& psReflection,
+                        SW_PSFn psFn,
+                        SW_Resources& psRes,
+                        D3D11SW_PIPELINE_STATE& state);
+
+    SW_VSOutput RunVS(UINT vertIdx, SW_VSFn vsFn,
+                      const D3D11SW_ParsedShader& vsReflection,
+                      SW_Resources& vsRes,
+                      const D3D11SW_PIPELINE_STATE& state);
 };
 
 }
