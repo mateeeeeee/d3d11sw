@@ -579,6 +579,17 @@ void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput& v2 = tri[i2];
     Float iw0 = invW[0], iw1 = invW[1], iw2 = invW[2];
 
+    SW_float4 v0pw[D3D11_VS_OUTPUT_REGISTER_COUNT];
+    SW_float4 v1pw[D3D11_VS_OUTPUT_REGISTER_COUNT];
+    SW_float4 v2pw[D3D11_VS_OUTPUT_REGISTER_COUNT];
+    for (Int vi = 0; vi < numVaryings; ++vi)
+    {
+        Int vsR = varyings[vi].vsOutReg;
+        v0pw[vi] = { v0.o[vsR].x * iw0, v0.o[vsR].y * iw0, v0.o[vsR].z * iw0, v0.o[vsR].w * iw0 };
+        v1pw[vi] = { v1.o[vsR].x * iw1, v1.o[vsR].y * iw1, v1.o[vsR].z * iw1, v1.o[vsR].w * iw1 };
+        v2pw[vi] = { v2.o[vsR].x * iw2, v2.o[vsR].y * iw2, v2.o[vsR].z * iw2, v2.o[vsR].w * iw2 };
+    }
+
     Bool depthEnabled = true;
     D3D11_COMPARISON_FUNC depthFunc = D3D11_COMPARISON_LESS;
     D3D11_DEPTH_WRITE_MASK depthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
@@ -664,13 +675,12 @@ void SWRasterizer::RasterizeTriangle(
 
                 for (Int vi = 0; vi < numVaryings; ++vi)
                 {
-                    Int vsR = varyings[vi].vsOutReg;
                     Int psR = varyings[vi].psInReg;
 
-                    Float ax = static_cast<Float>(b0 * v0.o[vsR].x * iw0 + b1 * v1.o[vsR].x * iw1 + b2 * v2.o[vsR].x * iw2) * invPerspW;
-                    Float ay = static_cast<Float>(b0 * v0.o[vsR].y * iw0 + b1 * v1.o[vsR].y * iw1 + b2 * v2.o[vsR].y * iw2) * invPerspW;
-                    Float az = static_cast<Float>(b0 * v0.o[vsR].z * iw0 + b1 * v1.o[vsR].z * iw1 + b2 * v2.o[vsR].z * iw2) * invPerspW;
-                    Float aw = static_cast<Float>(b0 * v0.o[vsR].w * iw0 + b1 * v1.o[vsR].w * iw1 + b2 * v2.o[vsR].w * iw2) * invPerspW;
+                    Float ax = static_cast<Float>(b0 * v0pw[vi].x + b1 * v1pw[vi].x + b2 * v2pw[vi].x) * invPerspW;
+                    Float ay = static_cast<Float>(b0 * v0pw[vi].y + b1 * v1pw[vi].y + b2 * v2pw[vi].y) * invPerspW;
+                    Float az = static_cast<Float>(b0 * v0pw[vi].z + b1 * v1pw[vi].z + b2 * v2pw[vi].z) * invPerspW;
+                    Float aw = static_cast<Float>(b0 * v0pw[vi].w + b1 * v1pw[vi].w + b2 * v2pw[vi].w) * invPerspW;
 
                     psIn.v[psR] = { ax, ay, az, aw };
                 }
