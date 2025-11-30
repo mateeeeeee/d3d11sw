@@ -88,3 +88,17 @@ add_golden_test(golden_draw_mrt              golden/test_draw_mrt.cpp)
 add_golden_test(golden_draw_textured         golden/test_draw_textured.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
+
+# Perf tests
+macro(add_perf_test name file)
+  add_gtest(${name} ${file})
+  target_compile_definitions(${name} PRIVATE
+      D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
+      D3D11SW_PERF_RESULTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/perf/results"
+      D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
+      D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+  )
+endmacro()
+
+add_perf_test(perf_compute  perf/perf_compute.cpp)
+add_perf_test(perf_draw     perf/perf_draw.cpp)
