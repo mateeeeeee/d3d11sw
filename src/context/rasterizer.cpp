@@ -439,10 +439,24 @@ void SWRasterizer::RasterizeTriangle(
     Int maxX = static_cast<Int>(std::ceil(maxXf));
     Int maxY = static_cast<Int>(std::ceil(maxYf));
 
-    minX = std::max(minX, static_cast<Int>(vp.TopLeftX));
-    minY = std::max(minY, static_cast<Int>(vp.TopLeftY));
-    maxX = std::min(maxX, static_cast<Int>(vp.TopLeftX + vp.Width));
-    maxY = std::min(maxY, static_cast<Int>(vp.TopLeftY + vp.Height));
+    Int vpMinX = static_cast<Int>(vp.TopLeftX);
+    Int vpMinY = static_cast<Int>(vp.TopLeftY);
+    Int vpMaxX = static_cast<Int>(vp.TopLeftX + vp.Width);
+    Int vpMaxY = static_cast<Int>(vp.TopLeftY + vp.Height);
+
+    if (rsDesc.ScissorEnable && state.numScissorRects > 0)
+    {
+        const D3D11_RECT& sr = state.scissorRects[0];
+        vpMinX = std::max(vpMinX, static_cast<Int>(sr.left));
+        vpMinY = std::max(vpMinY, static_cast<Int>(sr.top));
+        vpMaxX = std::min(vpMaxX, static_cast<Int>(sr.right));
+        vpMaxY = std::min(vpMaxY, static_cast<Int>(sr.bottom));
+    }
+
+    minX = std::max(minX, vpMinX);
+    minY = std::max(minY, vpMinY);
+    maxX = std::min(maxX, vpMaxX);
+    maxY = std::min(maxY, vpMaxY);
 
     if (minX >= maxX || minY >= maxY) { return; }
 
@@ -464,7 +478,7 @@ void SWRasterizer::RasterizeTriangle(
     I64 bias1 = isTopLeft(2, 0) ? 0 : -1;
     I64 bias2 = isTopLeft(0, 1) ? 0 : -1;
 
-    double invArea2 = 1.0 / static_cast<double>(fixedArea2);
+    Float64 invArea2 = 1.0 / static_cast<Float64>(fixedArea2);
 
     Int svPosRegPS = FindSVPositionInput(psReflection);
 
@@ -549,9 +563,9 @@ void SWRasterizer::RasterizeTriangle(
 
             if (w0 < 0 || w1 < 0 || w2 < 0) { continue; }
 
-            double b0 = static_cast<double>(w0) * invArea2;
-            double b1 = static_cast<double>(w1) * invArea2;
-            double b2 = 1.0 - b0 - b1;
+            Float64 b0 = static_cast<Float64>(w0) * invArea2;
+            Float64 b1 = static_cast<Float64>(w1) * invArea2;
+            Float64 b2 = 1.0 - b0 - b1;
 
             Float perspW = static_cast<Float>(b0 * iw0 + b1 * iw1 + b2 * iw2);
             Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
