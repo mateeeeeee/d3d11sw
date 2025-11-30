@@ -1,4 +1,9 @@
 #include "context/dispatcher.h"
+#include "resources/buffer.h"
+#include "shaders/compute_shader.h"
+#include "views/shader_resource_view.h"
+#include "views/unordered_access_view.h"
+#include "states/sampler_state.h"
 #include <barrier>
 #include <cstdlib>
 #include <latch>
@@ -42,7 +47,7 @@ public:
 
     Uint32 Size() const { return _n; }
 
-    void Dispatch(std::vector<GroupWork>& work)
+    void DispatchGroup(std::vector<GroupWork>& work)
     {
         std::latch done(_n);
         _done = &done;
@@ -90,11 +95,96 @@ private:
 SWDispatcher::SWDispatcher()  = default;
 SWDispatcher::~SWDispatcher() = default;
 
-void SWDispatcher::DispatchCS(
-    Uint32 groupCountX, Uint32 groupCountY, Uint32 groupCountZ,
-    SW_CSFn fn, SW_Resources& res,
-    const D3D11SW_ParsedShader& shader)
+void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& state)
 {
+    for (UINT i = 0; i < SW_MAX_CBUFS; ++i)
+    {
+        if (state.csCBs[i])
+        {
+            res.cb[i] = static_cast<const SW_float4*>(state.csCBs[i]->GetDataPtr());
+        }
+    }
+
+    for (UINT i = 0; i < SW_MAX_TEXTURES; ++i)
+    {
+        D3D11ShaderResourceViewSW* srv = state.csSRVs[i];
+        if (!srv) { continue; }
+
+        D3D11SW_SUBRESOURCE_LAYOUT layout = srv->GetLayout();
+        SW_Texture& tex = res.tex[i];
+        tex.data        = srv->GetDataPtr();
+        tex.format      = srv->GetFormat();
+        tex.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
+        tex.height      = layout.NumRows;
+        tex.depth       = layout.NumSlices;
+        tex.rowPitch    = layout.RowPitch;
+        tex.slicePitch  = layout.DepthPitch;
+        tex.mipLevels   = 1;
+    }
+
+    for (UINT i = 0; i < SW_MAX_SAMPLERS; ++i)
+    {
+        D3D11SamplerStateSW* smp = state.csSamplers[i];
+        if (!smp) { continue; }
+
+        D3D11_SAMPLER_DESC desc{};
+        smp->GetDesc(&desc);
+        res.smp[i].filter          = desc.Filter;
+        res.smp[i].addressU        = desc.AddressU;
+        res.smp[i].addressV        = desc.AddressV;
+        res.smp[i].addressW        = desc.AddressW;
+        res.smp[i].mipLODBias      = desc.MipLODBias;
+        res.smp[i].minLOD          = desc.MinLOD;
+        res.smp[i].maxLOD          = desc.MaxLOD;
+        res.smp[i].comparisonFunc  = desc.ComparisonFunc;
+    }
+
+    for (UINT i = 0; i < SW_MAX_UAVS; ++i)
+    {
+        D3D11UnorderedAccessViewSW* uavSW = state.csUAVs[i];
+        if (!uavSW) { continue; }
+
+        D3D11_UNORDERED_ACCESS_VIEW_DESC1 desc{};
+        uavSW->GetDesc1(&desc);
+        D3D11SW_SUBRESOURCE_LAYOUT layout = uavSW->GetLayout();
+
+        SW_UAV& uav   = res.uav[i];
+        uav.data      = uavSW->GetDataPtr();
+        uav.format    = desc.Format;
+        uav.dimension = static_cast<D3D11_UAV_DIMENSION>(desc.ViewDimension);
+
+        if (desc.ViewDimension == D3D11_UAV_DIMENSION_BUFFER)
+        {
+            uav.elementCount = desc.Buffer.NumElements;
+            uav.stride       = layout.PixelStride;
+        }
+        else
+        {
+            uav.width        = layout.RowPitch / layout.PixelStride;
+            uav.height       = layout.NumRows;
+            uav.depth        = layout.NumSlices;
+            uav.rowPitch     = layout.RowPitch;
+            uav.slicePitch   = layout.DepthPitch;
+            uav.stride       = layout.PixelStride;
+            uav.elementCount = uav.width * uav.height;
+        }
+    }
+}
+
+void SWDispatcher::Dispatch(
+    Uint32 groupCountX, Uint32 groupCountY, Uint32 groupCountZ,
+    D3D11SW_PIPELINE_STATE& state)
+{
+    if (!state.cs) { return; }
+
+    SW_CSFn fn = state.cs->GetJitFn();
+    if (!fn) { return; }
+
+    const D3D11SW_ParsedShader& shader = state.cs->GetReflection();
+
+    SW_Resources res{};
+    BuildResources(res, state);
+
     Uint32 threadGroupX = shader.threadGroupX > 0 ? shader.threadGroupX : 1;
     Uint32 threadGroupY = shader.threadGroupY > 0 ? shader.threadGroupY : 1;
     Uint32 threadGroupZ = shader.threadGroupZ > 0 ? shader.threadGroupZ : 1;
@@ -149,7 +239,7 @@ void SWDispatcher::DispatchCS(
                     }
                 }
 
-                _pool->Dispatch(work);
+                _pool->DispatchGroup(work);
 
                 for (Uint32 i = 0; i < SW_MAX_TGSM; ++i)
                 {
@@ -160,4 +250,4 @@ void SWDispatcher::DispatchCS(
     }
 }
 
-} 
+} // namespace d3d11sw
