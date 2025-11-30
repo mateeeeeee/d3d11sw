@@ -4,6 +4,7 @@
 #include "shaders/vertex_shader.h"
 #include "shaders/pixel_shader.h"
 #include "states/rasterizer_state.h"
+#include "states/blend_state.h"
 #include "states/depth_stencil_state.h"
 #include "views/render_target_view.h"
 #include "views/depth_stencil_view.h"
@@ -125,6 +126,88 @@ static Bool DepthTest(D3D11_COMPARISON_FUNC func, Float src, Float dst)
         case D3D11_COMPARISON_GREATER_EQUAL: return src >= dst;
         case D3D11_COMPARISON_ALWAYS:        return true;
         default:                             return true;
+    }
+}
+
+static void UnpackRTVColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4])
+{
+    rgba[0] = rgba[1] = rgba[2] = rgba[3] = 0.f;
+    switch (fmt)
+    {
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+            rgba[0] = src[0] / 255.f;
+            rgba[1] = src[1] / 255.f;
+            rgba[2] = src[2] / 255.f;
+            rgba[3] = src[3] / 255.f;
+            break;
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+            rgba[0] = src[2] / 255.f;
+            rgba[1] = src[1] / 255.f;
+            rgba[2] = src[0] / 255.f;
+            rgba[3] = src[3] / 255.f;
+            break;
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+            std::memcpy(rgba, src, 16);
+            break;
+        case DXGI_FORMAT_R32G32_FLOAT:
+            std::memcpy(rgba, src, 8);
+            break;
+        case DXGI_FORMAT_R32_FLOAT:
+            std::memcpy(rgba, src, 4);
+            break;
+        case DXGI_FORMAT_R16G16B16A16_UNORM:
+        {
+            UINT16 v[4];
+            std::memcpy(v, src, 8);
+            rgba[0] = v[0] / 65535.f;
+            rgba[1] = v[1] / 65535.f;
+            rgba[2] = v[2] / 65535.f;
+            rgba[3] = v[3] / 65535.f;
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+static Float ApplyBlendFactor(D3D11_BLEND factor, const FLOAT src[4], const FLOAT dst[4],
+                               const FLOAT blendFactor[4], Int comp)
+{
+    switch (factor)
+    {
+        case D3D11_BLEND_ZERO:           return 0.f;
+        case D3D11_BLEND_ONE:            return 1.f;
+        case D3D11_BLEND_SRC_COLOR:      return src[comp];
+        case D3D11_BLEND_INV_SRC_COLOR:  return 1.f - src[comp];
+        case D3D11_BLEND_SRC_ALPHA:      return src[3];
+        case D3D11_BLEND_INV_SRC_ALPHA:  return 1.f - src[3];
+        case D3D11_BLEND_DEST_ALPHA:     return dst[3];
+        case D3D11_BLEND_INV_DEST_ALPHA: return 1.f - dst[3];
+        case D3D11_BLEND_DEST_COLOR:     return dst[comp];
+        case D3D11_BLEND_INV_DEST_COLOR: return 1.f - dst[comp];
+        case D3D11_BLEND_BLEND_FACTOR:     return blendFactor[comp];
+        case D3D11_BLEND_INV_BLEND_FACTOR: return 1.f - blendFactor[comp];
+        case D3D11_BLEND_SRC_ALPHA_SAT:
+        {
+            Float f = std::min(src[3], 1.f - dst[3]);
+            return comp == 3 ? 1.f : f;
+        }
+        default: return 1.f;
+    }
+}
+
+static Float BlendOp(D3D11_BLEND_OP op, Float srcTerm, Float dstTerm)
+{
+    switch (op)
+    {
+        case D3D11_BLEND_OP_ADD:          return srcTerm + dstTerm;
+        case D3D11_BLEND_OP_SUBTRACT:     return srcTerm - dstTerm;
+        case D3D11_BLEND_OP_REV_SUBTRACT: return dstTerm - srcTerm;
+        case D3D11_BLEND_OP_MIN:          return std::min(srcTerm, dstTerm);
+        case D3D11_BLEND_OP_MAX:          return std::max(srcTerm, dstTerm);
+        default:                          return srcTerm + dstTerm;
     }
 }
 
@@ -425,6 +508,26 @@ void SWRasterizer::RasterizeTriangle(
 
     if (!dsv) { depthEnabled = false; }
 
+    Bool blendEnabled = false;
+    D3D11_RENDER_TARGET_BLEND_DESC1 blendDesc{};
+    blendDesc.BlendEnable    = FALSE;
+    blendDesc.SrcBlend       = D3D11_BLEND_ONE;
+    blendDesc.DestBlend      = D3D11_BLEND_ZERO;
+    blendDesc.BlendOp        = D3D11_BLEND_OP_ADD;
+    blendDesc.SrcBlendAlpha  = D3D11_BLEND_ONE;
+    blendDesc.DestBlendAlpha = D3D11_BLEND_ZERO;
+    blendDesc.BlendOpAlpha   = D3D11_BLEND_OP_ADD;
+    blendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    if (state.blendState)
+    {
+        D3D11_BLEND_DESC1 bsDesc{};
+        state.blendState->GetDesc1(&bsDesc);
+        blendDesc = bsDesc.RenderTarget[0];
+        blendEnabled = blendDesc.BlendEnable ? true : false;
+    }
+
+    UINT8 writeMask = blendDesc.RenderTargetWriteMask;
+
     D3D11RenderTargetViewSW* rtv0 = (state.numRenderTargets > 0) ? state.renderTargets[0] : nullptr;
     if (!rtv0) { return; }
 
@@ -500,9 +603,47 @@ void SWRasterizer::RasterizeTriangle(
                 WriteDepth(dsvFmt, dsvPx, writeD);
             }
 
-            FLOAT finalColor[4] = { psOut.oC[0].x, psOut.oC[0].y, psOut.oC[0].z, psOut.oC[0].w };
+            FLOAT srcColor[4] = { psOut.oC[0].x, psOut.oC[0].y, psOut.oC[0].z, psOut.oC[0].w };
 
             UINT8* rtvPx = rtvData + (UINT64)py * rtvRowPitch + (UINT64)px * rtvPixStride;
+
+            FLOAT finalColor[4];
+
+            if (blendEnabled)
+            {
+                FLOAT dstColor[4];
+                UnpackRTVColor(rtvFmt, rtvPx, dstColor);
+
+                for (Int c = 0; c < 3; ++c)
+                {
+                    Float sf = ApplyBlendFactor(blendDesc.SrcBlend, srcColor, dstColor, state.blendFactor, c);
+                    Float df = ApplyBlendFactor(blendDesc.DestBlend, srcColor, dstColor, state.blendFactor, c);
+                    finalColor[c] = BlendOp(blendDesc.BlendOp, srcColor[c] * sf, dstColor[c] * df);
+                }
+                {
+                    Float sf = ApplyBlendFactor(blendDesc.SrcBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
+                    Float df = ApplyBlendFactor(blendDesc.DestBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
+                    finalColor[3] = BlendOp(blendDesc.BlendOpAlpha, srcColor[3] * sf, dstColor[3] * df);
+                }
+            }
+            else
+            {
+                finalColor[0] = srcColor[0];
+                finalColor[1] = srcColor[1];
+                finalColor[2] = srcColor[2];
+                finalColor[3] = srcColor[3];
+            }
+
+            if (writeMask != D3D11_COLOR_WRITE_ENABLE_ALL)
+            {
+                FLOAT existing[4];
+                UnpackRTVColor(rtvFmt, rtvPx, existing);
+                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_RED))   { finalColor[0] = existing[0]; }
+                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_GREEN)) { finalColor[1] = existing[1]; }
+                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_BLUE))  { finalColor[2] = existing[2]; }
+                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_ALPHA)) { finalColor[3] = existing[3]; }
+            }
+
             UINT8 packed[16];
             PackRTVColor(rtvFmt, finalColor, packed);
             std::memcpy(rtvPx, packed, rtvPixStride);
