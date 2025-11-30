@@ -601,75 +601,101 @@ void SWRasterizer::RasterizeTriangle(
 
     if (state.numRenderTargets == 0) { return; }
 
+    I64 startX = static_cast<I64>(minX) * 16 + 8;
+    I64 startY = static_cast<I64>(minY) * 16 + 8;
+
+    I64 w0_row = edgeFn(fx[1], fy[1], fx[2], fy[2], startX, startY) + bias0;
+    I64 w1_row = edgeFn(fx[2], fy[2], fx[0], fy[0], startX, startY) + bias1;
+    I64 w2_row = edgeFn(fx[0], fy[0], fx[1], fy[1], startX, startY) + bias2;
+
+    I64 w0_dx = -(fy[2] - fy[1]) * 16;
+    I64 w1_dx = -(fy[0] - fy[2]) * 16;
+    I64 w2_dx = -(fy[1] - fy[0]) * 16;
+
+    I64 w0_dy = (fx[2] - fx[1]) * 16;
+    I64 w1_dy = (fx[0] - fx[2]) * 16;
+    I64 w2_dy = (fx[1] - fx[0]) * 16;
+
     for (Int py = minY; py < maxY; ++py)
     {
+        I64 w0 = w0_row;
+        I64 w1 = w1_row;
+        I64 w2 = w2_row;
+
         for (Int px = minX; px < maxX; ++px)
         {
-            I64 sampleX = static_cast<I64>(px) * 16 + 8;
-            I64 sampleY = static_cast<I64>(py) * 16 + 8;
-
-            I64 w0 = edgeFn(fx[1], fy[1], fx[2], fy[2], sampleX, sampleY) + bias0;
-            I64 w1 = edgeFn(fx[2], fy[2], fx[0], fy[0], sampleX, sampleY) + bias1;
-            I64 w2 = edgeFn(fx[0], fy[0], fx[1], fy[1], sampleX, sampleY) + bias2;
-
-            if (w0 < 0 || w1 < 0 || w2 < 0) { continue; }
-
-            Float64 b0 = static_cast<Float64>(w0) * invArea2;
-            Float64 b1 = static_cast<Float64>(w1) * invArea2;
-            Float64 b2 = 1.0 - b0 - b1;
-
-            Float perspW = static_cast<Float>(b0 * iw0 + b1 * iw1 + b2 * iw2);
-            Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
-
-            Float depth = static_cast<Float>(b0 * ndcZ[0] + b1 * ndcZ[1] + b2 * ndcZ[2]);
-            depth = std::clamp(depth, vp.MinDepth, vp.MaxDepth);
-
-            if (depthEnabled)
+            if (w0 >= 0 && w1 >= 0 && w2 >= 0)
             {
-                UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
-                Float existing = ReadDepth(dsvFmt, dsvPx);
-                if (!DepthTest(depthFunc, depth, existing)) { continue; }
+                Float64 b0 = static_cast<Float64>(w0) * invArea2;
+                Float64 b1 = static_cast<Float64>(w1) * invArea2;
+                Float64 b2 = 1.0 - b0 - b1;
+
+                Float perspW = static_cast<Float>(b0 * iw0 + b1 * iw1 + b2 * iw2);
+                Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
+
+                Float depth = static_cast<Float>(b0 * ndcZ[0] + b1 * ndcZ[1] + b2 * ndcZ[2]);
+                depth = std::clamp(depth, vp.MinDepth, vp.MaxDepth);
+
+                if (depthEnabled)
+                {
+                    UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
+                    Float existing = ReadDepth(dsvFmt, dsvPx);
+                    if (!DepthTest(depthFunc, depth, existing))
+                    {
+                        w0 += w0_dx;
+                        w1 += w1_dx;
+                        w2 += w2_dx;
+                        continue;
+                    }
+                }
+
+                SW_PSInput psIn{};
+                if (svPosRegPS >= 0)
+                {
+                    psIn.v[svPosRegPS] = { static_cast<Float>(px) + 0.5f,
+                                           static_cast<Float>(py) + 0.5f,
+                                           depth,
+                                           perspW };
+                }
+                psIn.pos = { static_cast<Float>(px) + 0.5f,
+                             static_cast<Float>(py) + 0.5f,
+                             depth,
+                             perspW };
+
+                for (Int vi = 0; vi < numVaryings; ++vi)
+                {
+                    Int vsR = varyings[vi].vsOutReg;
+                    Int psR = varyings[vi].psInReg;
+
+                    Float ax = static_cast<Float>(b0 * v0.o[vsR].x * iw0 + b1 * v1.o[vsR].x * iw1 + b2 * v2.o[vsR].x * iw2) * invPerspW;
+                    Float ay = static_cast<Float>(b0 * v0.o[vsR].y * iw0 + b1 * v1.o[vsR].y * iw1 + b2 * v2.o[vsR].y * iw2) * invPerspW;
+                    Float az = static_cast<Float>(b0 * v0.o[vsR].z * iw0 + b1 * v1.o[vsR].z * iw1 + b2 * v2.o[vsR].z * iw2) * invPerspW;
+                    Float aw = static_cast<Float>(b0 * v0.o[vsR].w * iw0 + b1 * v1.o[vsR].w * iw1 + b2 * v2.o[vsR].w * iw2) * invPerspW;
+
+                    psIn.v[psR] = { ax, ay, az, aw };
+                }
+
+                SW_PSOutput psOut{};
+                psFn(&psIn, &psOut, &psRes);
+
+                if (depthEnabled && depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+                {
+                    Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
+                    UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
+                    WriteDepth(dsvFmt, dsvPx, writeD);
+                }
+
+                WritePixelOutputs(px, py, psOut, state);
             }
 
-            SW_PSInput psIn{};
-
-            if (svPosRegPS >= 0)
-            {
-                psIn.v[svPosRegPS] = { static_cast<Float>(px) + 0.5f,
-                                       static_cast<Float>(py) + 0.5f,
-                                       depth,
-                                       perspW };
-            }
-            psIn.pos = { static_cast<Float>(px) + 0.5f,
-                         static_cast<Float>(py) + 0.5f,
-                         depth,
-                         perspW };
-
-            for (Int vi = 0; vi < numVaryings; ++vi)
-            {
-                Int vsR = varyings[vi].vsOutReg;
-                Int psR = varyings[vi].psInReg;
-
-                Float ax = static_cast<Float>(b0 * v0.o[vsR].x * iw0 + b1 * v1.o[vsR].x * iw1 + b2 * v2.o[vsR].x * iw2) * invPerspW;
-                Float ay = static_cast<Float>(b0 * v0.o[vsR].y * iw0 + b1 * v1.o[vsR].y * iw1 + b2 * v2.o[vsR].y * iw2) * invPerspW;
-                Float az = static_cast<Float>(b0 * v0.o[vsR].z * iw0 + b1 * v1.o[vsR].z * iw1 + b2 * v2.o[vsR].z * iw2) * invPerspW;
-                Float aw = static_cast<Float>(b0 * v0.o[vsR].w * iw0 + b1 * v1.o[vsR].w * iw1 + b2 * v2.o[vsR].w * iw2) * invPerspW;
-
-                psIn.v[psR] = { ax, ay, az, aw };
-            }
-
-            SW_PSOutput psOut{};
-            psFn(&psIn, &psOut, &psRes);
-
-            if (depthEnabled && depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
-            {
-                Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
-                UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
-                WriteDepth(dsvFmt, dsvPx, writeD);
-            }
-
-            WritePixelOutputs(px, py, psOut, state);
+            w0 += w0_dx;
+            w1 += w1_dx;
+            w2 += w2_dx;
         }
+
+        w0_row += w0_dy;
+        w1_row += w1_dy;
+        w2_row += w2_dy;
     }
 }
 
