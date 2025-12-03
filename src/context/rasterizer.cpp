@@ -568,7 +568,7 @@ void SWRasterizer::RasterizeTriangle(
     I64 bias1 = isTopLeft(2, 0) ? 0 : -1;
     I64 bias2 = isTopLeft(0, 1) ? 0 : -1;
 
-    Float64 invArea2 = 1.0 / static_cast<Float64>(fixedArea2);
+    Float invArea2 = 1.f / static_cast<Float>(fixedArea2);
 
     Int svPosRegPS = FindSVPositionInput(psReflection);
 
@@ -785,13 +785,13 @@ void SWRasterizer::RasterizeTriangle(
                 {
                     if (fullyCovered || (w0 >= 0 && w1 >= 0 && w2 >= 0))
                     {
-                        Float64 b0 = static_cast<Float64>(w0) * invArea2;
-                        Float64 b1 = static_cast<Float64>(w1) * invArea2;
+                        Float b0 = static_cast<Float>(w0) * invArea2;
+                        Float b1 = static_cast<Float>(w1) * invArea2;
 
-                        Float perspW = static_cast<Float>(iw2 + b0 * diw0 + b1 * diw1);
+                        Float perspW = iw2 + b0 * diw0 + b1 * diw1;
                         Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
 
-                        Float depth = static_cast<Float>(ndcZ[2] + b0 * dz0 + b1 * dz1);
+                        Float depth = ndcZ[2] + b0 * dz0 + b1 * dz1;
                         depth = std::clamp(depth, vp.MinDepth, vp.MaxDepth);
 
                         if (depthEnabled)
@@ -815,15 +815,15 @@ void SWRasterizer::RasterizeTriangle(
                             psIn.v[svPosRegPS] = psIn.pos;
                         }
 
-                        Float64 b2 = 1.0 - b0 - b1;
+                        Float b2 = 1.f - b0 - b1;
                         for (Int vi = 0; vi < numVaryings; ++vi)
                         {
                             Int psR = varyings[vi].psInReg;
 
-                            Float ax = static_cast<Float>(b0 * v0pw[vi].x + b1 * v1pw[vi].x + b2 * v2pw[vi].x) * invPerspW;
-                            Float ay = static_cast<Float>(b0 * v0pw[vi].y + b1 * v1pw[vi].y + b2 * v2pw[vi].y) * invPerspW;
-                            Float az = static_cast<Float>(b0 * v0pw[vi].z + b1 * v1pw[vi].z + b2 * v2pw[vi].z) * invPerspW;
-                            Float aw = static_cast<Float>(b0 * v0pw[vi].w + b1 * v1pw[vi].w + b2 * v2pw[vi].w) * invPerspW;
+                            Float ax = (b0 * v0pw[vi].x + b1 * v1pw[vi].x + b2 * v2pw[vi].x) * invPerspW;
+                            Float ay = (b0 * v0pw[vi].y + b1 * v1pw[vi].y + b2 * v2pw[vi].y) * invPerspW;
+                            Float az = (b0 * v0pw[vi].z + b1 * v1pw[vi].z + b2 * v2pw[vi].z) * invPerspW;
+                            Float aw = (b0 * v0pw[vi].w + b1 * v1pw[vi].w + b2 * v2pw[vi].w) * invPerspW;
 
                             psIn.v[psR] = { ax, ay, az, aw };
                         }
