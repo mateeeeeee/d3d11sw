@@ -235,9 +235,9 @@ TEST_F(PerfDraw, SingleTriangle_1024x1024)
 TEST_F(PerfDraw, ThinTriangle_512x512)
 {
     static const Vertex thinTri[] = {
-        {-0.9f,  0.9f, 0.5f,  1.f, 0.f, 0.f, 1.f},
-        { 0.9f, -0.9f, 0.5f,  0.f, 1.f, 0.f, 1.f},
-        { 0.85f, -0.85f, 0.5f,  0.f, 0.f, 1.f, 1.f},
+        {-0.95f,  0.95f, 0.5f,  1.f, 0.f, 0.f, 1.f},
+        { 0.95f, -0.95f, 0.5f,  0.f, 1.f, 0.f, 1.f},
+        {-0.90f,  0.90f, 0.5f,  0.f, 0.f, 1.f, 1.f},
     };
 
     D3D11_BUFFER_DESC vbDesc{};
