@@ -10,10 +10,23 @@
 #include "views/depth_stencil_view.h"
 #include "views/shader_resource_view.h"
 #include "states/sampler_state.h"
+#include "util/env.h"
 #include <algorithm>
 #include <cstring>
 
 namespace d3d11sw {
+
+RasterizerConfig RasterizerConfig::FromEnv()
+{
+    RasterizerConfig cfg;
+    cfg.tiling   = GetEnvBool("D3D11SW_TILING", true);
+    cfg.tileSize = GetEnvInt("D3D11SW_TILE_SIZE", 16);
+    if (cfg.tileSize < 4 || (cfg.tileSize & (cfg.tileSize - 1)) != 0)
+    {
+        cfg.tileSize = 16;
+    }
+    return cfg;
+}
 
 static void UnpackVertexElement(DXGI_FORMAT fmt, const UINT8* src, SW_float4& out)
 {
