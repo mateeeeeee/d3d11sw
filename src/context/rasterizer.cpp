@@ -612,6 +612,44 @@ void SWRasterizer::RasterizeTriangle(
 
     if (state.numRenderTargets == 0) { return; }
 
+    Float diw0 = iw0 - iw2;
+    Float diw1 = iw1 - iw2;
+    Float dz0 = ndcZ[0] - ndcZ[2];
+    Float dz1 = ndcZ[1] - ndcZ[2];
+
+    D3D11_BLEND_DESC1 bsDesc{};
+    Bool haveBlendState = false;
+    if (state.blendState)
+    {
+        state.blendState->GetDesc1(&bsDesc);
+        haveBlendState = true;
+    }
+
+    struct RTInfo
+    {
+        UINT8*                          data;
+        DXGI_FORMAT                     fmt;
+        UINT                            rowPitch;
+        UINT                            pixStride;
+        D3D11_RENDER_TARGET_BLEND_DESC1 blendDesc;
+    };
+
+    RTInfo rtInfos[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+    UINT activeRTCount = 0;
+    for (UINT rt = 0; rt < state.numRenderTargets; ++rt)
+    {
+        D3D11RenderTargetViewSW* rtv = state.renderTargets[rt];
+        if (!rtv) { continue; }
+        RTInfo& info    = rtInfos[activeRTCount++];
+        info.data       = rtv->GetDataPtr();
+        info.fmt        = rtv->GetFormat();
+        info.rowPitch   = rtv->GetLayout().RowPitch;
+        info.pixStride  = rtv->GetLayout().PixelStride;
+        info.blendDesc  = {};
+        info.blendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        if (haveBlendState) { info.blendDesc = bsDesc.RenderTarget[rt]; }
+    }
+
     I64 startX = static_cast<I64>(minX) * 16 + 8;
     I64 startY = static_cast<I64>(minY) * 16 + 8;
 
@@ -627,11 +665,24 @@ void SWRasterizer::RasterizeTriangle(
     I64 w1_dy = (fx[0] - fx[2]) * 16;
     I64 w2_dy = (fx[1] - fx[0]) * 16;
 
+    SW_PSInput psIn{};
+    SW_PSOutput psOut{};
+
     for (Int py = minY; py < maxY; ++py)
     {
         I64 w0 = w0_row;
         I64 w1 = w1_row;
         I64 w2 = w2_row;
+
+        UINT8* dsvRow = depthEnabled ? (dsvData + (UINT64)py * dsvRowPitch) : nullptr;
+
+        UINT8* rtRows[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+        for (UINT rt = 0; rt < activeRTCount; ++rt)
+        {
+            rtRows[rt] = rtInfos[rt].data + (UINT64)py * rtInfos[rt].rowPitch;
+        }
+
+        Float pyCenter = static_cast<Float>(py) + 0.5f;
 
         for (Int px = minX; px < maxX; ++px)
         {
@@ -639,17 +690,16 @@ void SWRasterizer::RasterizeTriangle(
             {
                 Float64 b0 = static_cast<Float64>(w0) * invArea2;
                 Float64 b1 = static_cast<Float64>(w1) * invArea2;
-                Float64 b2 = 1.0 - b0 - b1;
 
-                Float perspW = static_cast<Float>(b0 * iw0 + b1 * iw1 + b2 * iw2);
+                Float perspW = static_cast<Float>(iw2 + b0 * diw0 + b1 * diw1);
                 Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
 
-                Float depth = static_cast<Float>(b0 * ndcZ[0] + b1 * ndcZ[1] + b2 * ndcZ[2]);
+                Float depth = static_cast<Float>(ndcZ[2] + b0 * dz0 + b1 * dz1);
                 depth = std::clamp(depth, vp.MinDepth, vp.MaxDepth);
 
                 if (depthEnabled)
                 {
-                    UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
+                    UINT8* dsvPx = dsvRow + (UINT64)px * dsvPixStride;
                     Float existing = ReadDepth(dsvFmt, dsvPx);
                     if (!DepthTest(depthFunc, depth, existing))
                     {
@@ -660,19 +710,15 @@ void SWRasterizer::RasterizeTriangle(
                     }
                 }
 
-                SW_PSInput psIn{};
+                Float pxCenter = static_cast<Float>(px) + 0.5f;
+
+                psIn.pos = { pxCenter, pyCenter, depth, perspW };
                 if (svPosRegPS >= 0)
                 {
-                    psIn.v[svPosRegPS] = { static_cast<Float>(px) + 0.5f,
-                                           static_cast<Float>(py) + 0.5f,
-                                           depth,
-                                           perspW };
+                    psIn.v[svPosRegPS] = psIn.pos;
                 }
-                psIn.pos = { static_cast<Float>(px) + 0.5f,
-                             static_cast<Float>(py) + 0.5f,
-                             depth,
-                             perspW };
 
+                Float64 b2 = 1.0 - b0 - b1;
                 for (Int vi = 0; vi < numVaryings; ++vi)
                 {
                     Int psR = varyings[vi].psInReg;
@@ -685,17 +731,64 @@ void SWRasterizer::RasterizeTriangle(
                     psIn.v[psR] = { ax, ay, az, aw };
                 }
 
-                SW_PSOutput psOut{};
+                psOut = {};
                 psFn(&psIn, &psOut, &psRes);
 
                 if (depthEnabled && depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
                 {
                     Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
-                    UINT8* dsvPx = dsvData + (UINT64)py * dsvRowPitch + (UINT64)px * dsvPixStride;
+                    UINT8* dsvPx = dsvRow + (UINT64)px * dsvPixStride;
                     WriteDepth(dsvFmt, dsvPx, writeD);
                 }
 
-                WritePixelOutputs(px, py, psOut, state);
+                for (UINT rt = 0; rt < activeRTCount; ++rt)
+                {
+                    RTInfo& info = rtInfos[rt];
+                    UINT8* rtvPx = rtRows[rt] + (UINT64)px * info.pixStride;
+
+                    FLOAT srcColor[4] = { psOut.oC[rt].x, psOut.oC[rt].y, psOut.oC[rt].z, psOut.oC[rt].w };
+                    FLOAT finalColor[4];
+
+                    if (info.blendDesc.BlendEnable)
+                    {
+                        FLOAT dstColor[4];
+                        UnpackRTVColor(info.fmt, rtvPx, dstColor);
+
+                        for (Int c = 0; c < 3; ++c)
+                        {
+                            Float sf = ApplyBlendFactor(info.blendDesc.SrcBlend, srcColor, dstColor, state.blendFactor, c);
+                            Float df = ApplyBlendFactor(info.blendDesc.DestBlend, srcColor, dstColor, state.blendFactor, c);
+                            finalColor[c] = BlendOp(info.blendDesc.BlendOp, srcColor[c] * sf, dstColor[c] * df);
+                        }
+                        {
+                            Float sf = ApplyBlendFactor(info.blendDesc.SrcBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
+                            Float df = ApplyBlendFactor(info.blendDesc.DestBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
+                            finalColor[3] = BlendOp(info.blendDesc.BlendOpAlpha, srcColor[3] * sf, dstColor[3] * df);
+                        }
+                    }
+                    else
+                    {
+                        finalColor[0] = srcColor[0];
+                        finalColor[1] = srcColor[1];
+                        finalColor[2] = srcColor[2];
+                        finalColor[3] = srcColor[3];
+                    }
+
+                    UINT8 writeMask = info.blendDesc.RenderTargetWriteMask;
+                    if (writeMask != D3D11_COLOR_WRITE_ENABLE_ALL)
+                    {
+                        FLOAT existing[4];
+                        UnpackRTVColor(info.fmt, rtvPx, existing);
+                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_RED))   { finalColor[0] = existing[0]; }
+                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_GREEN)) { finalColor[1] = existing[1]; }
+                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_BLUE))  { finalColor[2] = existing[2]; }
+                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_ALPHA)) { finalColor[3] = existing[3]; }
+                    }
+
+                    UINT8 packed[16];
+                    PackRTVColor(info.fmt, finalColor, packed);
+                    std::memcpy(rtvPx, packed, info.pixStride);
+                }
             }
 
             w0 += w0_dx;
