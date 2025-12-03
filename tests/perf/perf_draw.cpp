@@ -215,3 +215,54 @@ TEST_F(PerfDraw, ManyTriangles_64x64)
     EXPECT_GT(result.median_ns, 0.0);
     rt.Release();
 }
+
+TEST_F(PerfDraw, SingleTriangle_1024x1024)
+{
+    auto rt = CreateRT(1024, 1024);
+    BindSingleTriangleVB();
+
+    auto result = RunBenchmark("SingleTriangle_1024x1024", context, device, 20, 3, [&]() {
+        context->Draw(3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+}
+
+TEST_F(PerfDraw, ThinTriangle_512x512)
+{
+    static const Vertex thinTri[] = {
+        {-0.9f,  0.9f, 0.5f,  1.f, 0.f, 0.f, 1.f},
+        { 0.9f, -0.9f, 0.5f,  0.f, 1.f, 0.f, 1.f},
+        { 0.85f, -0.85f, 0.5f,  0.f, 0.f, 1.f, 1.f},
+    };
+
+    D3D11_BUFFER_DESC vbDesc{};
+    vbDesc.ByteWidth = sizeof(thinTri);
+    vbDesc.Usage     = D3D11_USAGE_DEFAULT;
+    vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA vbInit{};
+    vbInit.pSysMem = thinTri;
+    ID3D11Buffer* thinVB = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &thinVB)));
+
+    UINT stride = sizeof(Vertex);
+    UINT offset = 0;
+    context->IASetVertexBuffers(0, 1, &thinVB, &stride, &offset);
+
+    auto rt = CreateRT(512, 512);
+
+    auto result = RunBenchmark("ThinTriangle_512x512", context, device, 50, 5, [&]() {
+        context->Draw(3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+    thinVB->Release();
+}

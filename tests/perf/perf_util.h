@@ -363,7 +363,7 @@ inline std::string& GetResultsFilePath()
     }
 
     std::string hash  = RunCommand("git rev-parse --short HEAD");
-    std::string dirty = RunCommand("git status --porcelain");
+    std::string dirty = RunCommand("git status --porcelain --ignore-submodules -- ':!tests/perf/results'");
 
     std::filesystem::path dir(D3D11SW_PERF_RESULTS_DIR);
     std::filesystem::create_directories(dir);
