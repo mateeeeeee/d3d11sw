@@ -7,6 +7,7 @@
 namespace d3d11sw {
 
 class GroupThreadPool;
+class BatchThreadPool;
 
 class D3D11SW_API SWDispatcher
 {
@@ -19,6 +20,7 @@ public:
 
 private:
     std::unique_ptr<GroupThreadPool> _pool;
+    std::unique_ptr<BatchThreadPool> _batchPool;
 
 private:
     void BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& state);
