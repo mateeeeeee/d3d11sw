@@ -650,12 +650,16 @@ void SWRasterizer::RasterizeTriangle(
         if (haveBlendState) { info.blendDesc = bsDesc.RenderTarget[rt]; }
     }
 
-    I64 startX = static_cast<I64>(minX) * 16 + 8;
-    I64 startY = static_cast<I64>(minY) * 16 + 8;
+    const Int TILE = _config.tileSize;
+    const Bool useTiling = _config.tiling;
 
-    I64 w0_row = edgeFn(fx[1], fy[1], fx[2], fy[2], startX, startY) + bias0;
-    I64 w1_row = edgeFn(fx[2], fy[2], fx[0], fy[0], startX, startY) + bias1;
-    I64 w2_row = edgeFn(fx[0], fy[0], fx[1], fy[1], startX, startY) + bias2;
+    Int tileMinX = useTiling ? (minX & ~(TILE - 1)) : minX;
+    Int tileMinY = useTiling ? (minY & ~(TILE - 1)) : minY;
+    Int tileStepX = useTiling ? TILE : (maxX - minX);
+    Int tileStepY = useTiling ? TILE : (maxY - minY);
+
+    I64 tileStartX = static_cast<I64>(tileMinX) * 16 + 8;
+    I64 tileStartY = static_cast<I64>(tileMinY) * 16 + 8;
 
     I64 w0_dx = -(fy[2] - fy[1]) * 16;
     I64 w1_dx = -(fy[0] - fy[2]) * 16;
@@ -665,140 +669,230 @@ void SWRasterizer::RasterizeTriangle(
     I64 w1_dy = (fx[0] - fx[2]) * 16;
     I64 w2_dy = (fx[1] - fx[0]) * 16;
 
+    I64 w0_tileOrig = edgeFn(fx[1], fy[1], fx[2], fy[2], tileStartX, tileStartY) + bias0;
+    I64 w1_tileOrig = edgeFn(fx[2], fy[2], fx[0], fy[0], tileStartX, tileStartY) + bias1;
+    I64 w2_tileOrig = edgeFn(fx[0], fy[0], fx[1], fy[1], tileStartX, tileStartY) + bias2;
+
+    I64 w0_tileStepX = w0_dx * TILE;
+    I64 w1_tileStepX = w1_dx * TILE;
+    I64 w2_tileStepX = w2_dx * TILE;
+
+    I64 w0_tileStepY = w0_dy * TILE;
+    I64 w1_tileStepY = w1_dy * TILE;
+    I64 w2_tileStepY = w2_dy * TILE;
+
+    I64 w0_cornerDx = w0_dx * (TILE - 1);
+    I64 w1_cornerDx = w1_dx * (TILE - 1);
+    I64 w2_cornerDx = w2_dx * (TILE - 1);
+
+    I64 w0_cornerDy = w0_dy * (TILE - 1);
+    I64 w1_cornerDy = w1_dy * (TILE - 1);
+    I64 w2_cornerDy = w2_dy * (TILE - 1);
+
     SW_PSInput psIn{};
     SW_PSOutput psOut{};
 
-    for (Int py = minY; py < maxY; ++py)
+    I64 w0_tileRowStart = w0_tileOrig;
+    I64 w1_tileRowStart = w1_tileOrig;
+    I64 w2_tileRowStart = w2_tileOrig;
+    for (Int tileY = tileMinY; tileY < maxY; tileY += tileStepY)
     {
-        I64 w0 = w0_row;
-        I64 w1 = w1_row;
-        I64 w2 = w2_row;
+        I64 w0_tile = w0_tileRowStart;
+        I64 w1_tile = w1_tileRowStart;
+        I64 w2_tile = w2_tileRowStart;
 
-        UINT8* dsvRow = depthEnabled ? (dsvData + (UINT64)py * dsvRowPitch) : nullptr;
-
-        UINT8* rtRows[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
-        for (UINT rt = 0; rt < activeRTCount; ++rt)
+        for (Int tileX = tileMinX; tileX < maxX; tileX += tileStepX)
         {
-            rtRows[rt] = rtInfos[rt].data + (UINT64)py * rtInfos[rt].rowPitch;
-        }
+            Bool allOutside = false;
+            Bool fullyCovered = false;
 
-        Float pyCenter = static_cast<Float>(py) + 0.5f;
-
-        for (Int px = minX; px < maxX; ++px)
-        {
-            if (w0 >= 0 && w1 >= 0 && w2 >= 0)
+            if (useTiling)
             {
-                Float64 b0 = static_cast<Float64>(w0) * invArea2;
-                Float64 b1 = static_cast<Float64>(w1) * invArea2;
+                I64 w0_TL = w0_tile;
+                I64 w1_TL = w1_tile;
+                I64 w2_TL = w2_tile;
 
-                Float perspW = static_cast<Float>(iw2 + b0 * diw0 + b1 * diw1);
-                Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
+                I64 w0_TR = w0_TL + w0_cornerDx;
+                I64 w1_TR = w1_TL + w1_cornerDx;
+                I64 w2_TR = w2_TL + w2_cornerDx;
 
-                Float depth = static_cast<Float>(ndcZ[2] + b0 * dz0 + b1 * dz1);
-                depth = std::clamp(depth, vp.MinDepth, vp.MaxDepth);
+                I64 w0_BL = w0_TL + w0_cornerDy;
+                I64 w1_BL = w1_TL + w1_cornerDy;
+                I64 w2_BL = w2_TL + w2_cornerDy;
 
-                if (depthEnabled)
-                {
-                    UINT8* dsvPx = dsvRow + (UINT64)px * dsvPixStride;
-                    Float existing = ReadDepth(dsvFmt, dsvPx);
-                    if (!DepthTest(depthFunc, depth, existing))
-                    {
-                        w0 += w0_dx;
-                        w1 += w1_dx;
-                        w2 += w2_dx;
-                        continue;
-                    }
-                }
+                I64 w0_BR = w0_TR + w0_cornerDy;
+                I64 w1_BR = w1_TR + w1_cornerDy;
+                I64 w2_BR = w2_TR + w2_cornerDy;
 
-                Float pxCenter = static_cast<Float>(px) + 0.5f;
+                allOutside =
+                    (w0_TL < 0 && w0_TR < 0 && w0_BL < 0 && w0_BR < 0) ||
+                    (w1_TL < 0 && w1_TR < 0 && w1_BL < 0 && w1_BR < 0) ||
+                    (w2_TL < 0 && w2_TR < 0 && w2_BL < 0 && w2_BR < 0);
 
-                psIn.pos = { pxCenter, pyCenter, depth, perspW };
-                if (svPosRegPS >= 0)
-                {
-                    psIn.v[svPosRegPS] = psIn.pos;
-                }
-
-                Float64 b2 = 1.0 - b0 - b1;
-                for (Int vi = 0; vi < numVaryings; ++vi)
-                {
-                    Int psR = varyings[vi].psInReg;
-
-                    Float ax = static_cast<Float>(b0 * v0pw[vi].x + b1 * v1pw[vi].x + b2 * v2pw[vi].x) * invPerspW;
-                    Float ay = static_cast<Float>(b0 * v0pw[vi].y + b1 * v1pw[vi].y + b2 * v2pw[vi].y) * invPerspW;
-                    Float az = static_cast<Float>(b0 * v0pw[vi].z + b1 * v1pw[vi].z + b2 * v2pw[vi].z) * invPerspW;
-                    Float aw = static_cast<Float>(b0 * v0pw[vi].w + b1 * v1pw[vi].w + b2 * v2pw[vi].w) * invPerspW;
-
-                    psIn.v[psR] = { ax, ay, az, aw };
-                }
-
-                psOut = {};
-                psFn(&psIn, &psOut, &psRes);
-
-                if (depthEnabled && depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
-                {
-                    Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
-                    UINT8* dsvPx = dsvRow + (UINT64)px * dsvPixStride;
-                    WriteDepth(dsvFmt, dsvPx, writeD);
-                }
-
-                for (UINT rt = 0; rt < activeRTCount; ++rt)
-                {
-                    RTInfo& info = rtInfos[rt];
-                    UINT8* rtvPx = rtRows[rt] + (UINT64)px * info.pixStride;
-
-                    FLOAT srcColor[4] = { psOut.oC[rt].x, psOut.oC[rt].y, psOut.oC[rt].z, psOut.oC[rt].w };
-                    FLOAT finalColor[4];
-
-                    if (info.blendDesc.BlendEnable)
-                    {
-                        FLOAT dstColor[4];
-                        UnpackRTVColor(info.fmt, rtvPx, dstColor);
-
-                        for (Int c = 0; c < 3; ++c)
-                        {
-                            Float sf = ApplyBlendFactor(info.blendDesc.SrcBlend, srcColor, dstColor, state.blendFactor, c);
-                            Float df = ApplyBlendFactor(info.blendDesc.DestBlend, srcColor, dstColor, state.blendFactor, c);
-                            finalColor[c] = BlendOp(info.blendDesc.BlendOp, srcColor[c] * sf, dstColor[c] * df);
-                        }
-                        {
-                            Float sf = ApplyBlendFactor(info.blendDesc.SrcBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
-                            Float df = ApplyBlendFactor(info.blendDesc.DestBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
-                            finalColor[3] = BlendOp(info.blendDesc.BlendOpAlpha, srcColor[3] * sf, dstColor[3] * df);
-                        }
-                    }
-                    else
-                    {
-                        finalColor[0] = srcColor[0];
-                        finalColor[1] = srcColor[1];
-                        finalColor[2] = srcColor[2];
-                        finalColor[3] = srcColor[3];
-                    }
-
-                    UINT8 writeMask = info.blendDesc.RenderTargetWriteMask;
-                    if (writeMask != D3D11_COLOR_WRITE_ENABLE_ALL)
-                    {
-                        FLOAT existing[4];
-                        UnpackRTVColor(info.fmt, rtvPx, existing);
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_RED))   { finalColor[0] = existing[0]; }
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_GREEN)) { finalColor[1] = existing[1]; }
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_BLUE))  { finalColor[2] = existing[2]; }
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_ALPHA)) { finalColor[3] = existing[3]; }
-                    }
-
-                    UINT8 packed[16];
-                    PackRTVColor(info.fmt, finalColor, packed);
-                    std::memcpy(rtvPx, packed, info.pixStride);
-                }
+                fullyCovered =
+                    (w0_TL >= 0 && w0_TR >= 0 && w0_BL >= 0 && w0_BR >= 0) &&
+                    (w1_TL >= 0 && w1_TR >= 0 && w1_BL >= 0 && w1_BR >= 0) &&
+                    (w2_TL >= 0 && w2_TR >= 0 && w2_BL >= 0 && w2_BR >= 0);
             }
 
-            w0 += w0_dx;
-            w1 += w1_dx;
-            w2 += w2_dx;
+            if (allOutside)
+            {
+                w0_tile += w0_tileStepX;
+                w1_tile += w1_tileStepX;
+                w2_tile += w2_tileStepX;
+                continue;
+            }
+
+            Int tMinX = std::max(tileX, minX);
+            Int tMaxX = std::min(tileX + tileStepX, maxX);
+            Int tMinY = std::max(tileY, minY);
+            Int tMaxY = std::min(tileY + tileStepY, maxY);
+
+            I64 w0_pixRowStart = w0_tile + w0_dx * (tMinX - tileX) + w0_dy * (tMinY - tileY);
+            I64 w1_pixRowStart = w1_tile + w1_dx * (tMinX - tileX) + w1_dy * (tMinY - tileY);
+            I64 w2_pixRowStart = w2_tile + w2_dx * (tMinX - tileX) + w2_dy * (tMinY - tileY);
+
+            for (Int py = tMinY; py < tMaxY; ++py)
+            {
+                I64 w0 = w0_pixRowStart;
+                I64 w1 = w1_pixRowStart;
+                I64 w2 = w2_pixRowStart;
+
+                UINT8* dsvRow = depthEnabled ? (dsvData + (UINT64)py * dsvRowPitch) : nullptr;
+
+                UINT8* rtRows[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
+                for (UINT rt = 0; rt < activeRTCount; ++rt)
+                {
+                    rtRows[rt] = rtInfos[rt].data + (UINT64)py * rtInfos[rt].rowPitch;
+                }
+
+                Float pyCenter = static_cast<Float>(py) + 0.5f;
+
+                for (Int px = tMinX; px < tMaxX; ++px)
+                {
+                    if (fullyCovered || (w0 >= 0 && w1 >= 0 && w2 >= 0))
+                    {
+                        Float64 b0 = static_cast<Float64>(w0) * invArea2;
+                        Float64 b1 = static_cast<Float64>(w1) * invArea2;
+
+                        Float perspW = static_cast<Float>(iw2 + b0 * diw0 + b1 * diw1);
+                        Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
+
+                        Float depth = static_cast<Float>(ndcZ[2] + b0 * dz0 + b1 * dz1);
+                        depth = std::clamp(depth, vp.MinDepth, vp.MaxDepth);
+
+                        if (depthEnabled)
+                        {
+                            UINT8* dsvPx = dsvRow + (UINT64)px * dsvPixStride;
+                            Float existing = ReadDepth(dsvFmt, dsvPx);
+                            if (!DepthTest(depthFunc, depth, existing))
+                            {
+                                w0 += w0_dx;
+                                w1 += w1_dx;
+                                w2 += w2_dx;
+                                continue;
+                            }
+                        }
+
+                        Float pxCenter = static_cast<Float>(px) + 0.5f;
+
+                        psIn.pos = { pxCenter, pyCenter, depth, perspW };
+                        if (svPosRegPS >= 0)
+                        {
+                            psIn.v[svPosRegPS] = psIn.pos;
+                        }
+
+                        Float64 b2 = 1.0 - b0 - b1;
+                        for (Int vi = 0; vi < numVaryings; ++vi)
+                        {
+                            Int psR = varyings[vi].psInReg;
+
+                            Float ax = static_cast<Float>(b0 * v0pw[vi].x + b1 * v1pw[vi].x + b2 * v2pw[vi].x) * invPerspW;
+                            Float ay = static_cast<Float>(b0 * v0pw[vi].y + b1 * v1pw[vi].y + b2 * v2pw[vi].y) * invPerspW;
+                            Float az = static_cast<Float>(b0 * v0pw[vi].z + b1 * v1pw[vi].z + b2 * v2pw[vi].z) * invPerspW;
+                            Float aw = static_cast<Float>(b0 * v0pw[vi].w + b1 * v1pw[vi].w + b2 * v2pw[vi].w) * invPerspW;
+
+                            psIn.v[psR] = { ax, ay, az, aw };
+                        }
+
+                        psOut = {};
+                        psFn(&psIn, &psOut, &psRes);
+
+                        if (depthEnabled && depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+                        {
+                            Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
+                            UINT8* dsvPx = dsvRow + (UINT64)px * dsvPixStride;
+                            WriteDepth(dsvFmt, dsvPx, writeD);
+                        }
+
+                        for (UINT rt = 0; rt < activeRTCount; ++rt)
+                        {
+                            RTInfo& info = rtInfos[rt];
+                            UINT8* rtvPx = rtRows[rt] + (UINT64)px * info.pixStride;
+
+                            FLOAT srcColor[4] = { psOut.oC[rt].x, psOut.oC[rt].y, psOut.oC[rt].z, psOut.oC[rt].w };
+                            FLOAT finalColor[4];
+
+                            if (info.blendDesc.BlendEnable)
+                            {
+                                FLOAT dstColor[4];
+                                UnpackRTVColor(info.fmt, rtvPx, dstColor);
+
+                                for (Int c = 0; c < 3; ++c)
+                                {
+                                    Float sf = ApplyBlendFactor(info.blendDesc.SrcBlend, srcColor, dstColor, state.blendFactor, c);
+                                    Float df = ApplyBlendFactor(info.blendDesc.DestBlend, srcColor, dstColor, state.blendFactor, c);
+                                    finalColor[c] = BlendOp(info.blendDesc.BlendOp, srcColor[c] * sf, dstColor[c] * df);
+                                }
+                                {
+                                    Float sf = ApplyBlendFactor(info.blendDesc.SrcBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
+                                    Float df = ApplyBlendFactor(info.blendDesc.DestBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
+                                    finalColor[3] = BlendOp(info.blendDesc.BlendOpAlpha, srcColor[3] * sf, dstColor[3] * df);
+                                }
+                            }
+                            else
+                            {
+                                finalColor[0] = srcColor[0];
+                                finalColor[1] = srcColor[1];
+                                finalColor[2] = srcColor[2];
+                                finalColor[3] = srcColor[3];
+                            }
+
+                            UINT8 writeMask = info.blendDesc.RenderTargetWriteMask;
+                            if (writeMask != D3D11_COLOR_WRITE_ENABLE_ALL)
+                            {
+                                FLOAT existing[4];
+                                UnpackRTVColor(info.fmt, rtvPx, existing);
+                                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_RED))   { finalColor[0] = existing[0]; }
+                                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_GREEN)) { finalColor[1] = existing[1]; }
+                                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_BLUE))  { finalColor[2] = existing[2]; }
+                                if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_ALPHA)) { finalColor[3] = existing[3]; }
+                            }
+
+                            UINT8 packed[16];
+                            PackRTVColor(info.fmt, finalColor, packed);
+                            std::memcpy(rtvPx, packed, info.pixStride);
+                        }
+                    }
+
+                    w0 += w0_dx;
+                    w1 += w1_dx;
+                    w2 += w2_dx;
+                }
+
+                w0_pixRowStart += w0_dy;
+                w1_pixRowStart += w1_dy;
+                w2_pixRowStart += w2_dy;
+            }
+
+            w0_tile += w0_tileStepX;
+            w1_tile += w1_tileStepX;
+            w2_tile += w2_tileStepX;
         }
 
-        w0_row += w0_dy;
-        w1_row += w1_dy;
-        w2_row += w2_dy;
+        w0_tileRowStart += w0_tileStepY;
+        w1_tileRowStart += w1_tileStepY;
+        w2_tileRowStart += w2_tileStepY;
     }
 }
 
