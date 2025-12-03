@@ -362,13 +362,12 @@ inline std::string& GetResultsFilePath()
         return path;
     }
 
-    std::string hash  = RunCommand("git rev-parse --short HEAD");
-    std::string dirty = RunCommand("git status --porcelain --ignore-submodules -- ':!tests/perf/results'");
+    std::string hash = RunCommand("git rev-parse --short HEAD");
 
     std::filesystem::path dir(D3D11SW_PERF_RESULTS_DIR);
     std::filesystem::create_directories(dir);
 
-    path = (dir / (SanitizeForFilename(GetCpuName()) + "_" + hash + (dirty.empty() ? "" : "+") + ".txt")).string();
+    path = (dir / (SanitizeForFilename(GetCpuName()) + "_" + hash + ".txt")).string();
 
     FILE* existing = std::fopen(path.c_str(), "r");
     if (existing)
@@ -381,7 +380,7 @@ inline std::string& GetResultsFilePath()
         FILE* f = std::fopen(path.c_str(), "w");
         if (f)
         {
-            std::fprintf(f, "# %s  %s%s\n", cpu.c_str(), hash.c_str(), dirty.empty() ? "" : "+");
+            std::fprintf(f, "# %s  %s\n", cpu.c_str(), hash.c_str());
             std::fprintf(f, "#\n");
             std::fprintf(f, "# %-28s %4s  %14s %14s %14s %14s %14s\n",
                 "benchmark", "iter", "min (us)", "median (us)", "mean (us)", "max (us)", "stddev (us)");
