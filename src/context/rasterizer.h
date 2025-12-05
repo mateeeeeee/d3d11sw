@@ -1,5 +1,6 @@
 #pragma once
 #include "context/pipeline_state.h"
+#include "context/output_merger.h"
 #include "shaders/shader_abi.h"
 #include "shaders/dxbc_parser.h"
 #include <memory>
@@ -8,75 +9,50 @@ namespace d3d11sw {
 
 class TileThreadPool;
 
-struct RasterizerConfig
-{
-    Bool tiling;
-    Int  tileSize;
-    Int  tileThreads;
-    Bool vertexCache;
-
-    static RasterizerConfig FromEnv();
-};
-
-class D3D11SW_API SWRasterizer
+class Rasterizer
 {
 public:
-    SWRasterizer();
-    ~SWRasterizer();
-
-    void Draw(UINT vertexCount, UINT startVertex,
-              UINT instanceCount, UINT startInstance,
-              D3D11SW_PIPELINE_STATE& state);
-
-    void DrawIndexed(UINT indexCount, UINT startIndex, INT baseVertex,
-                     UINT instanceCount, UINT startInstance,
-                     D3D11SW_PIPELINE_STATE& state);
-
-private:
-    RasterizerConfig _config;
-    std::unique_ptr<TileThreadPool> _tilePool;
-
-private:
-    void DrawInternal(const UINT* indices, UINT vertexCount, INT baseVertex,
-                      D3D11SW_PIPELINE_STATE& state);
-
-    void BuildStageResources(SW_Resources& res,
-                             D3D11BufferSW* const* cbs,
-                             D3D11ShaderResourceViewSW* const* srvs,
-                             D3D11SamplerStateSW* const* samplers);
-
-    void FetchVertex(SW_VSInput& vsIn,
-                     UINT vertexIndex,
-                     const D3D11SW_PIPELINE_STATE& state,
-                     const D3D11SW_ParsedShader& vsReflection);
-
-    UINT FetchIndex(UINT location, const D3D11SW_PIPELINE_STATE& state);
+    Rasterizer();
+    ~Rasterizer();
 
     void RasterizeTriangle(const SW_VSOutput tri[3],
                            const D3D11SW_ParsedShader& vsReflection,
                            const D3D11SW_ParsedShader& psReflection,
-                           SW_PSFn psFn,
-                           SW_Resources& psRes,
+                           SW_PSFn psFn, SW_Resources& psRes,
+                           OutputMerger& om,
                            D3D11SW_PIPELINE_STATE& state);
 
     void RasterizeLine(const SW_VSOutput endpts[2],
                        const D3D11SW_ParsedShader& vsReflection,
                        const D3D11SW_ParsedShader& psReflection,
-                       SW_PSFn psFn,
-                       SW_Resources& psRes,
+                       SW_PSFn psFn, SW_Resources& psRes,
+                       OutputMerger& om,
                        D3D11SW_PIPELINE_STATE& state);
 
     void RasterizePoint(const SW_VSOutput& point,
                         const D3D11SW_ParsedShader& vsReflection,
                         const D3D11SW_ParsedShader& psReflection,
-                        SW_PSFn psFn,
-                        SW_Resources& psRes,
+                        SW_PSFn psFn, SW_Resources& psRes,
+                        OutputMerger& om,
                         D3D11SW_PIPELINE_STATE& state);
 
-    SW_VSOutput RunVS(UINT vertIdx, SW_VSFn vsFn,
-                      const D3D11SW_ParsedShader& vsReflection,
-                      SW_Resources& vsRes,
-                      const D3D11SW_PIPELINE_STATE& state);
+private:
+    struct Config
+    {
+        Bool tiling;
+        Int  tileSize;
+        Int  tileThreads;
+
+        static Config FromEnv();
+    };
+
+    Config _config;
+    std::unique_ptr<TileThreadPool> _tilePool;
+
+private:
+    static Int FindSemanticRegister(const std::vector<D3D11SW_ShaderSignatureElement>& sig,
+                                    const Char* name, Uint32 semIdx);
+    static Int FindSVPositionInput(const D3D11SW_ParsedShader& shader);
 };
 
 }

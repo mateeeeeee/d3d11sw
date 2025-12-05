@@ -1,0 +1,15 @@
+# Apple M4  104ef18
+#
+# benchmark                    iter        min (us)    median (us)      mean (us)       max (us)    stddev (us)
+SingleGroup_8x8x1               100            3.46          10.40          16.82          64.62          13.51
+MultiGroup_4x4                  100           30.88         123.94         121.18         151.08          19.63
+MultiGroup_16x16                100          806.92         962.38         963.31        1184.96          79.09
+LargeDispatch_128x128             3        84397.17       87378.04       87174.65       89748.75        2189.50
+SharedMem_1Group                100          234.17         332.92         340.33         524.12          61.62
+SharedMem_16x16                 100        70655.88       83689.02       87509.24      194398.04       16622.18
+SingleTriangle_64x64            100            8.54          13.96          18.27          72.50          10.63
+SingleTriangle_256x256          100           54.96          59.77          63.56         128.04          12.79
+SingleTriangle_512x512           50          205.75         223.31         223.50         270.58          14.17
+ManyTriangles_64x64             100           45.88          46.38          48.25         106.96           7.88
+SingleTriangle_1024x1024         20          806.46         882.98         880.75        1066.33          62.10
+ThinTriangle_512x512             50            0.67           0.71           0.71           0.75           0.02

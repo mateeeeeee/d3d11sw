@@ -308,22 +308,22 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::SetResourceMinLOD(ID3D11Resource* p
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexed(UINT IndexCount, UINT StartIndexLocation, INT BaseVertexLocation)
 {
-    _rasterizer.DrawIndexed(IndexCount, StartIndexLocation, BaseVertexLocation, 1, 0, _state);
+    _drawer.DrawIndexed(IndexCount, StartIndexLocation, BaseVertexLocation, 1, 0, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Draw(UINT VertexCount, UINT StartVertexLocation)
 {
-    _rasterizer.Draw(VertexCount, StartVertexLocation, 1, 0, _state);
+    _drawer.Draw(VertexCount, StartVertexLocation, 1, 0, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstanced(UINT IndexCountPerInstance, UINT InstanceCount, UINT StartIndexLocation, INT BaseVertexLocation, UINT StartInstanceLocation)
 {
-    _rasterizer.DrawIndexed(IndexCountPerInstance, StartIndexLocation, BaseVertexLocation, InstanceCount, StartInstanceLocation, _state);
+    _drawer.DrawIndexed(IndexCountPerInstance, StartIndexLocation, BaseVertexLocation, InstanceCount, StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstanced(UINT VertexCountPerInstance, UINT InstanceCount, UINT StartVertexLocation, UINT StartInstanceLocation)
 {
-    _rasterizer.Draw(VertexCountPerInstance, StartVertexLocation, InstanceCount, StartInstanceLocation, _state);
+    _drawer.Draw(VertexCountPerInstance, StartVertexLocation, InstanceCount, StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawAuto()

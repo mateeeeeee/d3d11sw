@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/common.h"
+#include "shaders/shader_abi.h"
 
 namespace d3d11sw {
 
@@ -89,5 +90,9 @@ struct D3D11SW_PIPELINE_STATE
     void ReleaseAll();
 };
 
+void BuildStageResources(SW_Resources& res,
+                         D3D11BufferSW* const* cbs,
+                         D3D11ShaderResourceViewSW* const* srvs,
+                         D3D11SamplerStateSW* const* samplers);
 
 } 

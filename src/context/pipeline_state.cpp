@@ -48,5 +48,54 @@ void D3D11SW_PIPELINE_STATE::ReleaseAll()
     rel(depthStencilState);
 }
 
+void BuildStageResources(
+    SW_Resources& res,
+    D3D11BufferSW* const* cbs,
+    D3D11ShaderResourceViewSW* const* srvs,
+    D3D11SamplerStateSW* const* samplers)
+{
+    for (UINT i = 0; i < SW_MAX_CBUFS; ++i)
+    {
+        if (cbs[i])
+        {
+            res.cb[i] = static_cast<const SW_float4*>(cbs[i]->GetDataPtr());
+        }
+    }
+
+    for (UINT i = 0; i < SW_MAX_TEXTURES; ++i)
+    {
+        D3D11ShaderResourceViewSW* srv = srvs[i];
+        if (!srv) { continue; }
+
+        D3D11SW_SUBRESOURCE_LAYOUT layout = srv->GetLayout();
+        SW_Texture& tex = res.tex[i];
+        tex.data        = srv->GetDataPtr();
+        tex.format      = srv->GetFormat();
+        tex.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
+        tex.height      = layout.NumRows;
+        tex.depth       = layout.NumSlices;
+        tex.rowPitch    = layout.RowPitch;
+        tex.slicePitch  = layout.DepthPitch;
+        tex.mipLevels   = 1;
+    }
+
+    for (UINT i = 0; i < SW_MAX_SAMPLERS; ++i)
+    {
+        D3D11SamplerStateSW* smp = samplers[i];
+        if (!smp) { continue; }
+
+        D3D11_SAMPLER_DESC desc{};
+        smp->GetDesc(&desc);
+        res.smp[i].filter          = desc.Filter;
+        res.smp[i].addressU        = desc.AddressU;
+        res.smp[i].addressV        = desc.AddressV;
+        res.smp[i].addressW        = desc.AddressW;
+        res.smp[i].mipLODBias      = desc.MipLODBias;
+        res.smp[i].minLOD          = desc.MinLOD;
+        res.smp[i].maxLOD          = desc.MaxLOD;
+        res.smp[i].comparisonFunc  = desc.ComparisonFunc;
+    }
+}
+
 
 } 

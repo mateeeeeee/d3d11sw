@@ -1,15 +1,6 @@
 #include "context/rasterizer.h"
 #include "context/context_util.h"
-#include "misc/input_layout.h"
-#include "shaders/vertex_shader.h"
-#include "shaders/pixel_shader.h"
 #include "states/rasterizer_state.h"
-#include "states/blend_state.h"
-#include "states/depth_stencil_state.h"
-#include "views/render_target_view.h"
-#include "views/depth_stencil_view.h"
-#include "views/shader_resource_view.h"
-#include "states/sampler_state.h"
 #include "util/env.h"
 #include <algorithm>
 #include <atomic>
@@ -17,18 +8,16 @@
 #include <latch>
 #include <semaphore>
 #include <thread>
-#include <unordered_map>
 #include <vector>
 
 namespace d3d11sw {
 
-RasterizerConfig RasterizerConfig::FromEnv()
+Rasterizer::Config Rasterizer::Config::FromEnv()
 {
-    RasterizerConfig cfg;
+    Config cfg;
     cfg.tiling       = GetEnvBool("D3D11SW_TILING", true);
     cfg.tileSize     = GetEnvInt("D3D11SW_TILE_SIZE", 16);
     cfg.tileThreads  = GetEnvInt("D3D11SW_TILE_THREADS", -1);
-    cfg.vertexCache  = GetEnvBool("D3D11SW_VERTEX_CACHE", false);
     if (cfg.tileSize < 4 || (cfg.tileSize & (cfg.tileSize - 1)) != 0)
     {
         cfg.tileSize = 16;
@@ -97,6 +86,7 @@ private:
     Uint32                     _count{0};
     std::atomic<Uint32>        _next{0};
 
+private:
     void Run()
     {
         while (true)
@@ -115,336 +105,8 @@ private:
     }
 };
 
-SWRasterizer::SWRasterizer() : _config(RasterizerConfig::FromEnv()) {}
-SWRasterizer::~SWRasterizer() = default;
-
-static void UnpackVertexElement(DXGI_FORMAT fmt, const UINT8* src, SW_float4& out)
-{
-    out = {0.f, 0.f, 0.f, 0.f};
-    switch (fmt)
-    {
-        case DXGI_FORMAT_R32G32B32A32_FLOAT:
-            std::memcpy(&out, src, 16);
-            break;
-        case DXGI_FORMAT_R32G32B32_FLOAT:
-            std::memcpy(&out, src, 12);
-            out.w = 0.f;
-            break;
-        case DXGI_FORMAT_R32G32_FLOAT:
-            std::memcpy(&out, src, 8);
-            break;
-        case DXGI_FORMAT_R32_FLOAT:
-            std::memcpy(&out.x, src, 4);
-            break;
-        default:
-            break;
-    }
-}
-
-static Float ReadDepth(DXGI_FORMAT fmt, const UINT8* src)
-{
-    switch (fmt)
-    {
-        case DXGI_FORMAT_D32_FLOAT:
-        {
-            Float d;
-            std::memcpy(&d, src, 4);
-            return d;
-        }
-        case DXGI_FORMAT_D16_UNORM:
-        {
-            UINT16 u;
-            std::memcpy(&u, src, 2);
-            return u / 65535.f;
-        }
-        case DXGI_FORMAT_D24_UNORM_S8_UINT:
-        {
-            UINT32 u;
-            std::memcpy(&u, src, 4);
-            return (u & 0x00FFFFFF) / 16777215.f;
-        }
-        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-        {
-            Float d;
-            std::memcpy(&d, src, 4);
-            return d;
-        }
-        default:
-            return 1.f;
-    }
-}
-
-static void WriteDepth(DXGI_FORMAT fmt, UINT8* dst, Float depth)
-{
-    switch (fmt)
-    {
-        case DXGI_FORMAT_D32_FLOAT:
-            std::memcpy(dst, &depth, 4);
-            break;
-        case DXGI_FORMAT_D16_UNORM:
-        {
-            UINT16 u = static_cast<UINT16>(std::clamp(depth, 0.f, 1.f) * 65535.f + 0.5f);
-            std::memcpy(dst, &u, 2);
-            break;
-        }
-        case DXGI_FORMAT_D24_UNORM_S8_UINT:
-        {
-            UINT32 existing;
-            std::memcpy(&existing, dst, 4);
-            UINT32 d24 = static_cast<UINT32>(std::clamp(depth, 0.f, 1.f) * 16777215.f + 0.5f);
-            existing = (existing & 0xFF000000) | (d24 & 0x00FFFFFF);
-            std::memcpy(dst, &existing, 4);
-            break;
-        }
-        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-            std::memcpy(dst, &depth, 4);
-            break;
-        default:
-            break;
-    }
-}
-
-static UINT DepthPixelStride(DXGI_FORMAT fmt)
-{
-    switch (fmt)
-    {
-        case DXGI_FORMAT_D32_FLOAT:            return 4;
-        case DXGI_FORMAT_D16_UNORM:            return 2;
-        case DXGI_FORMAT_D24_UNORM_S8_UINT:    return 4;
-        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT: return 8;
-        default:                               return 4;
-    }
-}
-
-static Bool DepthTest(D3D11_COMPARISON_FUNC func, Float src, Float dst)
-{
-    switch (func)
-    {
-        case D3D11_COMPARISON_NEVER:         return false;
-        case D3D11_COMPARISON_LESS:          return src < dst;
-        case D3D11_COMPARISON_EQUAL:         return src == dst;
-        case D3D11_COMPARISON_LESS_EQUAL:    return src <= dst;
-        case D3D11_COMPARISON_GREATER:       return src > dst;
-        case D3D11_COMPARISON_NOT_EQUAL:     return src != dst;
-        case D3D11_COMPARISON_GREATER_EQUAL: return src >= dst;
-        case D3D11_COMPARISON_ALWAYS:        return true;
-        default:                             return true;
-    }
-}
-
-static void UnpackRTVColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4])
-{
-    rgba[0] = rgba[1] = rgba[2] = rgba[3] = 0.f;
-    switch (fmt)
-    {
-        case DXGI_FORMAT_R8G8B8A8_UNORM:
-        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-            rgba[0] = src[0] / 255.f;
-            rgba[1] = src[1] / 255.f;
-            rgba[2] = src[2] / 255.f;
-            rgba[3] = src[3] / 255.f;
-            break;
-        case DXGI_FORMAT_B8G8R8A8_UNORM:
-        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
-            rgba[0] = src[2] / 255.f;
-            rgba[1] = src[1] / 255.f;
-            rgba[2] = src[0] / 255.f;
-            rgba[3] = src[3] / 255.f;
-            break;
-        case DXGI_FORMAT_R32G32B32A32_FLOAT:
-            std::memcpy(rgba, src, 16);
-            break;
-        case DXGI_FORMAT_R32G32_FLOAT:
-            std::memcpy(rgba, src, 8);
-            break;
-        case DXGI_FORMAT_R32_FLOAT:
-            std::memcpy(rgba, src, 4);
-            break;
-        case DXGI_FORMAT_R16G16B16A16_UNORM:
-        {
-            UINT16 v[4];
-            std::memcpy(v, src, 8);
-            rgba[0] = v[0] / 65535.f;
-            rgba[1] = v[1] / 65535.f;
-            rgba[2] = v[2] / 65535.f;
-            rgba[3] = v[3] / 65535.f;
-            break;
-        }
-        default:
-            break;
-    }
-}
-
-static Float ApplyBlendFactor(D3D11_BLEND factor, const FLOAT src[4], const FLOAT dst[4],
-                               const FLOAT blendFactor[4], Int comp)
-{
-    switch (factor)
-    {
-        case D3D11_BLEND_ZERO:           return 0.f;
-        case D3D11_BLEND_ONE:            return 1.f;
-        case D3D11_BLEND_SRC_COLOR:      return src[comp];
-        case D3D11_BLEND_INV_SRC_COLOR:  return 1.f - src[comp];
-        case D3D11_BLEND_SRC_ALPHA:      return src[3];
-        case D3D11_BLEND_INV_SRC_ALPHA:  return 1.f - src[3];
-        case D3D11_BLEND_DEST_ALPHA:     return dst[3];
-        case D3D11_BLEND_INV_DEST_ALPHA: return 1.f - dst[3];
-        case D3D11_BLEND_DEST_COLOR:     return dst[comp];
-        case D3D11_BLEND_INV_DEST_COLOR: return 1.f - dst[comp];
-        case D3D11_BLEND_BLEND_FACTOR:     return blendFactor[comp];
-        case D3D11_BLEND_INV_BLEND_FACTOR: return 1.f - blendFactor[comp];
-        case D3D11_BLEND_SRC_ALPHA_SAT:
-        {
-            Float f = std::min(src[3], 1.f - dst[3]);
-            return comp == 3 ? 1.f : f;
-        }
-        default: return 1.f;
-    }
-}
-
-static Float BlendOp(D3D11_BLEND_OP op, Float srcTerm, Float dstTerm)
-{
-    switch (op)
-    {
-        case D3D11_BLEND_OP_ADD:          return srcTerm + dstTerm;
-        case D3D11_BLEND_OP_SUBTRACT:     return srcTerm - dstTerm;
-        case D3D11_BLEND_OP_REV_SUBTRACT: return dstTerm - srcTerm;
-        case D3D11_BLEND_OP_MIN:          return std::min(srcTerm, dstTerm);
-        case D3D11_BLEND_OP_MAX:          return std::max(srcTerm, dstTerm);
-        default:                          return srcTerm + dstTerm;
-    }
-}
-
-void SWRasterizer::BuildStageResources(
-    SW_Resources& res,
-    D3D11BufferSW* const* cbs,
-    D3D11ShaderResourceViewSW* const* srvs,
-    D3D11SamplerStateSW* const* samplers)
-{
-    for (UINT i = 0; i < SW_MAX_CBUFS; ++i)
-    {
-        if (cbs[i])
-        {
-            res.cb[i] = static_cast<const SW_float4*>(cbs[i]->GetDataPtr());
-        }
-    }
-
-    for (UINT i = 0; i < SW_MAX_TEXTURES; ++i)
-    {
-        D3D11ShaderResourceViewSW* srv = srvs[i];
-        if (!srv) { continue; }
-
-        D3D11SW_SUBRESOURCE_LAYOUT layout = srv->GetLayout();
-        SW_Texture& tex = res.tex[i];
-        tex.data        = srv->GetDataPtr();
-        tex.format      = srv->GetFormat();
-        tex.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
-        tex.height      = layout.NumRows;
-        tex.depth       = layout.NumSlices;
-        tex.rowPitch    = layout.RowPitch;
-        tex.slicePitch  = layout.DepthPitch;
-        tex.mipLevels   = 1;
-    }
-
-    for (UINT i = 0; i < SW_MAX_SAMPLERS; ++i)
-    {
-        D3D11SamplerStateSW* smp = samplers[i];
-        if (!smp) { continue; }
-
-        D3D11_SAMPLER_DESC desc{};
-        smp->GetDesc(&desc);
-        res.smp[i].filter          = desc.Filter;
-        res.smp[i].addressU        = desc.AddressU;
-        res.smp[i].addressV        = desc.AddressV;
-        res.smp[i].addressW        = desc.AddressW;
-        res.smp[i].mipLODBias      = desc.MipLODBias;
-        res.smp[i].minLOD          = desc.MinLOD;
-        res.smp[i].maxLOD          = desc.MaxLOD;
-        res.smp[i].comparisonFunc  = desc.ComparisonFunc;
-    }
-}
-
-void SWRasterizer::FetchVertex(
-    SW_VSInput& vsIn,
-    UINT vertexIndex,
-    const D3D11SW_PIPELINE_STATE& state,
-    const D3D11SW_ParsedShader& vsReflection)
-{
-    if (!state.inputLayout)
-    {
-        return;
-    }
-
-    const auto& elements = state.inputLayout->GetElements();
-    for (const auto& elem : elements)
-    {
-        UINT slot = elem.InputSlot;
-        D3D11BufferSW* vb = state.vertexBuffers[slot];
-        if (!vb)
-        {
-            continue;
-        }
-
-        UINT stride = state.vbStrides[slot];
-        UINT offset = state.vbOffsets[slot] + elem.AlignedByteOffset + vertexIndex * stride;
-        const UINT8* src = static_cast<const UINT8*>(vb->GetDataPtr()) + offset;
-
-        SW_float4 value{};
-        UnpackVertexElement(elem.Format, src, value);
-        for (const auto& inp : vsReflection.inputs)
-        {
-            if (inp.semanticIndex == elem.SemanticIndex &&
-                std::strcmp(inp.name, elem.SemanticName) == 0)
-            {
-                vsIn.v[inp.reg] = value;
-                break;
-            }
-        }
-    }
-}
-
-UINT SWRasterizer::FetchIndex(UINT location, const D3D11SW_PIPELINE_STATE& state)
-{
-    if (!state.indexBuffer)
-    {
-        return 0;
-    }
-
-    const UINT8* base = static_cast<const UINT8*>(state.indexBuffer->GetDataPtr());
-    if (state.indexFormat == DXGI_FORMAT_R16_UINT)
-    {
-        UINT16 idx;
-        std::memcpy(&idx, base + state.indexOffset + location * 2, 2);
-        return idx;
-    }
-    else
-    {
-        UINT32 idx;
-        std::memcpy(&idx, base + state.indexOffset + location * 4, 4);
-        return idx;
-    }
-}
-
-static Int FindSemanticRegister(const std::vector<D3D11SW_ShaderSignatureElement>& sig,
-                                const Char* name, Uint32 semIdx)
-{
-    for (const auto& e : sig)
-    {
-        if (e.semanticIndex == semIdx && std::strcmp(e.name, name) == 0)
-        {
-            return static_cast<Int>(e.reg);
-        }
-    }
-    return -1;
-}
-
-struct RTInfo
-{
-    UINT8*                          data;
-    DXGI_FORMAT                     fmt;
-    UINT                            rowPitch;
-    UINT                            pixStride;
-    D3D11_RENDER_TARGET_BLEND_DESC1 blendDesc;
-};
+Rasterizer::Rasterizer() : _config(Config::FromEnv()) {}
+Rasterizer::~Rasterizer() = default;
 
 struct VaryingMap { Int vsOutReg; Int psInReg; };
 
@@ -472,17 +134,7 @@ struct TileContext
     Int numVaryings;
     Int svPosRegPS;
 
-    Bool depthEnabled;
-    D3D11_COMPARISON_FUNC depthFunc;
-    D3D11_DEPTH_WRITE_MASK depthWriteMask;
-    UINT8* dsvData;
-    DXGI_FORMAT dsvFmt;
-    UINT dsvRowPitch;
-    UINT dsvPixStride;
-
-    const RTInfo* rtInfos;
-    UINT activeRTCount;
-    const FLOAT* blendFactor;
+    OutputMerger* om;
 
     SW_PSFn psFn;
     SW_Resources* psRes;
@@ -552,18 +204,12 @@ static void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     I64 w1_pixRowStart = w1_tile + ctx.w1_dx * (tMinX - tileX) + ctx.w1_dy * (tMinY - tileY);
     I64 w2_pixRowStart = w2_tile + ctx.w2_dx * (tMinX - tileX) + ctx.w2_dy * (tMinY - tileY);
 
+    OutputMerger& om = *ctx.om;
     for (Int py = tMinY; py < tMaxY; ++py)
     {
         I64 w0 = w0_pixRowStart;
         I64 w1 = w1_pixRowStart;
         I64 w2 = w2_pixRowStart;
-
-        UINT8* dsvRow = ctx.depthEnabled ? (ctx.dsvData + (UINT64)py * ctx.dsvRowPitch) : nullptr;
-        UINT8* rtRows[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
-        for (UINT rt = 0; rt < ctx.activeRTCount; ++rt)
-        {
-            rtRows[rt] = ctx.rtInfos[rt].data + (UINT64)py * ctx.rtInfos[rt].rowPitch;
-        }
 
         Float pyCenter = static_cast<Float>(py) + 0.5f;
         for (Int px = tMinX; px < tMaxX; ++px)
@@ -579,11 +225,9 @@ static void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 Float depth = ctx.ndcZ2 + b0 * ctx.dz0 + b1 * ctx.dz1;
                 depth = std::clamp(depth, ctx.vpMinDepth, ctx.vpMaxDepth);
 
-                if (ctx.depthEnabled)
+                if (om.DepthEnabled())
                 {
-                    UINT8* dsvPx = dsvRow + (UINT64)px * ctx.dsvPixStride;
-                    Float existing = ReadDepth(ctx.dsvFmt, dsvPx);
-                    if (!DepthTest(ctx.depthFunc, depth, existing))
+                    if (!om.TestDepth(px, py, depth))
                     {
                         w0 += ctx.w0_dx;
                         w1 += ctx.w1_dx;
@@ -614,61 +258,14 @@ static void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
 
                 psOut = {};
                 ctx.psFn(&psIn, &psOut, ctx.psRes);
-                if (ctx.depthEnabled && ctx.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+
+                if (om.DepthEnabled() && om.DepthWriteEnabled())
                 {
                     Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
-                    UINT8* dsvPx = dsvRow + (UINT64)px * ctx.dsvPixStride;
-                    WriteDepth(ctx.dsvFmt, dsvPx, writeD);
+                    om.WriteDepth(px, py, writeD);
                 }
 
-                for (UINT rt = 0; rt < ctx.activeRTCount; ++rt)
-                {
-                    const RTInfo& info = ctx.rtInfos[rt];
-                    UINT8* rtvPx = rtRows[rt] + (UINT64)px * info.pixStride;
-
-                    FLOAT srcColor[4] = { psOut.oC[rt].x, psOut.oC[rt].y, psOut.oC[rt].z, psOut.oC[rt].w };
-                    FLOAT finalColor[4];
-
-                    if (info.blendDesc.BlendEnable)
-                    {
-                        FLOAT dstColor[4];
-                        UnpackRTVColor(info.fmt, rtvPx, dstColor);
-
-                        for (Int c = 0; c < 3; ++c)
-                        {
-                            Float sf = ApplyBlendFactor(info.blendDesc.SrcBlend, srcColor, dstColor, ctx.blendFactor, c);
-                            Float df = ApplyBlendFactor(info.blendDesc.DestBlend, srcColor, dstColor, ctx.blendFactor, c);
-                            finalColor[c] = BlendOp(info.blendDesc.BlendOp, srcColor[c] * sf, dstColor[c] * df);
-                        }
-                        {
-                            Float sf = ApplyBlendFactor(info.blendDesc.SrcBlendAlpha, srcColor, dstColor, ctx.blendFactor, 3);
-                            Float df = ApplyBlendFactor(info.blendDesc.DestBlendAlpha, srcColor, dstColor, ctx.blendFactor, 3);
-                            finalColor[3] = BlendOp(info.blendDesc.BlendOpAlpha, srcColor[3] * sf, dstColor[3] * df);
-                        }
-                    }
-                    else
-                    {
-                        finalColor[0] = srcColor[0];
-                        finalColor[1] = srcColor[1];
-                        finalColor[2] = srcColor[2];
-                        finalColor[3] = srcColor[3];
-                    }
-
-                    UINT8 writeMask = info.blendDesc.RenderTargetWriteMask;
-                    if (writeMask != D3D11_COLOR_WRITE_ENABLE_ALL)
-                    {
-                        FLOAT existing[4];
-                        UnpackRTVColor(info.fmt, rtvPx, existing);
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_RED))   { finalColor[0] = existing[0]; }
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_GREEN)) { finalColor[1] = existing[1]; }
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_BLUE))  { finalColor[2] = existing[2]; }
-                        if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_ALPHA)) { finalColor[3] = existing[3]; }
-                    }
-
-                    UINT8 packed[16];
-                    PackRTVColor(info.fmt, finalColor, packed);
-                    std::memcpy(rtvPx, packed, info.pixStride);
-                }
+                om.WritePixel(px, py, psOut);
             }
 
             w0 += ctx.w0_dx;
@@ -689,7 +286,7 @@ static void ProcessTileTrampoline(void* ctx, Uint32 tileIdx)
     ProcessOneTile(*static_cast<const TileContext*>(ctx), tileIdx, psIn, psOut);
 }
 
-static Int FindSVPositionInput(const D3D11SW_ParsedShader& shader)
+Int Rasterizer::FindSVPositionInput(const D3D11SW_ParsedShader& shader)
 {
     for (const auto& e : shader.inputs)
     {
@@ -701,89 +298,26 @@ static Int FindSVPositionInput(const D3D11SW_ParsedShader& shader)
     return -1;
 }
 
-static void WritePixelOutputs(
-    Int px, Int py,
-    const SW_PSOutput& psOut,
-    D3D11SW_PIPELINE_STATE& state)
+Int Rasterizer::FindSemanticRegister(const std::vector<D3D11SW_ShaderSignatureElement>& sig,
+                                     const Char* name, Uint32 semIdx)
 {
-    D3D11_BLEND_DESC1 bsDesc{};
-    Bool haveBlendState = false;
-    if (state.blendState)
+    for (const auto& e : sig)
     {
-        state.blendState->GetDesc1(&bsDesc);
-        haveBlendState = true;
+        if (e.semanticIndex == semIdx && std::strcmp(e.name, name) == 0)
+        {
+            return static_cast<Int>(e.reg);
+        }
     }
-
-    for (UINT rt = 0; rt < state.numRenderTargets; ++rt)
-    {
-        D3D11RenderTargetViewSW* rtv = state.renderTargets[rt];
-        if (!rtv) { continue; }
-
-        UINT8* rtvData     = rtv->GetDataPtr();
-        DXGI_FORMAT rtvFmt = rtv->GetFormat();
-        UINT rtvRowPitch   = rtv->GetLayout().RowPitch;
-        UINT rtvPixStride  = rtv->GetLayout().PixelStride;
-
-        UINT8* rtvPx = rtvData + (UINT64)py * rtvRowPitch + (UINT64)px * rtvPixStride;
-
-        D3D11_RENDER_TARGET_BLEND_DESC1 blendDesc{};
-        blendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-        if (haveBlendState)
-        {
-            blendDesc = bsDesc.RenderTarget[rt];
-        }
-
-        FLOAT srcColor[4] = { psOut.oC[rt].x, psOut.oC[rt].y, psOut.oC[rt].z, psOut.oC[rt].w };
-        FLOAT finalColor[4];
-
-        if (blendDesc.BlendEnable)
-        {
-            FLOAT dstColor[4];
-            UnpackRTVColor(rtvFmt, rtvPx, dstColor);
-
-            for (Int c = 0; c < 3; ++c)
-            {
-                Float sf = ApplyBlendFactor(blendDesc.SrcBlend, srcColor, dstColor, state.blendFactor, c);
-                Float df = ApplyBlendFactor(blendDesc.DestBlend, srcColor, dstColor, state.blendFactor, c);
-                finalColor[c] = BlendOp(blendDesc.BlendOp, srcColor[c] * sf, dstColor[c] * df);
-            }
-            {
-                Float sf = ApplyBlendFactor(blendDesc.SrcBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
-                Float df = ApplyBlendFactor(blendDesc.DestBlendAlpha, srcColor, dstColor, state.blendFactor, 3);
-                finalColor[3] = BlendOp(blendDesc.BlendOpAlpha, srcColor[3] * sf, dstColor[3] * df);
-            }
-        }
-        else
-        {
-            finalColor[0] = srcColor[0];
-            finalColor[1] = srcColor[1];
-            finalColor[2] = srcColor[2];
-            finalColor[3] = srcColor[3];
-        }
-
-        UINT8 writeMask = blendDesc.RenderTargetWriteMask;
-        if (writeMask != D3D11_COLOR_WRITE_ENABLE_ALL)
-        {
-            FLOAT existing[4];
-            UnpackRTVColor(rtvFmt, rtvPx, existing);
-            if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_RED))   { finalColor[0] = existing[0]; }
-            if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_GREEN)) { finalColor[1] = existing[1]; }
-            if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_BLUE))  { finalColor[2] = existing[2]; }
-            if (!(writeMask & D3D11_COLOR_WRITE_ENABLE_ALPHA)) { finalColor[3] = existing[3]; }
-        }
-
-        UINT8 packed[16];
-        PackRTVColor(rtvFmt, finalColor, packed);
-        std::memcpy(rtvPx, packed, rtvPixStride);
-    }
+    return -1;
 }
 
-void SWRasterizer::RasterizeTriangle(
+void Rasterizer::RasterizeTriangle(
     const SW_VSOutput tri[3],
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
     SW_PSFn psFn,
     SW_Resources& psRes,
+    OutputMerger& om,
     D3D11SW_PIPELINE_STATE& state)
 {
     if (state.numViewports == 0)
@@ -942,56 +476,12 @@ void SWRasterizer::RasterizeTriangle(
         v2pw[vi] = { v2.o[vsR].x * iw2, v2.o[vsR].y * iw2, v2.o[vsR].z * iw2, v2.o[vsR].w * iw2 };
     }
 
-    Bool depthEnabled = true;
-    D3D11_COMPARISON_FUNC depthFunc = D3D11_COMPARISON_LESS;
-    D3D11_DEPTH_WRITE_MASK depthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    if (state.depthStencilState)
-    {
-        D3D11_DEPTH_STENCIL_DESC dsDesc{};
-        state.depthStencilState->GetDesc(&dsDesc);
-        depthEnabled   = dsDesc.DepthEnable ? true : false;
-        depthFunc      = dsDesc.DepthFunc;
-        depthWriteMask = dsDesc.DepthWriteMask;
-    }
-
-    D3D11DepthStencilViewSW* dsv = state.depthStencilView;
-    UINT8* dsvData     = dsv ? dsv->GetDataPtr() : nullptr;
-    DXGI_FORMAT dsvFmt = dsv ? dsv->GetFormat()  : DXGI_FORMAT_UNKNOWN;
-    UINT dsvRowPitch   = dsv ? dsv->GetLayout().RowPitch : 0;
-    UINT dsvPixStride  = dsv ? DepthPixelStride(dsvFmt) : 0;
-
-    if (!dsv) { depthEnabled = false; }
-
-    if (state.numRenderTargets == 0) { return; }
+    if (!om.HasRenderTargets()) { return; }
 
     Float diw0 = iw0 - iw2;
     Float diw1 = iw1 - iw2;
     Float dz0 = ndcZ[0] - ndcZ[2];
     Float dz1 = ndcZ[1] - ndcZ[2];
-
-    D3D11_BLEND_DESC1 bsDesc{};
-    Bool haveBlendState = false;
-    if (state.blendState)
-    {
-        state.blendState->GetDesc1(&bsDesc);
-        haveBlendState = true;
-    }
-
-    RTInfo rtInfos[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
-    UINT activeRTCount = 0;
-    for (UINT rt = 0; rt < state.numRenderTargets; ++rt)
-    {
-        D3D11RenderTargetViewSW* rtv = state.renderTargets[rt];
-        if (!rtv) { continue; }
-        RTInfo& info    = rtInfos[activeRTCount++];
-        info.data       = rtv->GetDataPtr();
-        info.fmt        = rtv->GetFormat();
-        info.rowPitch   = rtv->GetLayout().RowPitch;
-        info.pixStride  = rtv->GetLayout().PixelStride;
-        info.blendDesc  = {};
-        info.blendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-        if (haveBlendState) { info.blendDesc = bsDesc.RenderTarget[rt]; }
-    }
 
     const Int TILE = _config.tileSize;
     const Bool useTiling = _config.tiling;
@@ -1062,20 +552,10 @@ void SWRasterizer::RasterizeTriangle(
     tctx.numVaryings = numVaryings;
     tctx.svPosRegPS  = svPosRegPS;
 
-    tctx.depthEnabled   = depthEnabled;
-    tctx.depthFunc      = depthFunc;
-    tctx.depthWriteMask = depthWriteMask;
-    tctx.dsvData        = dsvData;
-    tctx.dsvFmt         = dsvFmt;
-    tctx.dsvRowPitch    = dsvRowPitch;
-    tctx.dsvPixStride   = dsvPixStride;
+    tctx.om          = &om;
 
-    tctx.rtInfos        = rtInfos;
-    tctx.activeRTCount  = activeRTCount;
-    tctx.blendFactor    = state.blendFactor;
-
-    tctx.psFn           = psFn;
-    tctx.psRes          = &psRes;
+    tctx.psFn        = psFn;
+    tctx.psRes       = &psRes;
 
     tctx.tileMinX  = tileMinX;
     tctx.tileMinY  = tileMinY;
@@ -1112,26 +592,13 @@ void SWRasterizer::RasterizeTriangle(
     }
 }
 
-SW_VSOutput SWRasterizer::RunVS(
-    UINT vertIdx, SW_VSFn vsFn,
-    const D3D11SW_ParsedShader& vsReflection,
-    SW_Resources& vsRes,
-    const D3D11SW_PIPELINE_STATE& state)
-{
-    SW_VSInput vsIn{};
-    FetchVertex(vsIn, vertIdx, state, vsReflection);
-
-    SW_VSOutput vsOut{};
-    vsFn(&vsIn, &vsOut, &vsRes);
-    return vsOut;
-}
-
-void SWRasterizer::RasterizeLine(
+void Rasterizer::RasterizeLine(
     const SW_VSOutput endpts[2],
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
     SW_PSFn psFn,
     SW_Resources& psRes,
+    OutputMerger& om,
     D3D11SW_PIPELINE_STATE& state)
 {
     if (state.numViewports == 0) { return; }
@@ -1158,11 +625,10 @@ void SWRasterizer::RasterizeLine(
     Int vpMaxX = static_cast<Int>(vp.TopLeftX + vp.Width);
     Int vpMaxY = static_cast<Int>(vp.TopLeftY + vp.Height);
 
-    if (state.numRenderTargets == 0) { return; }
+    if (!om.HasRenderTargets()) { return; }
 
     Int svPosRegPS = FindSVPositionInput(psReflection);
 
-    struct VaryingMap { Int vsOutReg; Int psInReg; };
     VaryingMap varyings[D3D11_VS_OUTPUT_REGISTER_COUNT];
     Int numVaryings = 0;
     for (const auto& psIn : psReflection.inputs)
@@ -1218,16 +684,17 @@ void SWRasterizer::RasterizeLine(
         SW_PSOutput psOut{};
         psFn(&psIn, &psOut, &psRes);
 
-        WritePixelOutputs(px, py, psOut, state);
+        om.WritePixel(px, py, psOut);
     }
 }
 
-void SWRasterizer::RasterizePoint(
+void Rasterizer::RasterizePoint(
     const SW_VSOutput& point,
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
     SW_PSFn psFn,
     SW_Resources& psRes,
+    OutputMerger& om,
     D3D11SW_PIPELINE_STATE& state)
 {
     if (state.numViewports == 0) { return; }
@@ -1252,7 +719,7 @@ void SWRasterizer::RasterizePoint(
 
     if (px < vpMinX || px >= vpMaxX || py < vpMinY || py >= vpMaxY) { return; }
 
-    if (state.numRenderTargets == 0) { return; }
+    if (!om.HasRenderTargets()) { return; }
 
     Int svPosRegPS = FindSVPositionInput(psReflection);
 
@@ -1263,7 +730,6 @@ void SWRasterizer::RasterizePoint(
     }
     psIn.pos = { sx + 0.5f, sy + 0.5f, 0.f, 1.f };
 
-    struct VaryingMap { Int vsOutReg; Int psInReg; };
     VaryingMap varyings[D3D11_VS_OUTPUT_REGISTER_COUNT];
     Int numVaryings = 0;
     for (const auto& pi : psReflection.inputs)
@@ -1284,173 +750,7 @@ void SWRasterizer::RasterizePoint(
     SW_PSOutput psOut{};
     psFn(&psIn, &psOut, &psRes);
 
-    WritePixelOutputs(px, py, psOut, state);
+    om.WritePixel(px, py, psOut);
 }
 
-void SWRasterizer::DrawInternal(
-    const UINT* indices, UINT vertexCount, INT baseVertex,
-    D3D11SW_PIPELINE_STATE& state)
-{
-    if (!state.vs || !state.ps) { return; }
-
-    SW_VSFn vsFn = state.vs->GetJitFn();
-    SW_PSFn psFn = state.ps->GetJitFn();
-    if (!vsFn || !psFn) { return; }
-
-    const D3D11SW_ParsedShader& vsRefl = state.vs->GetReflection();
-    const D3D11SW_ParsedShader& psRefl = state.ps->GetReflection();
-
-    SW_Resources vsRes{};
-    BuildStageResources(vsRes, state.vsCBs, state.vsSRVs, state.vsSamplers);
-
-    SW_Resources psRes{};
-    BuildStageResources(psRes, state.psCBs, state.psSRVs, state.psSamplers);
-
-    auto fetchVS = [&](UINT i) -> SW_VSOutput
-    {
-        UINT vertIdx = indices ? (indices[i] + baseVertex) : (i + baseVertex);
-        return RunVS(vertIdx, vsFn, vsRefl, vsRes, state);
-    };
-
-    std::unordered_map<UINT, SW_VSOutput> vsCache;
-    auto fetchVSCached = [&](UINT i) -> const SW_VSOutput&
-    {
-        UINT vertIdx = indices[i] + baseVertex;
-        auto [it, inserted] = vsCache.try_emplace(vertIdx);
-        if (inserted)
-        {
-            it->second = RunVS(vertIdx, vsFn, vsRefl, vsRes, state);
-        }
-        return it->second;
-    };
-
-    const Bool useCache = indices != nullptr && _config.vertexCache;
-
-    switch (state.topology)
-    {
-    case D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST:
-    {
-        if (useCache)
-        {
-            for (UINT i = 0; i + 2 < vertexCount; i += 3)
-            {
-                const SW_VSOutput* tri[3] = { &fetchVSCached(i), &fetchVSCached(i + 1), &fetchVSCached(i + 2) };
-                SW_VSOutput triCopy[3] = { *tri[0], *tri[1], *tri[2] };
-                RasterizeTriangle(triCopy, vsRefl, psRefl, psFn, psRes, state);
-            }
-        }
-        else
-        {
-            for (UINT i = 0; i + 2 < vertexCount; i += 3)
-            {
-                SW_VSOutput tri[3] = { fetchVS(i), fetchVS(i + 1), fetchVS(i + 2) };
-                RasterizeTriangle(tri, vsRefl, psRefl, psFn, psRes, state);
-            }
-        }
-        break;
-    }
-    case D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP:
-    {
-        for (UINT i = 0; i + 2 < vertexCount; ++i)
-        {
-            SW_VSOutput tri[3];
-            if (useCache)
-            {
-                if (i & 1)
-                {
-                    tri[0] = fetchVSCached(i + 1);
-                    tri[1] = fetchVSCached(i);
-                    tri[2] = fetchVSCached(i + 2);
-                }
-                else
-                {
-                    tri[0] = fetchVSCached(i);
-                    tri[1] = fetchVSCached(i + 1);
-                    tri[2] = fetchVSCached(i + 2);
-                }
-            }
-            else
-            {
-                if (i & 1)
-                {
-                    tri[0] = fetchVS(i + 1);
-                    tri[1] = fetchVS(i);
-                    tri[2] = fetchVS(i + 2);
-                }
-                else
-                {
-                    tri[0] = fetchVS(i);
-                    tri[1] = fetchVS(i + 1);
-                    tri[2] = fetchVS(i + 2);
-                }
-            }
-            RasterizeTriangle(tri, vsRefl, psRefl, psFn, psRes, state);
-        }
-        break;
-    }
-    case D3D11_PRIMITIVE_TOPOLOGY_LINELIST:
-    {
-        for (UINT i = 0; i + 1 < vertexCount; i += 2)
-        {
-            SW_VSOutput endpts[2] = { useCache ? fetchVSCached(i) : fetchVS(i),
-                                      useCache ? fetchVSCached(i + 1) : fetchVS(i + 1) };
-            RasterizeLine(endpts, vsRefl, psRefl, psFn, psRes, state);
-        }
-        break;
-    }
-    case D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP:
-    {
-        if (vertexCount < 2) { break; }
-        SW_VSOutput prev = useCache ? fetchVSCached(0) : fetchVS(0);
-        for (UINT i = 1; i < vertexCount; ++i)
-        {
-            SW_VSOutput cur = useCache ? fetchVSCached(i) : fetchVS(i);
-            SW_VSOutput endpts[2] = { prev, cur };
-            RasterizeLine(endpts, vsRefl, psRefl, psFn, psRes, state);
-            prev = cur;
-        }
-        break;
-    }
-    case D3D11_PRIMITIVE_TOPOLOGY_POINTLIST:
-    {
-        for (UINT i = 0; i < vertexCount; ++i)
-        {
-            SW_VSOutput pt = useCache ? fetchVSCached(i) : fetchVS(i);
-            RasterizePoint(pt, vsRefl, psRefl, psFn, psRes, state);
-        }
-        break;
-    }
-    default:
-        break;
-    }
 }
-
-void SWRasterizer::Draw(
-    UINT vertexCount, UINT startVertex,
-    UINT instanceCount, UINT startInstance,
-    D3D11SW_PIPELINE_STATE& state)
-{
-    for (UINT inst = 0; inst < instanceCount; ++inst)
-    {
-        DrawInternal(nullptr, vertexCount, static_cast<INT>(startVertex), state);
-    }
-}
-
-void SWRasterizer::DrawIndexed(
-    UINT indexCount, UINT startIndex, INT baseVertex,
-    UINT instanceCount, UINT startInstance,
-    D3D11SW_PIPELINE_STATE& state)
-{
-    std::vector<UINT> indices(indexCount);
-    for (UINT i = 0; i < indexCount; ++i)
-    {
-        indices[i] = FetchIndex(startIndex + i, state);
-    }
-
-    for (UINT inst = 0; inst < instanceCount; ++inst)
-    {
-        DrawInternal(indices.data(), indexCount, baseVertex, state);
-    }
-}
-
-} 
