@@ -44,6 +44,11 @@ add_gtest(test_shader_jit      unit/test_shader_jit.cpp)
 add_gtest(test_shaders         unit/test_shaders.cpp)
 add_gtest(test_dispatch        unit/test_dispatch.cpp)
 add_gtest(test_query           unit/test_query.cpp)
+add_gtest(test_resource_copies unit/test_resource_copies.cpp)
+add_gtest(test_buffer_uav      unit/test_buffer_uav.cpp)
+add_gtest(test_texture_formats unit/test_texture_formats.cpp)
+add_gtest(test_map_modes       unit/test_map_modes.cpp)
+add_gtest(test_draw_indexed    unit/test_draw_indexed.cpp)
 
 target_compile_definitions(test_shader_jit PRIVATE
     D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
@@ -77,6 +82,9 @@ add_golden_test(golden_cs_kitchen_sink  golden/test_cs_kitchen_sink.cpp)
 add_golden_test(golden_cs_texture       golden/test_cs_texture.cpp)
 add_golden_test(golden_cs_sample_cmp    golden/test_cs_sample_cmp.cpp)
 add_golden_test(golden_cs_gather        golden/test_cs_gather.cpp)
+add_golden_test(golden_cs_bitwise       golden/test_cs_bitwise.cpp)
+add_golden_test(golden_cs_integer_math  golden/test_cs_integer_math.cpp)
+add_golden_test(golden_cs_control_flow  golden/test_cs_control_flow.cpp)
 
 add_golden_test(golden_draw_solid_triangle  golden/test_draw_solid_triangle.cpp)
 add_golden_test(golden_draw_depth           golden/test_draw_depth.cpp)
@@ -86,6 +94,8 @@ add_golden_test(golden_draw_gradient_triangle golden/test_draw_gradient_triangle
 add_golden_test(golden_draw_topologies       golden/test_draw_topologies.cpp)
 add_golden_test(golden_draw_mrt              golden/test_draw_mrt.cpp)
 add_golden_test(golden_draw_textured         golden/test_draw_textured.cpp)
+add_golden_test(golden_draw_cull_modes       golden/test_draw_cull_modes.cpp)
+add_golden_test(golden_draw_write_mask       golden/test_draw_write_mask.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
 

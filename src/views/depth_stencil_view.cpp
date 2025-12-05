@@ -1,5 +1,6 @@
 #include "views/depth_stencil_view.h"
 #include "views/view_util.h"
+#include "util/format.h"
 
 namespace d3d11sw {
 
@@ -60,6 +61,10 @@ HRESULT D3D11DepthStencilViewSW::Init(ID3D11Resource* pResource, const D3D11_DEP
     UINT subresource = CalcDSVSubresource(_desc, info.MipLevels);
     _dataPtr = GetSwDataPtr(pResource, subresource);
     _layout  = GetSwSubresourceLayout(pResource, subresource);
+    if (_desc.Format != DXGI_FORMAT_UNKNOWN)
+    {
+        _layout.PixelStride = GetFormatStride(_desc.Format);
+    }
     return S_OK;
 }
 
