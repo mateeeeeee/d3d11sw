@@ -74,6 +74,11 @@ inline float sw_udiv(float a, float b) { unsigned ub = sw_bits_uint(b); return u
 inline float sw_umod(float a, float b) { unsigned ub = sw_bits_uint(b); return ub ? sw_uint_bits(sw_bits_uint(a) % ub) : 0.f; }
 inline float sw_imul_hi(float a, float b) { long long r = (long long)sw_bits_int(a) * (long long)sw_bits_int(b); return sw_int_bits((int)(r >> 32)); }
 inline float sw_imul_lo(float a, float b) { return sw_int_bits(sw_bits_int(a) * sw_bits_int(b)); }
+inline float sw_umul_hi(float a, float b) { unsigned long long r = (unsigned long long)sw_bits_uint(a) * (unsigned long long)sw_bits_uint(b); return sw_uint_bits((unsigned)(r >> 32)); }
+inline float sw_umul_lo(float a, float b) { return sw_uint_bits(sw_bits_uint(a) * sw_bits_uint(b)); }
+inline float sw_umad(float a, float b, float c) { return sw_uint_bits(sw_bits_uint(a) * sw_bits_uint(b) + sw_bits_uint(c)); }
+inline float sw_uaddc(float a, float b, float& carry) { unsigned ua = sw_bits_uint(a), ub = sw_bits_uint(b); unsigned r = ua + ub; carry = sw_uint_bits(r < ua ? 1u : 0u); return sw_uint_bits(r); }
+inline float sw_usubb(float a, float b, float& borrow) { unsigned ua = sw_bits_uint(a), ub = sw_bits_uint(b); borrow = sw_uint_bits(ua < ub ? 1u : 0u); return sw_uint_bits(ua - ub); }
 inline float sw_feq(float a, float b) { return sw_uint_bits(a == b ? 0xFFFFFFFFu : 0u); }
 inline float sw_fne(float a, float b) { return sw_uint_bits(a != b ? 0xFFFFFFFFu : 0u); }
 inline float sw_fge(float a, float b) { return sw_uint_bits(a >= b ? 0xFFFFFFFFu : 0u); }

@@ -88,3 +88,53 @@ TEST_F(ShaderRuntimeTests, F16toF32Zero)
 {
     EXPECT_FLOAT_EQ(sw_f16tof32(sw_uint_bits(0u)), 0.f);
 }
+
+TEST_F(ShaderRuntimeTests, UmulHi)
+{
+    EXPECT_EQ(sw_bits_uint(sw_umul_hi(sw_uint_bits(0x80000000u), sw_uint_bits(2u))), 1u);
+    EXPECT_EQ(sw_bits_uint(sw_umul_hi(sw_uint_bits(3u), sw_uint_bits(5u))), 0u);
+}
+
+TEST_F(ShaderRuntimeTests, UmulLo)
+{
+    EXPECT_EQ(sw_bits_uint(sw_umul_lo(sw_uint_bits(3u), sw_uint_bits(5u))), 15u);
+    EXPECT_EQ(sw_bits_uint(sw_umul_lo(sw_uint_bits(0xFFFFFFFFu), sw_uint_bits(2u))), 0xFFFFFFFEu);
+}
+
+TEST_F(ShaderRuntimeTests, Umad)
+{
+    EXPECT_EQ(sw_bits_uint(sw_umad(sw_uint_bits(3u), sw_uint_bits(5u), sw_uint_bits(10u))), 25u);
+    EXPECT_EQ(sw_bits_uint(sw_umad(sw_uint_bits(0u), sw_uint_bits(5u), sw_uint_bits(7u))), 7u);
+}
+
+TEST_F(ShaderRuntimeTests, UaddcNoCarry)
+{
+    float carry;
+    float r = sw_uaddc(sw_uint_bits(5u), sw_uint_bits(10u), carry);
+    EXPECT_EQ(sw_bits_uint(r), 15u);
+    EXPECT_EQ(sw_bits_uint(carry), 0u);
+}
+
+TEST_F(ShaderRuntimeTests, UaddcWithCarry)
+{
+    float carry;
+    float r = sw_uaddc(sw_uint_bits(0xFFFFFFFFu), sw_uint_bits(1u), carry);
+    EXPECT_EQ(sw_bits_uint(r), 0u);
+    EXPECT_EQ(sw_bits_uint(carry), 1u);
+}
+
+TEST_F(ShaderRuntimeTests, UsubbNoBorrow)
+{
+    float borrow;
+    float r = sw_usubb(sw_uint_bits(10u), sw_uint_bits(5u), borrow);
+    EXPECT_EQ(sw_bits_uint(r), 5u);
+    EXPECT_EQ(sw_bits_uint(borrow), 0u);
+}
+
+TEST_F(ShaderRuntimeTests, UsubbWithBorrow)
+{
+    float borrow;
+    float r = sw_usubb(sw_uint_bits(0u), sw_uint_bits(1u), borrow);
+    EXPECT_EQ(sw_bits_uint(r), 0xFFFFFFFFu);
+    EXPECT_EQ(sw_bits_uint(borrow), 1u);
+}

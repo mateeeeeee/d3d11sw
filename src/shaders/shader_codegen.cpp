@@ -244,6 +244,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     switch (instr.op)
     {
     case D3D10_SB_OPCODE_IADD: case D3D10_SB_OPCODE_IMUL: case D3D10_SB_OPCODE_IMAD:
+    case D3D10_SB_OPCODE_UMUL: case D3D10_SB_OPCODE_UMAD:
+    case D3D11_SB_OPCODE_UADDC: case D3D11_SB_OPCODE_USUBB:
     case D3D10_SB_OPCODE_ISHL: case D3D10_SB_OPCODE_ISHR: case D3D10_SB_OPCODE_USHR:
     case D3D10_SB_OPCODE_AND:  case D3D10_SB_OPCODE_OR:   case D3D10_SB_OPCODE_XOR:
     case D3D10_SB_OPCODE_NOT:  case D3D10_SB_OPCODE_INEG:
@@ -396,6 +398,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_LT:   if (src0 && src1) { EmitPerComp2(w, "sw_flt",  dstBase, mask, *src0, *src1); } break;
 
     case D3D10_SB_OPCODE_IMAD:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_imad", dstBase, mask, *src0, *src1, *src2); } break;
+    case D3D10_SB_OPCODE_UMAD:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_umad", dstBase, mask, *src0, *src1, *src2); } break;
     case D3D11_SB_OPCODE_COUNTBITS:   if (src0) { EmitPerComp1(w, "sw_countbits",   dstBase, mask, *src0); } break;
     case D3D11_SB_OPCODE_FIRSTBIT_HI: if (src0) { EmitPerComp1(w, "sw_firstbit_hi", dstBase, mask, *src0); } break;
     case D3D11_SB_OPCODE_FIRSTBIT_LO: if (src0) { EmitPerComp1(w, "sw_firstbit_lo", dstBase, mask, *src0); } break;
@@ -498,6 +501,118 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
                     }
                     w.Line("  {}.{} = sw_imul_lo(_a.{}, _b.{});", lBase, Comp(i), Comp(i), Comp(i));
                 }
+            }
+            w.Line("}}");
+        }
+        break;
+    }
+
+    case D3D10_SB_OPCODE_UMUL:
+    {
+        const SM4Operand* dstHi = dst;
+        const SM4Operand* dstLo = src0;
+        const SM4Operand* srcA  = src1;
+        const SM4Operand* srcB  = src2;
+        if (srcA && srcB)
+        {
+            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            if (dstHi && dstHi->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string hBase = EmitDstBase(*dstHi);
+                Uint8 hMask = dstHi->writeMask ? dstHi->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(hMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_umul_hi(_a.{}, _b.{});", hBase, Comp(i), Comp(i), Comp(i));
+                }
+            }
+            if (dstLo && dstLo->type != D3D10_SB_OPERAND_TYPE_NULL)
+            {
+                std::string lBase = EmitDstBase(*dstLo);
+                Uint8 lMask = dstLo->writeMask ? dstLo->writeMask : 0xF;
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(lMask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    w.Line("  {}.{} = sw_umul_lo(_a.{}, _b.{});", lBase, Comp(i), Comp(i), Comp(i));
+                }
+            }
+            w.Line("}}");
+        }
+        break;
+    }
+
+    case D3D11_SB_OPCODE_UADDC:
+    {
+        const SM4Operand* dstVal   = dst;
+        const SM4Operand* dstCarry = src0;
+        const SM4Operand* srcA     = src1;
+        const SM4Operand* srcB     = src2;
+        if (srcA && srcB)
+        {
+            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            Uint8 vMask = dstVal  ? (dstVal->writeMask  ? dstVal->writeMask  : 0xF) : 0xF;
+            Uint8 cMask = dstCarry ? (dstCarry->writeMask ? dstCarry->writeMask : 0xF) : 0xF;
+            std::string vBase = dstVal   ? EmitDstBase(*dstVal)   : "r[0]";
+            std::string cBase = dstCarry ? EmitDstBase(*dstCarry) : "r[0]";
+            for (Int i = 0; i < 4; ++i)
+            {
+                if (!(vMask & (1 << i)) && !(cMask & (1 << i)))
+                {
+                    continue;
+                }
+                w.Line("  {{ float _carry;");
+                w.Line("    float _r = sw_uaddc(_a.{}, _b.{}, _carry);", Comp(i), Comp(i));
+                if (vMask & (1 << i))
+                {
+                    w.Line("    {}.{} = _r;", vBase, Comp(i));
+                }
+                if (cMask & (1 << i))
+                {
+                    w.Line("    {}.{} = _carry;", cBase, Comp(i));
+                }
+                w.Line("  }}");
+            }
+            w.Line("}}");
+        }
+        break;
+    }
+
+    case D3D11_SB_OPCODE_USUBB:
+    {
+        const SM4Operand* dstVal    = dst;
+        const SM4Operand* dstBorrow = src0;
+        const SM4Operand* srcA      = src1;
+        const SM4Operand* srcB      = src2;
+        if (srcA && srcB)
+        {
+            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            Uint8 vMask = dstVal    ? (dstVal->writeMask    ? dstVal->writeMask    : 0xF) : 0xF;
+            Uint8 bMask = dstBorrow ? (dstBorrow->writeMask ? dstBorrow->writeMask : 0xF) : 0xF;
+            std::string vBase = dstVal    ? EmitDstBase(*dstVal)    : "r[0]";
+            std::string bBase = dstBorrow ? EmitDstBase(*dstBorrow) : "r[0]";
+            for (Int i = 0; i < 4; ++i)
+            {
+                if (!(vMask & (1 << i)) && !(bMask & (1 << i)))
+                {
+                    continue;
+                }
+                w.Line("  {{ float _borrow;");
+                w.Line("    float _r = sw_usubb(_a.{}, _b.{}, _borrow);", Comp(i), Comp(i));
+                if (vMask & (1 << i))
+                {
+                    w.Line("    {}.{} = _r;", vBase, Comp(i));
+                }
+                if (bMask & (1 << i))
+                {
+                    w.Line("    {}.{} = _borrow;", bBase, Comp(i));
+                }
+                w.Line("  }}");
             }
             w.Line("}}");
         }

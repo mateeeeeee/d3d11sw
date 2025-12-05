@@ -971,3 +971,50 @@ TEST_F(ShaderCodeGenTests, F16toF32Emitted)
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
     EXPECT_NE(src.find("sw_f16tof32"), std::string::npos);
 }
+
+TEST_F(ShaderCodeGenTests, UmulLoEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_UMUL, { MakeNull(), MakeTemp(0), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_umul_lo"), std::string::npos);
+    EXPECT_EQ(src.find("sw_umul_hi"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UmulHiEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_UMUL, { MakeTemp(0), MakeNull(), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_umul_hi"), std::string::npos);
+    EXPECT_EQ(src.find("sw_umul_lo"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UmadEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_UMAD, { MakeTemp(0), MakeTemp(1), MakeTemp(1), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_umad"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UaddcEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_UADDC, { MakeTemp(0), MakeTemp(1), MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_uaddc"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, UsubbEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_USUBB, { MakeTemp(0), MakeTemp(1), MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_usubb"), std::string::npos);
+}
