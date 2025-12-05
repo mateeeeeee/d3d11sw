@@ -2,13 +2,17 @@
 #include "context/pipeline_state.h"
 #include "shaders/shader_abi.h"
 #include "shaders/dxbc_parser.h"
+#include <memory>
 
 namespace d3d11sw {
+
+class TileThreadPool;
 
 struct RasterizerConfig
 {
     Bool tiling;
     Int  tileSize;
+    Int  tileThreads;
 
     static RasterizerConfig FromEnv();
 };
@@ -16,7 +20,8 @@ struct RasterizerConfig
 class D3D11SW_API SWRasterizer
 {
 public:
-    SWRasterizer() : _config(RasterizerConfig::FromEnv()) {}
+    SWRasterizer();
+    ~SWRasterizer();
 
     void Draw(UINT vertexCount, UINT startVertex,
               UINT instanceCount, UINT startInstance,
@@ -28,6 +33,7 @@ public:
 
 private:
     RasterizerConfig _config;
+    std::unique_ptr<TileThreadPool> _tilePool;
 
 private:
     void DrawInternal(const UINT* indices, UINT vertexCount, INT baseVertex,
