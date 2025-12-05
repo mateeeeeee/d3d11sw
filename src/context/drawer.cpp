@@ -49,6 +49,7 @@ void SWDrawer::Draw(
 
     for (UINT inst = 0; inst < instanceCount; ++inst)
     {
+        vp.SetInstance(startInstance + inst);
         DrawInternal(vp, om, nullptr, vertexCount, static_cast<INT>(startVertex), state);
     }
 }
@@ -71,6 +72,7 @@ void SWDrawer::DrawIndexed(
 
     for (UINT inst = 0; inst < instanceCount; ++inst)
     {
+        vp.SetInstance(startInstance + inst);
         DrawInternal(vp, om, indices.data(), indexCount, baseVertex, state);
     }
 }

@@ -6,6 +6,7 @@
 #include "resources/buffer.h"
 #include "util/env.h"
 #include <cstring>
+#include <d3dcommon.h>
 
 namespace d3d11sw {
 
@@ -45,6 +46,15 @@ VertexPipeline::VertexPipeline(const D3D11SW_PIPELINE_STATE& state)
     }
 }
 
+void VertexPipeline::SetInstance(UINT instanceID)
+{
+    _instanceID = instanceID;
+    if (_cacheEnabled)
+    {
+        _cache.clear();
+    }
+}
+
 SW_VSOutput VertexPipeline::RunVS(UINT vertIdx)
 {
     if (_cacheEnabled)
@@ -55,6 +65,23 @@ SW_VSOutput VertexPipeline::RunVS(UINT vertIdx)
 
     SW_VSInput vsIn{};
     FetchVertex(vsIn, vertIdx);
+
+    for (const auto& inp : _vsReflection->inputs)
+    {
+        if (inp.svType == D3D_NAME_VERTEX_ID)
+        {
+            Float bits;
+            Uint32 v = vertIdx;
+            std::memcpy(&bits, &v, 4);
+            vsIn.v[inp.reg] = {bits, 0.f, 0.f, 0.f};
+        }
+        else if (inp.svType == D3D_NAME_INSTANCE_ID)
+        {
+            Float bits;
+            std::memcpy(&bits, &_instanceID, 4);
+            vsIn.v[inp.reg] = {bits, 0.f, 0.f, 0.f};
+        }
+    }
 
     SW_VSOutput vsOut{};
     _vsFn(&vsIn, &vsOut, &_vsRes);
@@ -85,7 +112,13 @@ void VertexPipeline::FetchVertex(SW_VSInput& vsIn, UINT vertexIndex)
         }
 
         UINT stride = _state->vbStrides[slot];
-        UINT offset = _state->vbOffsets[slot] + elem.AlignedByteOffset + vertexIndex * stride;
+        UINT index = vertexIndex;
+        if (elem.InputSlotClass == D3D11_INPUT_PER_INSTANCE_DATA)
+        {
+            UINT step = elem.InstanceDataStepRate;
+            index = step ? (_instanceID / step) : 0;
+        }
+        UINT offset = _state->vbOffsets[slot] + elem.AlignedByteOffset + index * stride;
         const UINT8* src = static_cast<const UINT8*>(vb->GetDataPtr()) + offset;
 
         SW_float4 value{};

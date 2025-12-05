@@ -14,6 +14,7 @@ public:
     Bool IsValid() const { return _vsFn != nullptr; }
     const D3D11SW_ParsedShader& Reflection() const { return *_vsReflection; }
 
+    void SetInstance(UINT instanceID);
     SW_VSOutput RunVS(UINT vertIdx);
     UINT FetchIndex(UINT location) const;
 
@@ -29,6 +30,7 @@ private:
     const D3D11SW_PIPELINE_STATE* _state;
     std::unordered_map<UINT, SW_VSOutput> _cache;
     Bool _cacheEnabled;
+    UINT _instanceID = 0;
 
 private:
     void FetchVertex(SW_VSInput& vsIn, UINT vertexIndex);
