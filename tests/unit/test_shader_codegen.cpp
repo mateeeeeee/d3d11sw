@@ -944,3 +944,30 @@ TEST_F(ShaderCodeGenTests, BfiEmitted)
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
     EXPECT_NE(src.find("sw_bfi"), std::string::npos);
 }
+
+TEST_F(ShaderCodeGenTests, RcpEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_RCP, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_rcp"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, F32toF16Emitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_F32TOF16, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_f32tof16"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, F16toF32Emitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_F16TOF32, { MakeTemp(0), MakeTemp(1) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_f16tof32"), std::string::npos);
+}

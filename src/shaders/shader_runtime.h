@@ -91,6 +91,49 @@ inline float sw_bfrev(float a)         { unsigned v = sw_bits_uint(a); v = ((v >
 inline float sw_ubfe(float a, float b, float c) { unsigned width = sw_bits_uint(a) & 31; unsigned offset = sw_bits_uint(b) & 31; if (width == 0) { return 0.f; } unsigned v = sw_bits_uint(c); return sw_uint_bits((v >> offset) & ((1u << width) - 1u)); }
 inline float sw_ibfe(float a, float b, float c) { unsigned width = sw_bits_uint(a) & 31; unsigned offset = sw_bits_uint(b) & 31; if (width == 0) { return 0.f; } int v = sw_bits_int(c); v = v << (32 - width - offset); v = v >> (32 - width); return sw_int_bits(v); }
 inline float sw_bfi(float a, float b, float c, float d) { unsigned width = sw_bits_uint(a) & 31; unsigned offset = sw_bits_uint(b) & 31; unsigned src = sw_bits_uint(c); unsigned dst = sw_bits_uint(d); if (width == 0) { return sw_uint_bits(dst); } unsigned mask = ((1u << width) - 1u) << offset; return sw_uint_bits((dst & ~mask) | ((src << offset) & mask)); }
+inline float sw_rcp(float v) { return 1.f / v; }
+inline float sw_f32tof16(float v)
+{
+    unsigned u = sw_bits_uint(v);
+    unsigned sign = (u >> 16) & 0x8000u;
+    int exp = ((u >> 23) & 0xFF) - 127;
+    unsigned frac = u & 0x007FFFFFu;
+    unsigned h;
+    if (exp > 15)
+    {
+        h = sign | 0x7C00u;
+    }
+    else if (exp < -14)
+    {
+        h = sign;
+    }
+    else
+    {
+        h = sign | (unsigned)((exp + 15) << 10) | (frac >> 13);
+    }
+    return sw_uint_bits(h);
+}
+inline float sw_f16tof32(float v)
+{
+    unsigned h = sw_bits_uint(v) & 0xFFFFu;
+    unsigned sign = (h & 0x8000u) << 16;
+    unsigned exp  = (h >> 10) & 0x1F;
+    unsigned frac = h & 0x03FFu;
+    unsigned f;
+    if (exp == 0)
+    {
+        f = sign;
+    }
+    else if (exp == 31)
+    {
+        f = sign | 0x7F800000u | (frac << 13);
+    }
+    else
+    {
+        f = sign | ((exp + 112) << 23) | (frac << 13);
+    }
+    return sw_uint_bits(f);
+}
 
 // float4 intrinsics
 inline SW_float4 sw_abs4(SW_float4 v)

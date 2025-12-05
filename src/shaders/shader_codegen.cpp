@@ -257,6 +257,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_FIRSTBIT_HI: case D3D11_SB_OPCODE_FIRSTBIT_LO: case D3D11_SB_OPCODE_FIRSTBIT_SHI:
     case D3D11_SB_OPCODE_BFREV:
     case D3D11_SB_OPCODE_UBFE: case D3D11_SB_OPCODE_IBFE: case D3D11_SB_OPCODE_BFI:
+    case D3D11_SB_OPCODE_F32TOF16: case D3D11_SB_OPCODE_F16TOF32:
         isIntOp = true;
         break;
     default: break;
@@ -363,6 +364,9 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_ITOF:     if (src0) { EmitPerComp1(w, "sw_itof",     dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_UTOF:     if (src0) { EmitPerComp1(w, "sw_utof",     dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_FTOU:     if (src0) { EmitPerComp1(w, "sw_ftou",     dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_RCP:      if (src0) { EmitPerComp1(w, "sw_rcp",      dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_F32TOF16: if (src0) { EmitPerComp1(w, "sw_f32tof16", dstBase, mask, *src0); } break;
+    case D3D11_SB_OPCODE_F16TOF32: if (src0) { EmitPerComp1(w, "sw_f16tof32", dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_NOT:      if (src0) { EmitPerComp1(w, "sw_not",      dstBase, mask, *src0); } break;
     case D3D10_SB_OPCODE_INEG:     if (src0) { EmitPerComp1(w, "sw_ineg",     dstBase, mask, *src0); } break;
 
