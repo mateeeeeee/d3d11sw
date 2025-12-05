@@ -13,6 +13,7 @@ struct RasterizerConfig
     Bool tiling;
     Int  tileSize;
     Int  tileThreads;
+    Bool vertexCache;
 
     static RasterizerConfig FromEnv();
 };

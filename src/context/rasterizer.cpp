@@ -17,6 +17,7 @@
 #include <latch>
 #include <semaphore>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace d3d11sw {
@@ -27,6 +28,7 @@ RasterizerConfig RasterizerConfig::FromEnv()
     cfg.tiling       = GetEnvBool("D3D11SW_TILING", true);
     cfg.tileSize     = GetEnvInt("D3D11SW_TILE_SIZE", 16);
     cfg.tileThreads  = GetEnvInt("D3D11SW_TILE_THREADS", -1);
+    cfg.vertexCache  = GetEnvBool("D3D11SW_VERTEX_CACHE", false);
     if (cfg.tileSize < 4 || (cfg.tileSize & (cfg.tileSize - 1)) != 0)
     {
         cfg.tileSize = 16;
@@ -1310,14 +1312,40 @@ void SWRasterizer::DrawInternal(
         return RunVS(vertIdx, vsFn, vsRefl, vsRes, state);
     };
 
+    std::unordered_map<UINT, SW_VSOutput> vsCache;
+    auto fetchVSCached = [&](UINT i) -> const SW_VSOutput&
+    {
+        UINT vertIdx = indices[i] + baseVertex;
+        auto [it, inserted] = vsCache.try_emplace(vertIdx);
+        if (inserted)
+        {
+            it->second = RunVS(vertIdx, vsFn, vsRefl, vsRes, state);
+        }
+        return it->second;
+    };
+
+    const Bool useCache = indices != nullptr && _config.vertexCache;
+
     switch (state.topology)
     {
     case D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST:
     {
-        for (UINT i = 0; i + 2 < vertexCount; i += 3)
+        if (useCache)
         {
-            SW_VSOutput tri[3] = { fetchVS(i), fetchVS(i + 1), fetchVS(i + 2) };
-            RasterizeTriangle(tri, vsRefl, psRefl, psFn, psRes, state);
+            for (UINT i = 0; i + 2 < vertexCount; i += 3)
+            {
+                const SW_VSOutput* tri[3] = { &fetchVSCached(i), &fetchVSCached(i + 1), &fetchVSCached(i + 2) };
+                SW_VSOutput triCopy[3] = { *tri[0], *tri[1], *tri[2] };
+                RasterizeTriangle(triCopy, vsRefl, psRefl, psFn, psRes, state);
+            }
+        }
+        else
+        {
+            for (UINT i = 0; i + 2 < vertexCount; i += 3)
+            {
+                SW_VSOutput tri[3] = { fetchVS(i), fetchVS(i + 1), fetchVS(i + 2) };
+                RasterizeTriangle(tri, vsRefl, psRefl, psFn, psRes, state);
+            }
         }
         break;
     }
@@ -1326,17 +1354,35 @@ void SWRasterizer::DrawInternal(
         for (UINT i = 0; i + 2 < vertexCount; ++i)
         {
             SW_VSOutput tri[3];
-            if (i & 1)
+            if (useCache)
             {
-                tri[0] = fetchVS(i + 1);
-                tri[1] = fetchVS(i);
-                tri[2] = fetchVS(i + 2);
+                if (i & 1)
+                {
+                    tri[0] = fetchVSCached(i + 1);
+                    tri[1] = fetchVSCached(i);
+                    tri[2] = fetchVSCached(i + 2);
+                }
+                else
+                {
+                    tri[0] = fetchVSCached(i);
+                    tri[1] = fetchVSCached(i + 1);
+                    tri[2] = fetchVSCached(i + 2);
+                }
             }
             else
             {
-                tri[0] = fetchVS(i);
-                tri[1] = fetchVS(i + 1);
-                tri[2] = fetchVS(i + 2);
+                if (i & 1)
+                {
+                    tri[0] = fetchVS(i + 1);
+                    tri[1] = fetchVS(i);
+                    tri[2] = fetchVS(i + 2);
+                }
+                else
+                {
+                    tri[0] = fetchVS(i);
+                    tri[1] = fetchVS(i + 1);
+                    tri[2] = fetchVS(i + 2);
+                }
             }
             RasterizeTriangle(tri, vsRefl, psRefl, psFn, psRes, state);
         }
@@ -1346,7 +1392,8 @@ void SWRasterizer::DrawInternal(
     {
         for (UINT i = 0; i + 1 < vertexCount; i += 2)
         {
-            SW_VSOutput endpts[2] = { fetchVS(i), fetchVS(i + 1) };
+            SW_VSOutput endpts[2] = { useCache ? fetchVSCached(i) : fetchVS(i),
+                                      useCache ? fetchVSCached(i + 1) : fetchVS(i + 1) };
             RasterizeLine(endpts, vsRefl, psRefl, psFn, psRes, state);
         }
         break;
@@ -1354,10 +1401,10 @@ void SWRasterizer::DrawInternal(
     case D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP:
     {
         if (vertexCount < 2) { break; }
-        SW_VSOutput prev = fetchVS(0);
+        SW_VSOutput prev = useCache ? fetchVSCached(0) : fetchVS(0);
         for (UINT i = 1; i < vertexCount; ++i)
         {
-            SW_VSOutput cur = fetchVS(i);
+            SW_VSOutput cur = useCache ? fetchVSCached(i) : fetchVS(i);
             SW_VSOutput endpts[2] = { prev, cur };
             RasterizeLine(endpts, vsRefl, psRefl, psFn, psRes, state);
             prev = cur;
@@ -1368,7 +1415,7 @@ void SWRasterizer::DrawInternal(
     {
         for (UINT i = 0; i < vertexCount; ++i)
         {
-            SW_VSOutput pt = fetchVS(i);
+            SW_VSOutput pt = useCache ? fetchVSCached(i) : fetchVS(i);
             RasterizePoint(pt, vsRefl, psRefl, psFn, psRes, state);
         }
         break;
