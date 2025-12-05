@@ -332,10 +332,18 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawAuto()
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
+    D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
+    D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS args;
+    std::memcpy(&args, static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs, sizeof(args));
+    _drawer.DrawIndexed(args.IndexCountPerInstance, args.StartIndexLocation, args.BaseVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
+    D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
+    D3D11_DRAW_INSTANCED_INDIRECT_ARGS args;
+    std::memcpy(&args, static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs, sizeof(args));
+    _drawer.Draw(args.VertexCountPerInstance, args.StartVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ)
@@ -345,6 +353,11 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UI
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
+    D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
+    Uint8* ptr = static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs;
+    UINT counts[3];
+    std::memcpy(counts, ptr, sizeof(counts));
+    _dispatcher.Dispatch(counts[0], counts[1], counts[2], _state);
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::Map(ID3D11Resource* pResource, UINT Subresource, D3D11_MAP MapType, UINT MapFlags, D3D11_MAPPED_SUBRESOURCE* pMappedResource)
