@@ -233,3 +233,57 @@ TEST_F(ShaderRuntimeTests, FetchTexel2dVia3d)
     EXPECT_FLOAT_EQ(r01.x, 30.f);
     EXPECT_FLOAT_EQ(r11.x, 40.f);
 }
+
+TEST_F(ShaderRuntimeTests, ResinfoFloat)
+{
+    SW_Texture t{};
+    t.width    = 256;
+    t.height   = 128;
+    t.depth    = 1;
+    t.mipLevels = 9;
+
+    SW_float4 r = sw_resinfo_float(t);
+    EXPECT_FLOAT_EQ(r.x, 256.f);
+    EXPECT_FLOAT_EQ(r.y, 128.f);
+    EXPECT_FLOAT_EQ(r.z, 1.f);
+    EXPECT_FLOAT_EQ(r.w, 9.f);
+}
+
+TEST_F(ShaderRuntimeTests, ResinfoRcpFloat)
+{
+    SW_Texture t{};
+    t.width    = 4;
+    t.height   = 2;
+    t.depth    = 1;
+    t.mipLevels = 3;
+
+    SW_float4 r = sw_resinfo_rcpfloat(t);
+    EXPECT_FLOAT_EQ(r.x, 0.25f);
+    EXPECT_FLOAT_EQ(r.y, 0.5f);
+    EXPECT_FLOAT_EQ(r.z, 1.f);
+    EXPECT_FLOAT_EQ(r.w, 3.f);
+}
+
+TEST_F(ShaderRuntimeTests, ResinfoUint)
+{
+    SW_Texture t{};
+    t.width    = 512;
+    t.height   = 256;
+    t.depth    = 64;
+    t.mipLevels = 10;
+
+    SW_float4 r = sw_resinfo_uint(t);
+    EXPECT_EQ(sw_bits_uint(r.x), 512u);
+    EXPECT_EQ(sw_bits_uint(r.y), 256u);
+    EXPECT_EQ(sw_bits_uint(r.z), 64u);
+    EXPECT_EQ(sw_bits_uint(r.w), 10u);
+}
+
+TEST_F(ShaderRuntimeTests, Bufinfo)
+{
+    SW_UAV u{};
+    u.elementCount = 1024;
+
+    SW_float4 r = sw_bufinfo(u);
+    EXPECT_EQ(sw_bits_uint(r.x), 1024u);
+}

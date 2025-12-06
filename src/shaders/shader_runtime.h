@@ -258,6 +258,31 @@ static inline SW_float4 sw_fetch_texel_3d(const SW_Texture& t, unsigned x, unsig
     }
 }
 
+static inline SW_float4 sw_resinfo_float(const SW_Texture& t)
+{
+    return { (float)t.width, (float)t.height, (float)t.depth, (float)t.mipLevels };
+}
+
+static inline SW_float4 sw_resinfo_rcpfloat(const SW_Texture& t)
+{
+    return {
+        t.width  ? 1.f / (float)t.width  : 0.f,
+        t.height ? 1.f / (float)t.height : 0.f,
+        t.depth  ? 1.f / (float)t.depth  : 0.f,
+        (float)t.mipLevels
+    };
+}
+
+static inline SW_float4 sw_resinfo_uint(const SW_Texture& t)
+{
+    return { sw_uint_bits(t.width), sw_uint_bits(t.height), sw_uint_bits(t.depth), sw_uint_bits(t.mipLevels) };
+}
+
+static inline SW_float4 sw_bufinfo(const SW_UAV& u)
+{
+    return { sw_uint_bits(u.elementCount), 0.f, 0.f, 0.f };
+}
+
 static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
                                       float u, float v)
 {

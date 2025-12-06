@@ -28,6 +28,7 @@ struct SM4Instruction
     SM4OpCode               op            = D3D10_SB_OPCODE_NOP;
     Bool                    saturate      = false;
     Bool                    testNonZero   = true;
+    Uint8                   resInfoReturn = 0;
     Uint32                  threadGroupSize[3] = {1, 1, 1};
     Uint32                  tgsmSlot      = 0;
     Uint32                  tgsmSize      = 0;

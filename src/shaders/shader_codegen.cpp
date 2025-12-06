@@ -1054,6 +1054,31 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         w.Line("goto _sw_end;");
         break;
 
+    case D3D10_SB_OPCODE_RESINFO:
+        if (dst && src0 && src1)
+        {
+            const Char* fn = "sw_resinfo_float";
+            if (instr.resInfoReturn == D3D10_SB_RESINFO_INSTRUCTION_RETURN_RCPFLOAT)
+            {
+                fn = "sw_resinfo_rcpfloat";
+            }
+            else if (instr.resInfoReturn == D3D10_SB_RESINFO_INSTRUCTION_RETURN_UINT)
+            {
+                fn = "sw_resinfo_uint";
+            }
+            EmitWrite(w, dstBase, mask,
+                std::format("{}(res->tex[{}])", fn, src1->indices[0]), sat);
+        }
+        break;
+
+    case D3D11_SB_OPCODE_BUFINFO:
+        if (dst && src0)
+        {
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_bufinfo(res->uav[{}])", src0->indices[0]), sat);
+        }
+        break;
+
 
     case D3D10_SB_OPCODE_NOP:
     case D3D10_SB_OPCODE_DCL_TEMPS:

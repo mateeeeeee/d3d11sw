@@ -1109,3 +1109,39 @@ TEST_F(ShaderCodeGenTests, SwitchCaseEmitted)
     EXPECT_NE(src.find("case"), std::string::npos);
     EXPECT_NE(src.find("default:"), std::string::npos);
 }
+
+TEST_F(ShaderCodeGenTests, ResinfoFloatEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D10_SB_OPCODE_RESINFO, { MakeTemp(0), MakeTemp(1), MakeResource(0) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_resinfo_float"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ResinfoUintEmitted)
+{
+    SM4Instruction ri = MakeInstr(D3D10_SB_OPCODE_RESINFO, { MakeTemp(0), MakeTemp(1), MakeResource(0) });
+    ri.resInfoReturn = D3D10_SB_RESINFO_INSTRUCTION_RETURN_UINT;
+    auto s = MakeCSShader({ ri });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_resinfo_uint"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ResinfoRcpFloatEmitted)
+{
+    SM4Instruction ri = MakeInstr(D3D10_SB_OPCODE_RESINFO, { MakeTemp(0), MakeTemp(1), MakeResource(0) });
+    ri.resInfoReturn = D3D10_SB_RESINFO_INSTRUCTION_RETURN_RCPFLOAT;
+    auto s = MakeCSShader({ ri });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_resinfo_rcpfloat"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, BufinfoEmitted)
+{
+    auto s = MakeCSShader({
+        MakeInstr(D3D11_SB_OPCODE_BUFINFO, { MakeTemp(0), MakeUAV(0) })
+    });
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("sw_bufinfo"), std::string::npos);
+}
