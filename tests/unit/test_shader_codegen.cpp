@@ -1018,3 +1018,94 @@ TEST_F(ShaderCodeGenTests, UsubbEmitted)
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
     EXPECT_NE(src.find("sw_usubb"), std::string::npos);
 }
+
+TEST_F(ShaderCodeGenTests, ContinueEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_LOOP));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_CONTINUE));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_ENDLOOP));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("continue;"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ContinuecNonZeroEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    SM4Instruction cc = MakeInstr(D3D10_SB_OPCODE_CONTINUEC, { MakeTemp(0) });
+    cc.testNonZero = true;
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_LOOP));
+    s.instrs.push_back(cc);
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_ENDLOOP));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("!= 0u"), std::string::npos);
+    EXPECT_NE(src.find("continue;"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, ContinuecZeroEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    SM4Instruction cc = MakeInstr(D3D10_SB_OPCODE_CONTINUEC, { MakeTemp(0) });
+    cc.testNonZero = false;
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_LOOP));
+    s.instrs.push_back(cc);
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_ENDLOOP));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("== 0u"), std::string::npos);
+    EXPECT_NE(src.find("continue;"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, RetcNonZeroEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    SM4Instruction rc = MakeInstr(D3D10_SB_OPCODE_RETC, { MakeTemp(0) });
+    rc.testNonZero = true;
+    s.instrs.push_back(rc);
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("!= 0u"), std::string::npos);
+    EXPECT_NE(src.find("goto _sw_end;"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, RetcZeroEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    SM4Instruction rc = MakeInstr(D3D10_SB_OPCODE_RETC, { MakeTemp(0) });
+    rc.testNonZero = false;
+    s.instrs.push_back(rc);
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("== 0u"), std::string::npos);
+    EXPECT_NE(src.find("goto _sw_end;"), std::string::npos);
+}
+
+TEST_F(ShaderCodeGenTests, SwitchCaseEmitted)
+{
+    D3D11SW_ParsedShader s{};
+    s.type     = D3D11SW_ShaderType::Compute;
+    s.numTemps = 1;
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_SWITCH, { MakeTemp(0) }));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_CASE, { MakeImm(1.f, 0, 0, 0) }));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_BREAK));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_DEFAULT));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_BREAK));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_ENDSWITCH));
+    s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+    std::string src = EmitShader(s, "shaders/shader_runtime.h");
+    EXPECT_NE(src.find("switch"), std::string::npos);
+    EXPECT_NE(src.find("case"), std::string::npos);
+    EXPECT_NE(src.find("default:"), std::string::npos);
+}

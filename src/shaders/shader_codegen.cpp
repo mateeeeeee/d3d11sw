@@ -704,6 +704,57 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         }
         break;
 
+    case D3D10_SB_OPCODE_CONTINUE:
+        w.Line("continue;");
+        break;
+
+    case D3D10_SB_OPCODE_CONTINUEC:
+        if (dst)
+        {
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ continue; }}", EmitSrc(*dst),
+                   instr.testNonZero ? "!=" : "==");
+        }
+        break;
+
+    case D3D10_SB_OPCODE_RETC:
+        if (dst)
+        {
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ goto _sw_end; }}", EmitSrc(*dst),
+                   instr.testNonZero ? "!=" : "==");
+        }
+        break;
+
+    case D3D10_SB_OPCODE_SWITCH:
+        if (dst)
+        {
+            w.Line("switch (sw_bits_uint({}.x))", EmitSrc(*dst));
+            w.Line("{{");
+            w.Indent();
+        }
+        break;
+
+    case D3D10_SB_OPCODE_CASE:
+        if (dst)
+        {
+            w.Dedent();
+            Uint32 bits;
+            std::memcpy(&bits, &dst->imm[0], 4);
+            w.Line("case 0x{:08x}u:", bits);
+            w.Indent();
+        }
+        break;
+
+    case D3D10_SB_OPCODE_DEFAULT:
+        w.Dedent();
+        w.Line("default:");
+        w.Indent();
+        break;
+
+    case D3D10_SB_OPCODE_ENDSWITCH:
+        w.Dedent();
+        w.Line("}}");
+        break;
+
     case D3D10_SB_OPCODE_SAMPLE:
         if (dst && src0 && src1 && src2)
         {
