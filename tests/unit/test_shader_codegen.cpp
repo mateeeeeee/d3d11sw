@@ -680,7 +680,7 @@ TEST_F(ShaderCodeGenTests, LdTexEmitted)
         MakeInstr(D3D10_SB_OPCODE_LD, { MakeTemp(0), MakeTemp(1), MakeResource(0) })
     });
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("sw_fetch_texel"), std::string::npos);
+    EXPECT_NE(src.find("sw_fetch_texel_3d"), std::string::npos);
 }
 
 static SM4Operand MakeNull()

@@ -138,3 +138,98 @@ TEST_F(ShaderRuntimeTests, UsubbWithBorrow)
     EXPECT_EQ(sw_bits_uint(r), 0xFFFFFFFFu);
     EXPECT_EQ(sw_bits_uint(borrow), 1u);
 }
+
+TEST_F(ShaderRuntimeTests, FetchTexel1D)
+{
+    float data[] = { 1.f, 2.f, 3.f, 4.f };
+    SW_Texture t{};
+    t.data     = data;
+    t.format   = DXGI_FORMAT_R32_FLOAT;
+    t.width    = 4;
+    t.height   = 1;
+    t.depth    = 1;
+    t.rowPitch = 4 * 4;
+    t.slicePitch = t.rowPitch;
+
+    SW_float4 r0 = sw_fetch_texel(t, 0, 0);
+    SW_float4 r2 = sw_fetch_texel(t, 2, 0);
+    EXPECT_FLOAT_EQ(r0.x, 1.f);
+    EXPECT_FLOAT_EQ(r2.x, 3.f);
+}
+
+TEST_F(ShaderRuntimeTests, FetchTexel3d)
+{
+    unsigned char data[2][2][2][4];
+    for (int z = 0; z < 2; ++z)
+    {
+        for (int y = 0; y < 2; ++y)
+        {
+            for (int x = 0; x < 2; ++x)
+            {
+                data[z][y][x][0] = (unsigned char)(z * 100 + y * 10 + x);
+                data[z][y][x][1] = 0;
+                data[z][y][x][2] = 0;
+                data[z][y][x][3] = 255;
+            }
+        }
+    }
+
+    SW_Texture t{};
+    t.data       = data;
+    t.format     = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.width      = 2;
+    t.height     = 2;
+    t.depth      = 2;
+    t.rowPitch   = 2 * 4;
+    t.slicePitch = 2 * 2 * 4;
+
+    SW_float4 r000 = sw_fetch_texel_3d(t, 0, 0, 0);
+    SW_float4 r100 = sw_fetch_texel_3d(t, 1, 0, 0);
+    SW_float4 r010 = sw_fetch_texel_3d(t, 0, 1, 0);
+    SW_float4 r001 = sw_fetch_texel_3d(t, 0, 0, 1);
+    SW_float4 r111 = sw_fetch_texel_3d(t, 1, 1, 1);
+
+    EXPECT_NEAR(r000.x, 0.f / 255.f, 1e-3f);
+    EXPECT_NEAR(r100.x, 1.f / 255.f, 1e-3f);
+    EXPECT_NEAR(r010.x, 10.f / 255.f, 1e-3f);
+    EXPECT_NEAR(r001.x, 100.f / 255.f, 1e-3f);
+    EXPECT_NEAR(r111.x, 111.f / 255.f, 1e-3f);
+}
+
+TEST_F(ShaderRuntimeTests, FetchTexel3dClamps)
+{
+    float data[4] = { 1.f, 2.f, 3.f, 4.f };
+    SW_Texture t{};
+    t.data       = data;
+    t.format     = DXGI_FORMAT_R32_FLOAT;
+    t.width      = 2;
+    t.height     = 1;
+    t.depth      = 1;
+    t.rowPitch   = 2 * 4;
+    t.slicePitch = 2 * 4;
+
+    SW_float4 r = sw_fetch_texel_3d(t, 99, 99, 99);
+    EXPECT_FLOAT_EQ(r.x, 2.f);
+}
+
+TEST_F(ShaderRuntimeTests, FetchTexel2dVia3d)
+{
+    float data[] = { 10.f, 20.f, 30.f, 40.f };
+    SW_Texture t{};
+    t.data       = data;
+    t.format     = DXGI_FORMAT_R32_FLOAT;
+    t.width      = 2;
+    t.height     = 2;
+    t.depth      = 1;
+    t.rowPitch   = 2 * 4;
+    t.slicePitch = 2 * 2 * 4;
+
+    SW_float4 r00 = sw_fetch_texel_3d(t, 0, 0, 0);
+    SW_float4 r10 = sw_fetch_texel_3d(t, 1, 0, 0);
+    SW_float4 r01 = sw_fetch_texel_3d(t, 0, 1, 0);
+    SW_float4 r11 = sw_fetch_texel_3d(t, 1, 1, 0);
+    EXPECT_FLOAT_EQ(r00.x, 10.f);
+    EXPECT_FLOAT_EQ(r10.x, 20.f);
+    EXPECT_FLOAT_EQ(r01.x, 30.f);
+    EXPECT_FLOAT_EQ(r11.x, 40.f);
+}

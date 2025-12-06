@@ -817,8 +817,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto coord = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_fetch_texel(res->tex[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y))",
-                            src1->indices[0], coord, coord), sat);
+                std::format("sw_fetch_texel_3d(res->tex[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),sw_bits_uint(({}).z))",
+                            src1->indices[0], coord, coord, coord), sat);
         }
         break;
 

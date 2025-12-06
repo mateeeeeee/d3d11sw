@@ -184,36 +184,73 @@ static inline float sw_addr(float u, D3D11_TEXTURE_ADDRESS_MODE mode)
 
 static inline SW_float4 sw_fetch_texel(const SW_Texture& t, unsigned x, unsigned y)
 {
-    x = std::min(x, t.width  - 1);
-    y = std::min(y, t.height - 1);
+    x = std::min(x, t.width  ? t.width  - 1 : 0u);
+    y = std::min(y, t.height ? t.height - 1 : 0u);
+    const unsigned char* base = static_cast<const unsigned char*>(t.data)
+                               + (unsigned long long)y * t.rowPitch;
     switch (t.format)
     {
         case DXGI_FORMAT_R8G8B8A8_UNORM:
         case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
         {
-            const unsigned char* p = static_cast<const unsigned char*>(t.data)
-                                   + (unsigned long long)y * t.rowPitch + x * 4u;
+            const unsigned char* p = base + x * 4u;
             return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
         }
         case DXGI_FORMAT_R32_FLOAT:
         {
             float v;
-            std::memcpy(&v, static_cast<const unsigned char*>(t.data)
-                         + (unsigned long long)y * t.rowPitch + x * 4u, 4);
+            std::memcpy(&v, base + x * 4u, 4);
             return { v, v, v, v };
         }
         case DXGI_FORMAT_R32G32B32A32_FLOAT:
         {
             float v[4];
-            std::memcpy(v, static_cast<const unsigned char*>(t.data)
-                         + (unsigned long long)y * t.rowPitch + x * 16u, 16);
+            std::memcpy(v, base + x * 16u, 16);
             return { v[0], v[1], v[2], v[3] };
         }
         case DXGI_FORMAT_B8G8R8A8_UNORM:
         case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
         {
-            const unsigned char* p = static_cast<const unsigned char*>(t.data)
-                                   + (unsigned long long)y * t.rowPitch + x * 4u;
+            const unsigned char* p = base + x * 4u;
+            return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
+        }
+        default:
+            return { 0.f, 0.f, 0.f, 0.f };
+    }
+}
+
+static inline SW_float4 sw_fetch_texel_3d(const SW_Texture& t, unsigned x, unsigned y, unsigned z)
+{
+    z = std::min(z, t.depth ? t.depth - 1 : 0u);
+    y = std::min(y, t.height ? t.height - 1 : 0u);
+    x = std::min(x, t.width ? t.width - 1 : 0u);
+    const unsigned char* base = static_cast<const unsigned char*>(t.data)
+                               + (unsigned long long)z * t.slicePitch
+                               + (unsigned long long)y * t.rowPitch;
+    switch (t.format)
+    {
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
+            return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
+        }
+        case DXGI_FORMAT_R32_FLOAT:
+        {
+            float v;
+            std::memcpy(&v, base + x * 4u, 4);
+            return { v, v, v, v };
+        }
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        {
+            float v[4];
+            std::memcpy(v, base + x * 16u, 16);
+            return { v[0], v[1], v[2], v[3] };
+        }
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
             return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
         }
         default:
