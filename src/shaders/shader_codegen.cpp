@@ -1085,6 +1085,14 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_GATHER4_PO_C:
         break;
 
+    case D3D10_SB_OPCODE_DISCARD:
+        if (dst)
+        {
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ out_ptr->discarded = true; goto _sw_end; }}",
+                   EmitSrc(*dst), instr.testNonZero ? "!=" : "==");
+        }
+        break;
+
     case D3D11_SB_OPCODE_SYNC:
         w.Line("_barrier(_barrier_ctx);");
         break;
@@ -1152,6 +1160,7 @@ void EmitPS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     w.Line("SW_float4 r[{}] = {{}};", numTemps);
     w.Line("SW_float4 out_v[{}] = {{}};", (Int)D3D11_PS_OUTPUT_REGISTER_COUNT);
     w.Line("out_ptr->depthWritten = false;");
+    w.Line("out_ptr->discarded = false;");
     w.Newline();
 
     EmitInstructions(w, shader);

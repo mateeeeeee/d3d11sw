@@ -259,6 +259,11 @@ static void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 psOut = {};
                 ctx.psFn(&psIn, &psOut, ctx.psRes);
 
+                if (psOut.discarded)
+                {
+                    continue;
+                }
+
                 if (om.DepthEnabled() && om.DepthWriteEnabled())
                 {
                     Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
