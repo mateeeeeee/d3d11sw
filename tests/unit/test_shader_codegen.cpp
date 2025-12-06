@@ -20,10 +20,8 @@ static SM4Operand MakeTemp(Uint32 reg, Uint8 mask = 0xF)
 {
     SM4Operand op{};
     op.type      = D3D10_SB_OPERAND_TYPE_TEMP;
-    op.compMode  = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
     op.writeMask = mask;
     op.indices[0] = reg;
-    op.indexDim   = 1;
     return op;
 }
 
@@ -31,10 +29,8 @@ static SM4Operand MakeInput(Uint32 reg)
 {
     SM4Operand op{};
     op.type      = D3D10_SB_OPERAND_TYPE_INPUT;
-    op.compMode  = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
     op.swizzle[0] = 0; op.swizzle[1] = 1; op.swizzle[2] = 2; op.swizzle[3] = 3;
     op.indices[0] = reg;
-    op.indexDim   = 1;
     return op;
 }
 
@@ -42,10 +38,8 @@ static SM4Operand MakeOutput(Uint32 reg, Uint8 mask = 0xF)
 {
     SM4Operand op{};
     op.type      = D3D10_SB_OPERAND_TYPE_OUTPUT;
-    op.compMode  = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
     op.writeMask = mask;
     op.indices[0] = reg;
-    op.indexDim   = 1;
     return op;
 }
 
@@ -83,10 +77,8 @@ static SM4Operand MakeUAV(Uint32 slot)
 {
     SM4Operand op{};
     op.type      = D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW;
-    op.compMode  = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
     op.writeMask = 0xF;
     op.indices[0] = slot;
-    op.indexDim   = 1;
     return op;
 }
 
@@ -94,10 +86,8 @@ static SM4Operand MakeResource(Uint32 slot)
 {
     SM4Operand op{};
     op.type      = D3D10_SB_OPERAND_TYPE_RESOURCE;
-    op.compMode  = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
     op.swizzle[0] = 0; op.swizzle[1] = 1; op.swizzle[2] = 2; op.swizzle[3] = 3;
     op.indices[0] = slot;
-    op.indexDim   = 1;
     return op;
 }
 
@@ -106,7 +96,6 @@ static SM4Operand MakeSampler(Uint32 slot)
     SM4Operand op{};
     op.type      = D3D10_SB_OPERAND_TYPE_SAMPLER;
     op.indices[0] = slot;
-    op.indexDim   = 1;
     return op;
 }
 

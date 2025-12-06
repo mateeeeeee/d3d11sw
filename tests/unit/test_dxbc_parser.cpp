@@ -158,8 +158,8 @@ TEST_F(DXBCParserTests, ParseShdrInstructionCount)
     D3D11SW_ParsedShader out;
     ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
 
-    // dcl_temps + mov + ret = 3 instructions
-    EXPECT_EQ(out.instrs.size(), 3u);
+    // mov + ret = 2 instructions (dcl_temps not stored)
+    EXPECT_EQ(out.instrs.size(), 2u);
 }
 
 TEST_F(DXBCParserTests, ParseShdrMovOpcode)
@@ -170,7 +170,7 @@ TEST_F(DXBCParserTests, ParseShdrMovOpcode)
     D3D11SW_ParsedShader out;
     ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
 
-    EXPECT_EQ(out.instrs[1].op, D3D10_SB_OPCODE_MOV);
+    EXPECT_EQ(out.instrs[0].op, D3D10_SB_OPCODE_MOV);
 }
 
 TEST_F(DXBCParserTests, ParseShdrMovOperands)
@@ -181,7 +181,7 @@ TEST_F(DXBCParserTests, ParseShdrMovOperands)
     D3D11SW_ParsedShader out;
     ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
 
-    const SM4Instruction& mov = out.instrs[1];
+    const SM4Instruction& mov = out.instrs[0];
     ASSERT_EQ(mov.operands.size(), 2u);
 
     // dst: r0, mask xyzw

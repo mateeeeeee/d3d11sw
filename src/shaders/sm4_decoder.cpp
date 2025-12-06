@@ -28,14 +28,12 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
     }
 
     op.type     = static_cast<SM4OperandType>(opType);
-    op.indexDim = static_cast<Uint8>(indexDim);
 
     op.writeMask  = 0xF;
     op.swizzle[0] = 0; op.swizzle[1] = 1; op.swizzle[2] = 2; op.swizzle[3] = 3;
 
     if (numComp == D3D10_SB_OPERAND_4_COMPONENT)
     {
-        op.compMode = static_cast<SM4CompMode>(compMode);
         if (compMode == D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE)
         {
             op.writeMask = static_cast<Uint8>(compSel & 0xF);
@@ -149,12 +147,6 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
 
         Uint32 instrEnd = pos + instrLen;
 
-        SM4Instruction instr{};
-        instr.op          = op;
-        instr.saturate    = sat;
-        instr.testNonZero = DECODE_D3D10_SB_INSTRUCTION_TEST_BOOLEAN(opTok) == D3D10_SB_INSTRUCTION_TEST_NONZERO;
-        instr.resInfoReturn = static_cast<Uint8>(DECODE_D3D10_SB_RESINFO_INSTRUCTION_RETURN_TYPE(opTok));
-
         if (op == D3D10_SB_OPCODE_DCL_TEMPS)
         {
             if (pos + 1 < instrEnd)
@@ -162,7 +154,6 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
                 numTempsOut = tokens[pos + 1];
             }
             pos = instrEnd;
-            out.push_back(std::move(instr));
             continue;
         }
 
@@ -170,83 +161,67 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
         {
             if (pos + 3 < instrEnd)
             {
-                threadGroupSizeOut[0] = instr.threadGroupSize[0] = tokens[pos + 1];
-                threadGroupSizeOut[1] = instr.threadGroupSize[1] = tokens[pos + 2];
-                threadGroupSizeOut[2] = instr.threadGroupSize[2] = tokens[pos + 3];
+                threadGroupSizeOut[0] = tokens[pos + 1];
+                threadGroupSizeOut[1] = tokens[pos + 2];
+                threadGroupSizeOut[2] = tokens[pos + 3];
             }
             pos = instrEnd;
-            out.push_back(std::move(instr));
             continue;
         }
 
         if (op == D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW)
         {
-            //Format: opcode, operand(g#), element_count (# of 32-bit scalars)
             Uint32 cur = pos + 1;
             SM4Operand gOp{};
             cur += ReadOperand(tokens, cur, gOp);
             Uint32 elementCount = (cur < instrEnd) ? tokens[cur] : 0;
-            instr.tgsmSlot   = gOp.indices[0];
-            instr.tgsmSize   = elementCount * 4; 
-            instr.tgsmStride = 0; // raw
             D3D11SW_TGSMDecl decl{};
-            decl.slot   = instr.tgsmSlot;
-            decl.size   = instr.tgsmSize;
+            decl.slot   = gOp.indices[0];
+            decl.size   = elementCount * 4;
             decl.stride = 0;
             tgsmOut.push_back(decl);
             pos = instrEnd;
-            out.push_back(std::move(instr));
             continue;
         }
 
         if (op == D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_STRUCTURED)
         {
-            //Format: opcode, operand(g#), struct_byte_stride, struct_count
             Uint32 cur = pos + 1;
             SM4Operand gOp{};
             cur += ReadOperand(tokens, cur, gOp);
             Uint32 stride = (cur < instrEnd) ? tokens[cur] : 0;
             cur++;
             Uint32 count  = (cur < instrEnd) ? tokens[cur] : 0;
-            instr.tgsmSlot   = gOp.indices[0];
-            instr.tgsmStride = stride;
-            instr.tgsmSize   = stride * count;
             D3D11SW_TGSMDecl decl{};
-            decl.slot   = instr.tgsmSlot;
-            decl.size   = instr.tgsmSize;
+            decl.slot   = gOp.indices[0];
+            decl.size   = stride * count;
             decl.stride = stride;
             tgsmOut.push_back(decl);
             pos = instrEnd;
-            out.push_back(std::move(instr));
             continue;
         }
 
-        if (op == D3D11_SB_OPCODE_SYNC)
+        if (op >= D3D10_SB_OPCODE_DCL_RESOURCE && op <= D3D10_SB_OPCODE_DCL_GLOBAL_FLAGS)
         {
             pos = instrEnd;
-            out.push_back(std::move(instr));
             continue;
         }
 
-        if (op == D3D10_SB_OPCODE_DCL_RESOURCE                          ||
-            op == D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER                   ||
-            op == D3D10_SB_OPCODE_DCL_SAMPLER                           ||
-            op == D3D10_SB_OPCODE_DCL_INDEX_RANGE                       ||
-            op == D3D10_SB_OPCODE_DCL_GLOBAL_FLAGS                      ||
-            op == D3D10_SB_OPCODE_DCL_INDEXABLE_TEMP                    ||
-            op == D3D10_SB_OPCODE_DCL_INPUT_SGV                         ||
-            op == D3D10_SB_OPCODE_DCL_INPUT_SIV                         ||
-            op == D3D10_SB_OPCODE_DCL_INPUT_PS_SGV                      ||
-            op == D3D10_SB_OPCODE_DCL_INPUT_PS_SIV                      ||
-            op == D3D10_SB_OPCODE_DCL_OUTPUT_SGV                        ||
-            op == D3D10_SB_OPCODE_DCL_OUTPUT_SIV                        ||
-            op == D3D10_SB_OPCODE_DCL_GS_OUTPUT_PRIMITIVE_TOPOLOGY      ||
-            op == D3D10_SB_OPCODE_DCL_GS_INPUT_PRIMITIVE                ||
-            op == D3D10_SB_OPCODE_DCL_MAX_OUTPUT_VERTEX_COUNT)
+        if (op == D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED    ||
+            op == D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW      ||
+            op == D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED)
         {
             pos = instrEnd;
-            out.push_back(std::move(instr));
             continue;
+        }
+
+        SM4Instruction instr{};
+        instr.op          = op;
+        instr.saturate    = sat;
+        instr.testNonZero = DECODE_D3D10_SB_INSTRUCTION_TEST_BOOLEAN(opTok) == D3D10_SB_INSTRUCTION_TEST_NONZERO;
+        if (op == D3D10_SB_OPCODE_RESINFO)
+        {
+            instr.resInfoReturn = static_cast<Uint8>(DECODE_D3D10_SB_RESINFO_INSTRUCTION_RETURN_TYPE(opTok));
         }
 
         Uint32 cur = pos + 1;
