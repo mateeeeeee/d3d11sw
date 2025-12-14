@@ -1,4 +1,5 @@
 #include "misc/input_layout.h"
+#include "util/format.h"
 
 namespace d3d11sw {
 
@@ -40,11 +41,24 @@ HRESULT D3D11InputLayoutSW::Init(const D3D11_INPUT_ELEMENT_DESC* pElements, UINT
 
     _semanticNames.resize(numElements);
     _elements.resize(numElements);
+
+    UINT slotOffsets[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT] = {};
     for (UINT i = 0; i < numElements; i++)
     {
         _semanticNames[i] = pElements[i].SemanticName;
         _elements[i]      = pElements[i];
         _elements[i].SemanticName = _semanticNames[i].c_str();
+
+        UINT slot = _elements[i].InputSlot;
+        if (_elements[i].AlignedByteOffset == D3D11_APPEND_ALIGNED_ELEMENT)
+        {
+            _elements[i].AlignedByteOffset = slotOffsets[slot];
+        }
+        else
+        {
+            slotOffsets[slot] = _elements[i].AlignedByteOffset;
+        }
+        slotOffsets[slot] += GetFormatStride(_elements[i].Format);
     }
     return S_OK;
 }

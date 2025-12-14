@@ -113,6 +113,12 @@ add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
 add_gtest(test_draw_pipeline   unit/test_draw_pipeline.cpp)
 add_gtest(test_format_packing  unit/test_format_packing.cpp)
 add_gtest(test_clear_uav       unit/test_clear_uav.cpp)
+add_gtest(test_vertex_formats  unit/test_vertex_formats.cpp)
+target_compile_definitions(test_vertex_formats PRIVATE
+    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
+    D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
+    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+)
 
 # Perf tests
 macro(add_perf_test name file)

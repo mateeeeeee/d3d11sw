@@ -15,6 +15,7 @@
 #include "util/env.h"
 #include <algorithm>
 #include <atomic>
+#include <bit>
 #include <cstring>
 #include <latch>
 #include <semaphore>
@@ -23,10 +24,6 @@
 #include <d3dcommon.h>
 
 namespace d3d11sw {
-
-// ---------------------------------------------------------------------------
-// Config
-// ---------------------------------------------------------------------------
 
 SWRasterizer::Config SWRasterizer::Config::FromEnv()
 {
@@ -47,10 +44,6 @@ SWRasterizer::Config SWRasterizer::Config::FromEnv()
     if (cfg.guardBandK < 1.f) { cfg.guardBandK = 1.f; }
     return cfg;
 }
-
-// ---------------------------------------------------------------------------
-// TileThreadPool
-// ---------------------------------------------------------------------------
 
 class TileThreadPool
 {
@@ -127,16 +120,8 @@ private:
     }
 };
 
-// ---------------------------------------------------------------------------
-// Constructor / Destructor
-// ---------------------------------------------------------------------------
-
 SWRasterizer::SWRasterizer() : _config(Config::FromEnv()) {}
 SWRasterizer::~SWRasterizer() = default;
-
-// ---------------------------------------------------------------------------
-// OM initialization (was OutputMerger constructor)
-// ---------------------------------------------------------------------------
 
 SWRasterizer::OMState SWRasterizer::InitOM(D3D11SW_PIPELINE_STATE& state)
 {
@@ -201,10 +186,6 @@ SWRasterizer::OMState SWRasterizer::InitOM(D3D11SW_PIPELINE_STATE& state)
     return om;
 }
 
-// ---------------------------------------------------------------------------
-// VS initialization (was VertexPipeline constructor)
-// ---------------------------------------------------------------------------
-
 SWRasterizer::VertexState SWRasterizer::InitVS(const D3D11SW_PIPELINE_STATE& state)
 {
     VertexState vs{};
@@ -221,10 +202,6 @@ SWRasterizer::VertexState SWRasterizer::InitVS(const D3D11SW_PIPELINE_STATE& sta
     }
     return vs;
 }
-
-// ---------------------------------------------------------------------------
-// Vertex processing (was VertexPipeline methods)
-// ---------------------------------------------------------------------------
 
 static void UnpackVertexElement(DXGI_FORMAT fmt, const UINT8* src, SW_float4& out)
 {
@@ -244,6 +221,150 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const UINT8* src, SW_float4& ou
         case DXGI_FORMAT_R32_FLOAT:
             std::memcpy(&out.x, src, 4);
             break;
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        {
+            auto toF = [](UINT16 h) -> Float
+            {
+                UINT32 sign = (h >> 15) & 1;
+                UINT32 exp  = (h >> 10) & 0x1F;
+                UINT32 man  = h & 0x3FF;
+                if (exp == 0)
+                {
+                    if (man == 0) { return sign ? -0.f : 0.f; }
+                    Float f = std::ldexp(static_cast<Float>(man), -24);
+                    return sign ? -f : f;
+                }
+                if (exp == 31)
+                {
+                    if (man == 0) { return sign ? -INFINITY : INFINITY; }
+                    return NAN;
+                }
+                Float f = std::ldexp(static_cast<Float>(man + 1024), static_cast<Int>(exp) - 25);
+                return sign ? -f : f;
+            };
+            UINT16 v[4];
+            std::memcpy(v, src, 8);
+            out = { toF(v[0]), toF(v[1]), toF(v[2]), toF(v[3]) };
+            break;
+        }
+        case DXGI_FORMAT_R16G16_FLOAT:
+        {
+            auto toF = [](UINT16 h) -> Float
+            {
+                UINT32 sign = (h >> 15) & 1;
+                UINT32 exp  = (h >> 10) & 0x1F;
+                UINT32 man  = h & 0x3FF;
+                if (exp == 0)
+                {
+                    if (man == 0) { return sign ? -0.f : 0.f; }
+                    Float f = std::ldexp(static_cast<Float>(man), -24);
+                    return sign ? -f : f;
+                }
+                if (exp == 31)
+                {
+                    if (man == 0) { return sign ? -INFINITY : INFINITY; }
+                    return NAN;
+                }
+                Float f = std::ldexp(static_cast<Float>(man + 1024), static_cast<Int>(exp) - 25);
+                return sign ? -f : f;
+            };
+            UINT16 v[2];
+            std::memcpy(v, src, 4);
+            out = { toF(v[0]), toF(v[1]), 0.f, 0.f };
+            break;
+        }
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+            out = { src[0] / 255.f, src[1] / 255.f, src[2] / 255.f, src[3] / 255.f };
+            break;
+        case DXGI_FORMAT_R8G8B8A8_SNORM:
+        {
+            auto toF = [](UINT8 b) -> Float
+            {
+                return std::max(static_cast<Float>(std::bit_cast<Int8>(b)) / 127.f, -1.f);
+            };
+            out = { toF(src[0]), toF(src[1]), toF(src[2]), toF(src[3]) };
+            break;
+        }
+        case DXGI_FORMAT_R8G8B8A8_UINT:
+        {
+            out = {
+                std::bit_cast<Float>(static_cast<Uint32>(src[0])),
+                std::bit_cast<Float>(static_cast<Uint32>(src[1])),
+                std::bit_cast<Float>(static_cast<Uint32>(src[2])),
+                std::bit_cast<Float>(static_cast<Uint32>(src[3]))
+            };
+            break;
+        }
+        case DXGI_FORMAT_R8G8B8A8_SINT:
+        {
+            auto toF = [](UINT8 b) -> Float
+            {
+                return std::bit_cast<Float>(static_cast<Uint32>(static_cast<Int32>(std::bit_cast<Int8>(b))));
+            };
+            out = { toF(src[0]), toF(src[1]), toF(src[2]), toF(src[3]) };
+            break;
+        }
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+        case DXGI_FORMAT_R32G32B32A32_SINT:
+        {
+            Uint32 v[4];
+            std::memcpy(v, src, 16);
+            out = {
+                std::bit_cast<Float>(v[0]),
+                std::bit_cast<Float>(v[1]),
+                std::bit_cast<Float>(v[2]),
+                std::bit_cast<Float>(v[3])
+            };
+            break;
+        }
+        case DXGI_FORMAT_R10G10B10A2_UNORM:
+        {
+            UINT32 packed;
+            std::memcpy(&packed, src, 4);
+            out = {
+                (packed & 0x3FF) / 1023.f,
+                ((packed >> 10) & 0x3FF) / 1023.f,
+                ((packed >> 20) & 0x3FF) / 1023.f,
+                ((packed >> 30) & 0x3) / 3.f
+            };
+            break;
+        }
+        case DXGI_FORMAT_R16G16_SNORM:
+        {
+            Int16 v[2];
+            std::memcpy(v, src, 4);
+            out = { std::max(v[0] / 32767.f, -1.f), std::max(v[1] / 32767.f, -1.f), 0.f, 0.f };
+            break;
+        }
+        case DXGI_FORMAT_R16G16_UNORM:
+        {
+            UINT16 v[2];
+            std::memcpy(v, src, 4);
+            out = { v[0] / 65535.f, v[1] / 65535.f, 0.f, 0.f };
+            break;
+        }
+        case DXGI_FORMAT_R16G16_UINT:
+        {
+            UINT16 v[2];
+            std::memcpy(v, src, 4);
+            out = {
+                std::bit_cast<Float>(static_cast<Uint32>(v[0])),
+                std::bit_cast<Float>(static_cast<Uint32>(v[1])),
+                0.f, 0.f
+            };
+            break;
+        }
+        case DXGI_FORMAT_R16G16_SINT:
+        {
+            Int16 v[2];
+            std::memcpy(v, src, 4);
+            out = {
+                std::bit_cast<Float>(static_cast<Uint32>(static_cast<Int32>(v[0]))),
+                std::bit_cast<Float>(static_cast<Uint32>(static_cast<Int32>(v[1]))),
+                0.f, 0.f
+            };
+            break;
+        }
         default:
             break;
     }
@@ -305,15 +426,12 @@ SW_VSOutput SWRasterizer::RunVS(VertexState& vs, UINT vertIdx)
     {
         if (inp.svType == D3D_NAME_VERTEX_ID)
         {
-            Float bits;
-            Uint32 v = vertIdx;
-            std::memcpy(&bits, &v, 4);
+            Float bits = std::bit_cast<Float>(vertIdx);
             vsIn.v[inp.reg] = {bits, 0.f, 0.f, 0.f};
         }
         else if (inp.svType == D3D_NAME_INSTANCE_ID)
         {
-            Float bits;
-            std::memcpy(&bits, &vs.instanceID, 4);
+            Float bits = std::bit_cast<Float>(vs.instanceID);
             vsIn.v[inp.reg] = {bits, 0.f, 0.f, 0.f};
         }
     }
@@ -350,10 +468,6 @@ UINT SWRasterizer::FetchIndex(const VertexState& vs, UINT location)
         return idx;
     }
 }
-
-// ---------------------------------------------------------------------------
-// Output merger helpers (was OutputMerger methods)
-// ---------------------------------------------------------------------------
 
 Bool SWRasterizer::TestDepth(const OMState& om, Int px, Int py, Float depth)
 {
@@ -434,10 +548,6 @@ void SWRasterizer::BlendAndWrite(const OMState& om, Int px, Int py, UINT rtIdx, 
     PackRTVColor(info.fmt, finalColor, packed);
     std::memcpy(rtvPx, packed, info.pixStride);
 }
-
-// ---------------------------------------------------------------------------
-// Static OM helpers (inline in old output_merger.h)
-// ---------------------------------------------------------------------------
 
 Float SWRasterizer::ReadDepthValue(DXGI_FORMAT fmt, const UINT8* src)
 {
@@ -686,10 +796,6 @@ UINT8 SWRasterizer::ApplyStencilOp(D3D11_STENCIL_OP op, UINT8 curVal, UINT8 ref)
         default:                        return curVal;
     }
 }
-
-// ---------------------------------------------------------------------------
-// Triangle rasterization internals
-// ---------------------------------------------------------------------------
 
 struct VaryingMap { Int vsOutReg; Int psInReg; };
 
@@ -1056,10 +1162,6 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3], Float gua
     return numTris;
 }
 
-// ---------------------------------------------------------------------------
-// Semantic helpers
-// ---------------------------------------------------------------------------
-
 Int SWRasterizer::FindSVPositionInput(const D3D11SW_ParsedShader& shader)
 {
     for (const auto& e : shader.inputs)
@@ -1084,10 +1186,6 @@ Int SWRasterizer::FindSemanticRegister(const std::vector<D3D11SW_ShaderSignature
     }
     return -1;
 }
-
-// ---------------------------------------------------------------------------
-// RasterizeTriangle
-// ---------------------------------------------------------------------------
 
 void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput tri[3],
@@ -1387,10 +1485,6 @@ void SWRasterizer::RasterizeTriangle(
     }
 }
 
-// ---------------------------------------------------------------------------
-// RasterizeLine
-// ---------------------------------------------------------------------------
-
 void SWRasterizer::RasterizeLine(
     const SW_VSOutput endpts[2],
     const D3D11SW_ParsedShader& vsReflection,
@@ -1551,10 +1645,6 @@ void SWRasterizer::RasterizePoint(
 
     WritePixel(om, px, py, psOut);
 }
-
-// ---------------------------------------------------------------------------
-// Draw / DrawIndexed (was SWDrawer)
-// ---------------------------------------------------------------------------
 
 void SWRasterizer::DrawInternal(
     VertexState& vs, OMState& om,
