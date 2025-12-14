@@ -146,6 +146,7 @@ struct TileContext
     Int tileStepX, tileStepY;
     Int numTilesX;
     Bool useTiling;
+    Bool frontFace;
 };
 
 static void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
@@ -227,10 +228,41 @@ static void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 Float depth = ctx.ndcZ2 + b0 * ctx.dz0 + b1 * ctx.dz1;
                 depth = std::clamp(depth, ctx.vpMinDepth, ctx.vpMaxDepth);
 
+                UINT8 oldStencil = 0;
+                const D3D11_DEPTH_STENCILOP_DESC* stencilOps = nullptr;
+                D3D11_COMPARISON_FUNC stencilFunc = D3D11_COMPARISON_ALWAYS;
+                if (om.StencilEnabled())
+                {
+                    oldStencil = om.ReadStencil(px, py);
+                    stencilOps = ctx.frontFace ? &om.StencilFrontOps() : &om.StencilBackOps();
+                    stencilFunc = ctx.frontFace
+                        ? om.StencilFrontOps().StencilFunc
+                        : om.StencilBackOps().StencilFunc;
+
+                    UINT8 maskedRef = om.StencilRef() & om.StencilReadMask();
+                    UINT8 maskedVal = oldStencil & om.StencilReadMask();
+                    if (!OutputMerger::CompareStencil(stencilFunc, maskedRef, maskedVal))
+                    {
+                        UINT8 result = OutputMerger::ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.StencilRef());
+                        UINT8 written = (result & om.StencilWriteMask()) | (oldStencil & ~om.StencilWriteMask());
+                        om.WriteStencil(px, py, written);
+                        w0 += ctx.w0_dx;
+                        w1 += ctx.w1_dx;
+                        w2 += ctx.w2_dx;
+                        continue;
+                    }
+                }
+
                 if (om.DepthEnabled())
                 {
                     if (!om.TestDepth(px, py, depth))
                     {
+                        if (om.StencilEnabled())
+                        {
+                            UINT8 result = OutputMerger::ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.StencilRef());
+                            UINT8 written = (result & om.StencilWriteMask()) | (oldStencil & ~om.StencilWriteMask());
+                            om.WriteStencil(px, py, written);
+                        }
                         w0 += ctx.w0_dx;
                         w1 += ctx.w1_dx;
                         w2 += ctx.w2_dx;
@@ -270,6 +302,13 @@ static void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 {
                     Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
                     om.WriteDepth(px, py, writeD);
+                }
+
+                if (om.StencilEnabled())
+                {
+                    UINT8 result = OutputMerger::ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.StencilRef());
+                    UINT8 written = (result & om.StencilWriteMask()) | (oldStencil & ~om.StencilWriteMask());
+                    om.WriteStencil(px, py, written);
                 }
 
                 om.WritePixel(px, py, psOut);
@@ -732,6 +771,7 @@ void Rasterizer::RasterizeTriangle(
     tctx.tileStepY = tileStepY;
     tctx.numTilesX = numTilesX;
     tctx.useTiling = useTiling;
+    tctx.frontFace = frontFace;
 
     Bool useThreads = useTiling && _config.tileThreads > 0
                       && totalTiles > _config.tileThreads;

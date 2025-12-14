@@ -11,16 +11,28 @@ struct D3D11SW_PIPELINE_STATE;
 class OutputMerger
 {
 public:
-    OutputMerger(D3D11SW_PIPELINE_STATE& state);
+    explicit OutputMerger(D3D11SW_PIPELINE_STATE& state);
 
     Bool HasRenderTargets() const { return _activeRTCount > 0; }
     Bool DepthEnabled() const { return _depthEnabled; }
     Bool DepthWriteEnabled() const { return _depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL; }
+    Bool StencilEnabled() const { return _stencilEnabled; }
     UINT ActiveRTCount() const { return _activeRTCount; }
 
     Bool TestDepth(Int px, Int py, Float depth) const;
     void WriteDepth(Int px, Int py, Float depth);
     void WritePixel(Int px, Int py, const SW_PSOutput& psOut);
+
+    UINT8 ReadStencil(Int px, Int py) const;
+    void WriteStencil(Int px, Int py, UINT8 val);
+    UINT8 StencilRef() const { return _stencilRef; }
+    UINT8 StencilReadMask() const { return _stencilReadMask; }
+    UINT8 StencilWriteMask() const { return _stencilWriteMask; }
+    const D3D11_DEPTH_STENCILOP_DESC& StencilFrontOps() const { return _stencilFront; }
+    const D3D11_DEPTH_STENCILOP_DESC& StencilBackOps() const { return _stencilBack; }
+
+    static UINT8 ApplyStencilOp(D3D11_STENCIL_OP op, UINT8 curVal, UINT8 ref);
+    static Bool CompareStencil(D3D11_COMPARISON_FUNC func, UINT8 ref, UINT8 val);
 
 private:
     struct RTInfo
@@ -40,6 +52,15 @@ private:
     UINT _dsvRowPitch;
     UINT _dsvPixStride;
 
+    Bool _stencilEnabled;
+    UINT8 _stencilReadMask;
+    UINT8 _stencilWriteMask;
+    UINT8 _stencilRef;
+    D3D11_DEPTH_STENCILOP_DESC _stencilFront;
+    D3D11_DEPTH_STENCILOP_DESC _stencilBack;
+    D3D11_COMPARISON_FUNC _stencilFrontFunc;
+    D3D11_COMPARISON_FUNC _stencilBackFunc;
+
     RTInfo _rtInfos[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
     UINT _activeRTCount;
     const FLOAT* _blendFactor;
@@ -49,6 +70,9 @@ private:
     static void WriteDepthValue(DXGI_FORMAT fmt, UINT8* dst, Float depth);
     static UINT DepthPixelStride(DXGI_FORMAT fmt);
     static Bool CompareDepth(D3D11_COMPARISON_FUNC func, Float src, Float dst);
+    static UINT8 ReadStencilValue(DXGI_FORMAT fmt, const UINT8* src);
+    static void WriteStencilValue(DXGI_FORMAT fmt, UINT8* dst, UINT8 val);
+    static Bool FormatHasStencil(DXGI_FORMAT fmt);
     static void UnpackColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4]);
     static Float ComputeBlendFactor(D3D11_BLEND factor, const FLOAT src[4], const FLOAT dst[4],
                                     const FLOAT blendFactor[4], Int comp);
@@ -240,6 +264,93 @@ inline Float OutputMerger::ComputeBlendOp(D3D11_BLEND_OP op, Float srcTerm, Floa
         case D3D11_BLEND_OP_MIN:          return std::min(srcTerm, dstTerm);
         case D3D11_BLEND_OP_MAX:          return std::max(srcTerm, dstTerm);
         default:                          return srcTerm + dstTerm;
+    }
+}
+
+inline UINT8 OutputMerger::ReadStencil(Int px, Int py) const
+{
+    UINT8* dsvPx = _dsvData + (UINT64)py * _dsvRowPitch + (UINT64)px * _dsvPixStride;
+    return ReadStencilValue(_dsvFmt, dsvPx);
+}
+
+inline void OutputMerger::WriteStencil(Int px, Int py, UINT8 val)
+{
+    UINT8* dsvPx = _dsvData + (UINT64)py * _dsvRowPitch + (UINT64)px * _dsvPixStride;
+    WriteStencilValue(_dsvFmt, dsvPx, val);
+}
+
+inline UINT8 OutputMerger::ReadStencilValue(DXGI_FORMAT fmt, const UINT8* src)
+{
+    switch (fmt)
+    {
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        {
+            UINT32 u;
+            std::memcpy(&u, src, 4);
+            return static_cast<UINT8>(u >> 24);
+        }
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+            return src[4];
+        default:
+            return 0;
+    }
+}
+
+inline void OutputMerger::WriteStencilValue(DXGI_FORMAT fmt, UINT8* dst, UINT8 val)
+{
+    switch (fmt)
+    {
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        {
+            UINT32 u;
+            std::memcpy(&u, dst, 4);
+            u = (u & 0x00FFFFFFu) | (static_cast<UINT32>(val) << 24);
+            std::memcpy(dst, &u, 4);
+            break;
+        }
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+            dst[4] = val;
+            break;
+        default:
+            break;
+    }
+}
+
+inline Bool OutputMerger::FormatHasStencil(DXGI_FORMAT fmt)
+{
+    return fmt == DXGI_FORMAT_D24_UNORM_S8_UINT ||
+           fmt == DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+}
+
+inline Bool OutputMerger::CompareStencil(D3D11_COMPARISON_FUNC func, UINT8 ref, UINT8 val)
+{
+    switch (func)
+    {
+        case D3D11_COMPARISON_NEVER:         return false;
+        case D3D11_COMPARISON_LESS:          return ref < val;
+        case D3D11_COMPARISON_EQUAL:         return ref == val;
+        case D3D11_COMPARISON_LESS_EQUAL:    return ref <= val;
+        case D3D11_COMPARISON_GREATER:       return ref > val;
+        case D3D11_COMPARISON_NOT_EQUAL:     return ref != val;
+        case D3D11_COMPARISON_GREATER_EQUAL: return ref >= val;
+        case D3D11_COMPARISON_ALWAYS:        return true;
+        default:                             return true;
+    }
+}
+
+inline UINT8 OutputMerger::ApplyStencilOp(D3D11_STENCIL_OP op, UINT8 curVal, UINT8 ref)
+{
+    switch (op)
+    {
+        case D3D11_STENCIL_OP_KEEP:     return curVal;
+        case D3D11_STENCIL_OP_ZERO:     return 0;
+        case D3D11_STENCIL_OP_REPLACE:  return ref;
+        case D3D11_STENCIL_OP_INCR_SAT: return curVal < 255 ? curVal + 1 : 255;
+        case D3D11_STENCIL_OP_DECR_SAT: return curVal > 0 ? curVal - 1 : 0;
+        case D3D11_STENCIL_OP_INVERT:   return ~curVal;
+        case D3D11_STENCIL_OP_INCR:     return static_cast<UINT8>(curVal + 1);
+        case D3D11_STENCIL_OP_DECR:     return static_cast<UINT8>(curVal - 1);
+        default:                        return curVal;
     }
 }
 

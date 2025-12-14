@@ -101,6 +101,7 @@ add_golden_test(golden_draw_indirect         golden/test_draw_indirect.cpp)
 add_golden_test(golden_draw_discard          golden/test_draw_discard.cpp)
 add_golden_test(golden_draw_textured_cube   golden/test_draw_textured_cube.cpp)
 add_golden_test(golden_draw_near_clip       golden/test_draw_near_clip.cpp)
+add_golden_test(golden_draw_stencil         golden/test_draw_stencil.cpp)
 add_golden_test(golden_cs_dispatch_indirect  golden/test_cs_dispatch_indirect.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)

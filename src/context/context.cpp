@@ -599,7 +599,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
             UINT32 d24 = std::min((UINT32)(std::clamp(Depth, 0.f, 1.f) * 16777215.f + 0.5f), 0xFFFFFFu);
             if (clearDepth && clearStencil)
             {
-                UINT32 packed = (d24 << 8) | Stencil;
+                UINT32 packed = ((UINT32)Stencil << 24) | (d24 & 0x00FFFFFFu);
                 ForEachPixel(data, layout, [packed](UINT8* px)
                 {
                     std::memcpy(px, &packed, 4);
@@ -610,7 +610,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
                 ForEachPixel(data, layout, [d24](UINT8* px)
                 {
                     UINT32 v; std::memcpy(&v, px, 4);
-                    v = (d24 << 8) | (v & 0xFFu);
+                    v = (v & 0xFF000000u) | (d24 & 0x00FFFFFFu);
                     std::memcpy(px, &v, 4);
                 });
             }
@@ -619,7 +619,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
                 ForEachPixel(data, layout, [Stencil](UINT8* px)
                 {
                     UINT32 v; std::memcpy(&v, px, 4);
-                    v = (v & 0xFFFFFF00u) | Stencil;
+                    v = (v & 0x00FFFFFFu) | ((UINT32)Stencil << 24);
                     std::memcpy(px, &v, 4);
                 });
             }

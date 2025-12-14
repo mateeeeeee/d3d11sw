@@ -449,8 +449,8 @@ TEST_F(ViewTests, ClearDSV_D24S8_ClearsBoth)
 
     UINT32 packed;
     std::memcpy(&packed, data, 4);
-    EXPECT_EQ(packed & 0xFFu, 0xABu);                   // stencil in low byte
-    EXPECT_EQ((packed >> 8) & 0xFFFFFFu, 0xFFFFFFu);    // depth = 1.0 → all 24 bits set
+    EXPECT_EQ((packed >> 24) & 0xFFu, 0xABu);           // stencil in high byte
+    EXPECT_EQ(packed & 0xFFFFFFu, 0xFFFFFFu);            // depth = 1.0 → all 24 bits set
 
     dsv->Release();
     tex->Release();
@@ -473,8 +473,8 @@ TEST_F(ViewTests, ClearDSV_D24S8_DepthOnlyPreservesStencil)
 
     UINT32 packed;
     std::memcpy(&packed, data, 4);
-    EXPECT_EQ(packed & 0xFFu, 0x42u);                   // stencil preserved
-    EXPECT_EQ((packed >> 8) & 0xFFFFFFu, 0xFFFFFFu);    // depth updated to 1.0
+    EXPECT_EQ((packed >> 24) & 0xFFu, 0x42u);           // stencil preserved
+    EXPECT_EQ(packed & 0xFFFFFFu, 0xFFFFFFu);            // depth updated to 1.0
 
     dsv->Release();
     tex->Release();

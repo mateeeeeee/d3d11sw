@@ -13,6 +13,14 @@ OutputMerger::OutputMerger(D3D11SW_PIPELINE_STATE& state)
     _depthEnabled = true;
     _depthFunc = D3D11_COMPARISON_LESS;
     _depthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+    _stencilEnabled = false;
+    _stencilReadMask = 0xFF;
+    _stencilWriteMask = 0xFF;
+    _stencilRef = 0;
+    _stencilFront = {};
+    _stencilBack = {};
+    _stencilFrontFunc = D3D11_COMPARISON_ALWAYS;
+    _stencilBackFunc = D3D11_COMPARISON_ALWAYS;
     if (state.depthStencilState)
     {
         D3D11_DEPTH_STENCIL_DESC dsDesc{};
@@ -20,7 +28,15 @@ OutputMerger::OutputMerger(D3D11SW_PIPELINE_STATE& state)
         _depthEnabled   = dsDesc.DepthEnable ? true : false;
         _depthFunc      = dsDesc.DepthFunc;
         _depthWriteMask = dsDesc.DepthWriteMask;
+        _stencilEnabled   = dsDesc.StencilEnable ? true : false;
+        _stencilReadMask  = dsDesc.StencilReadMask;
+        _stencilWriteMask = dsDesc.StencilWriteMask;
+        _stencilFront     = dsDesc.FrontFace;
+        _stencilBack      = dsDesc.BackFace;
+        _stencilFrontFunc = dsDesc.FrontFace.StencilFunc;
+        _stencilBackFunc  = dsDesc.BackFace.StencilFunc;
     }
+    _stencilRef = static_cast<UINT8>(state.stencilRef);
 
     D3D11DepthStencilViewSW* dsv = state.depthStencilView;
     _dsvData     = dsv ? dsv->GetDataPtr() : nullptr;
@@ -28,6 +44,7 @@ OutputMerger::OutputMerger(D3D11SW_PIPELINE_STATE& state)
     _dsvRowPitch = dsv ? dsv->GetLayout().RowPitch : 0;
     _dsvPixStride = dsv ? DepthPixelStride(_dsvFmt) : 0;
     if (!dsv) { _depthEnabled = false; }
+    if (!dsv || !FormatHasStencil(_dsvFmt)) { _stencilEnabled = false; }
 
     D3D11_BLEND_DESC1 bsDesc{};
     Bool haveBlendState = false;
