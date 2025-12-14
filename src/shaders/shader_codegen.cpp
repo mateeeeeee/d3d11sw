@@ -845,11 +845,22 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (dst && src0 && src1)
         {
             auto addr = EmitSrc(*src0);
-            Bool isTgsm = src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
-            std::string ref = isTgsm
-                ? std::format("tgsm[{}]", src1->indices[0])
-                : std::format("res->uav[{}]", src1->indices[0]);
-            std::string fn = isTgsm ? "sw_tgsm_load_raw" : "sw_uav_load_raw";
+            std::string ref, fn;
+            if (src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            {
+                ref = std::format("tgsm[{}]", src1->indices[0]);
+                fn  = "sw_tgsm_load_raw";
+            }
+            else if (src1->type == D3D10_SB_OPERAND_TYPE_RESOURCE)
+            {
+                ref = std::format("res->tex[{}]", src1->indices[0]);
+                fn  = "sw_srv_load_raw";
+            }
+            else
+            {
+                ref = std::format("res->uav[{}]", src1->indices[0]);
+                fn  = "sw_uav_load_raw";
+            }
             w.Line("{{ unsigned _addr = sw_bits_uint(({}).x);", addr);
             Int off = 0;
             for (Int i = 0; i < 4; ++i)
@@ -895,11 +906,22 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto idx = EmitSrc(*src0);
             auto offset = EmitSrc(*src1);
-            Bool isTgsm = src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
-            std::string ref = isTgsm
-                ? std::format("tgsm[{}]", src2->indices[0])
-                : std::format("res->uav[{}]", src2->indices[0]);
-            std::string fn = isTgsm ? "sw_tgsm_load_structured" : "sw_uav_load_structured";
+            std::string ref, fn;
+            if (src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
+            {
+                ref = std::format("tgsm[{}]", src2->indices[0]);
+                fn  = "sw_tgsm_load_structured";
+            }
+            else if (src2->type == D3D10_SB_OPERAND_TYPE_RESOURCE)
+            {
+                ref = std::format("res->tex[{}]", src2->indices[0]);
+                fn  = "sw_srv_load_structured";
+            }
+            else
+            {
+                ref = std::format("res->uav[{}]", src2->indices[0]);
+                fn  = "sw_uav_load_structured";
+            }
             w.Line("{{ unsigned _idx = sw_bits_uint(({}).x), _off = sw_bits_uint(({}).x);", idx, offset);
             Int off = 0;
             for (Int i = 0; i < 4; ++i)

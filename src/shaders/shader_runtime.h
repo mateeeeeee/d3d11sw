@@ -492,6 +492,15 @@ static inline SW_float4 sw_uav_load_raw(const SW_UAV& u, unsigned byteOffset)
     return { f, f, f, f };
 }
 
+static inline SW_float4 sw_srv_load_raw(const SW_Texture& t, unsigned byteOffset)
+{
+    if (!t.data) { return {0,0,0,0}; }
+    unsigned v;
+    std::memcpy(&v, static_cast<const unsigned char*>(t.data) + byteOffset, 4);
+    float f = sw_uint_bits(v);
+    return { f, f, f, f };
+}
+
 static inline void sw_uav_store_raw(SW_UAV& u, unsigned byteOffset, SW_float4 val)
 {
     if (!u.data) { return; }
@@ -505,6 +514,16 @@ static inline SW_float4 sw_uav_load_structured(const SW_UAV& u, unsigned idx, un
     unsigned base = idx * u.stride + byteOffset;
     unsigned v;
     std::memcpy(&v, static_cast<const unsigned char*>(u.data) + base, 4);
+    float f = sw_uint_bits(v);
+    return { f, f, f, f };
+}
+
+static inline SW_float4 sw_srv_load_structured(const SW_Texture& t, unsigned idx, unsigned byteOffset)
+{
+    if (!t.data || !t.stride) { return {0,0,0,0}; }
+    unsigned base = idx * t.stride + byteOffset;
+    unsigned v;
+    std::memcpy(&v, static_cast<const unsigned char*>(t.data) + base, 4);
     float f = sw_uint_bits(v);
     return { f, f, f, f };
 }

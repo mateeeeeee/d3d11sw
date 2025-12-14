@@ -31,6 +31,7 @@ struct SW_Texture
     unsigned    rowPitch;
     unsigned    slicePitch;
     unsigned    mipLevels;
+    unsigned    stride;
     DXGI_FORMAT format;
 };
 

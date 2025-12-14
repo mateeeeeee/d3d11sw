@@ -77,6 +77,7 @@ void BuildStageResources(
         tex.rowPitch    = layout.RowPitch;
         tex.slicePitch  = layout.DepthPitch;
         tex.mipLevels   = 1;
+        tex.stride      = layout.PixelStride;
     }
 
     for (UINT i = 0; i < SW_MAX_SAMPLERS; ++i)
