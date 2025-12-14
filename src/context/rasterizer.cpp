@@ -789,6 +789,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     I64 w2_pixRowStart = w2_tile + ctx.w2_dx * (tMinX - tileX) + ctx.w2_dy * (tMinY - tileY);
 
     auto& om = *ctx.om;
+    psIn.isFrontFace = ctx.frontFace ? 1u : 0u;
     for (Int py = tMinY; py < tMaxY; ++py)
     {
         I64 w0 = w0_pixRowStart;
@@ -912,10 +913,6 @@ static void ProcessTileTrampoline(void* ctx, Uint32 tileIdx)
     SW_PSOutput psOut{};
     ProcessOneTile(*static_cast<const TileContext*>(ctx), tileIdx, psIn, psOut);
 }
-
-// ---------------------------------------------------------------------------
-// Clipping
-// ---------------------------------------------------------------------------
 
 static constexpr Float NearEpsilon = 1e-5f;
 
@@ -1489,10 +1486,6 @@ void SWRasterizer::RasterizeLine(
         WritePixel(om, px, py, psOut);
     }
 }
-
-// ---------------------------------------------------------------------------
-// RasterizePoint
-// ---------------------------------------------------------------------------
 
 void SWRasterizer::RasterizePoint(
     const SW_VSOutput& point,

@@ -1185,6 +1185,14 @@ void EmitPS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     w.Line("out_ptr->discarded = false;");
     w.Newline();
 
+    for (const auto& e : shader.inputs)
+    {
+        if (e.svType == D3D_NAME_IS_FRONT_FACE)
+        {
+            w.Line("in_ptr->v[{}] = {{ sw_uint_bits(in_ptr->isFrontFace ? 0xFFFFFFFFu : 0u), 0.f, 0.f, 0.f }};", e.reg);
+        }
+    }
+
     EmitInstructions(w, shader);
 
     w.Newline();
