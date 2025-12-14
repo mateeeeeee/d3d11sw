@@ -549,6 +549,126 @@ TEST_F(PerfDraw, Overdraw4x_AlphaBlend_256x256)
     bs->Release();
 }
 
+TEST_F(PerfDraw, StencilWrite_256x256)
+{
+    BindSingleTriangleVB();
+
+    D3D11_DEPTH_STENCIL_DESC dsDesc{};
+    dsDesc.DepthEnable      = FALSE;
+    dsDesc.StencilEnable    = TRUE;
+    dsDesc.StencilReadMask  = 0xFF;
+    dsDesc.StencilWriteMask = 0xFF;
+    dsDesc.FrontFace.StencilFunc        = D3D11_COMPARISON_ALWAYS;
+    dsDesc.FrontFace.StencilPassOp      = D3D11_STENCIL_OP_REPLACE;
+    dsDesc.FrontFace.StencilFailOp      = D3D11_STENCIL_OP_KEEP;
+    dsDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_KEEP;
+    dsDesc.BackFace = dsDesc.FrontFace;
+
+    ID3D11DepthStencilState* dsState = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilState(&dsDesc, &dsState)));
+    context->OMSetDepthStencilState(dsState, 1);
+
+    RTResources rt;
+    D3D11_TEXTURE2D_DESC texDesc{};
+    texDesc.Width = 256; texDesc.Height = 256;
+    texDesc.MipLevels = 1; texDesc.ArraySize = 1;
+    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    texDesc.SampleDesc.Count = 1;
+    texDesc.Usage = D3D11_USAGE_DEFAULT;
+    texDesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+    device->CreateTexture2D(&texDesc, nullptr, &rt.tex);
+    device->CreateRenderTargetView(rt.tex, nullptr, &rt.rtv);
+
+    D3D11_TEXTURE2D_DESC dsTexDesc{};
+    dsTexDesc.Width = 256; dsTexDesc.Height = 256;
+    dsTexDesc.MipLevels = 1; dsTexDesc.ArraySize = 1;
+    dsTexDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    dsTexDesc.SampleDesc.Count = 1;
+    dsTexDesc.Usage = D3D11_USAGE_DEFAULT;
+    dsTexDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    device->CreateTexture2D(&dsTexDesc, nullptr, &rt.depthTex);
+    device->CreateDepthStencilView(rt.depthTex, nullptr, &rt.dsv);
+
+    context->OMSetRenderTargets(1, &rt.rtv, rt.dsv);
+    D3D11_VIEWPORT viewport{};
+    viewport.Width = 256.f; viewport.Height = 256.f; viewport.MaxDepth = 1.f;
+    context->RSSetViewports(1, &viewport);
+    FLOAT clearColor[4] = {0.f, 0.f, 0.f, 1.f};
+    context->ClearRenderTargetView(rt.rtv, clearColor);
+    context->ClearDepthStencilView(rt.dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+
+    auto result = RunBenchmark("StencilWrite_256x256", context, device, 100, 10, [&]() {
+        context->Draw(3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    dsState->Release();
+    rt.Release();
+}
+
+TEST_F(PerfDraw, FullscreenQuad_256x256)
+{
+    static const Vertex fsQuad[] = {
+        {-1.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+        {-1.0f, -3.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+        { 3.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+    };
+    D3D11_BUFFER_DESC vbDesc{};
+    vbDesc.ByteWidth = sizeof(fsQuad);
+    vbDesc.Usage = D3D11_USAGE_DEFAULT;
+    vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA vbInit{};
+    vbInit.pSysMem = fsQuad;
+    ID3D11Buffer* fsVB = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &fsVB)));
+    BindVB(fsVB);
+
+    auto rt = CreateRT(256, 256);
+    auto result = RunBenchmark("FullscreenQuad_256x256", context, device, 100, 10, [&]() {
+        context->Draw(3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+    fsVB->Release();
+}
+
+TEST_F(PerfDraw, FullscreenQuad_1024x1024)
+{
+    static const Vertex fsQuad[] = {
+        {-1.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+        {-1.0f, -3.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+        { 3.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+    };
+    D3D11_BUFFER_DESC vbDesc{};
+    vbDesc.ByteWidth = sizeof(fsQuad);
+    vbDesc.Usage = D3D11_USAGE_DEFAULT;
+    vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA vbInit{};
+    vbInit.pSysMem = fsQuad;
+    ID3D11Buffer* fsVB = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &fsVB)));
+    BindVB(fsVB);
+
+    auto rt = CreateRT(1024, 1024);
+    auto result = RunBenchmark("FullscreenQuad_1024x1024", context, device, 20, 3, [&]() {
+        context->Draw(3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+    fsVB->Release();
+}
+
 struct PerfDrawCube : ::testing::Test
 {
     ID3D11Device*            device  = nullptr;

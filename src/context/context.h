@@ -3,7 +3,7 @@
 #include "common/device_child_impl.h"
 #include "context/pipeline_state.h"
 #include "context/dispatcher.h"
-#include "context/drawer.h"
+#include "context/rasterizer.h"
 #include <memory>
 
 namespace d3d11sw {
@@ -175,7 +175,7 @@ public:
 private:
     D3D11SW_PIPELINE_STATE  _state{};
     SWDispatcher            _dispatcher;
-    SWDrawer                _drawer;
+    SWRasterizer                _rasterizer;
 };
 
 }

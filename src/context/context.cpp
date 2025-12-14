@@ -308,22 +308,22 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::SetResourceMinLOD(ID3D11Resource* p
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexed(UINT IndexCount, UINT StartIndexLocation, INT BaseVertexLocation)
 {
-    _drawer.DrawIndexed(IndexCount, StartIndexLocation, BaseVertexLocation, 1, 0, _state);
+    _rasterizer.DrawIndexed(IndexCount, StartIndexLocation, BaseVertexLocation, 1, 0, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Draw(UINT VertexCount, UINT StartVertexLocation)
 {
-    _drawer.Draw(VertexCount, StartVertexLocation, 1, 0, _state);
+    _rasterizer.Draw(VertexCount, StartVertexLocation, 1, 0, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstanced(UINT IndexCountPerInstance, UINT InstanceCount, UINT StartIndexLocation, INT BaseVertexLocation, UINT StartInstanceLocation)
 {
-    _drawer.DrawIndexed(IndexCountPerInstance, StartIndexLocation, BaseVertexLocation, InstanceCount, StartInstanceLocation, _state);
+    _rasterizer.DrawIndexed(IndexCountPerInstance, StartIndexLocation, BaseVertexLocation, InstanceCount, StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstanced(UINT VertexCountPerInstance, UINT InstanceCount, UINT StartVertexLocation, UINT StartInstanceLocation)
 {
-    _drawer.Draw(VertexCountPerInstance, StartVertexLocation, InstanceCount, StartInstanceLocation, _state);
+    _rasterizer.Draw(VertexCountPerInstance, StartVertexLocation, InstanceCount, StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawAuto()
@@ -335,7 +335,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstancedIndirect(ID3D11
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
     D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS args;
     std::memcpy(&args, static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs, sizeof(args));
-    _drawer.DrawIndexed(args.IndexCountPerInstance, args.StartIndexLocation, args.BaseVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
+    _rasterizer.DrawIndexed(args.IndexCountPerInstance, args.StartIndexLocation, args.BaseVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
@@ -343,7 +343,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstancedIndirect(ID3D11Buffer*
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
     D3D11_DRAW_INSTANCED_INDIRECT_ARGS args;
     std::memcpy(&args, static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs, sizeof(args));
-    _drawer.Draw(args.VertexCountPerInstance, args.StartVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
+    _rasterizer.Draw(args.VertexCountPerInstance, args.StartVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ)

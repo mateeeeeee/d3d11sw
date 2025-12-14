@@ -103,8 +103,16 @@ add_golden_test(golden_draw_textured_cube   golden/test_draw_textured_cube.cpp)
 add_golden_test(golden_draw_near_clip       golden/test_draw_near_clip.cpp)
 add_golden_test(golden_draw_stencil         golden/test_draw_stencil.cpp)
 add_golden_test(golden_cs_dispatch_indirect  golden/test_cs_dispatch_indirect.cpp)
+add_golden_test(golden_cs_srv_structured    golden/test_cs_srv_structured.cpp)
+add_golden_test(golden_cs_switch            golden/test_cs_switch.cpp)
+add_golden_test(golden_draw_depth_funcs     golden/test_draw_depth_funcs.cpp)
+add_golden_test(golden_draw_blend_advanced  golden/test_draw_blend_advanced.cpp)
+add_golden_test(golden_draw_stencil_ops     golden/test_draw_stencil_ops.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
+add_gtest(test_draw_pipeline   unit/test_draw_pipeline.cpp)
+add_gtest(test_format_packing  unit/test_format_packing.cpp)
+add_gtest(test_clear_uav       unit/test_clear_uav.cpp)
 
 # Perf tests
 macro(add_perf_test name file)
