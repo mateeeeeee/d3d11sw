@@ -291,6 +291,82 @@ static void ProcessTileTrampoline(void* ctx, Uint32 tileIdx)
     ProcessOneTile(*static_cast<const TileContext*>(ctx), tileIdx, psIn, psOut);
 }
 
+static constexpr Float kNearEpsilon = 1e-5f;
+
+static SW_VSOutput LerpVertex(const SW_VSOutput& a, const SW_VSOutput& b, Float t)
+{
+    SW_VSOutput r;
+    r.pos.x = a.pos.x + (b.pos.x - a.pos.x) * t;
+    r.pos.y = a.pos.y + (b.pos.y - a.pos.y) * t;
+    r.pos.z = a.pos.z + (b.pos.z - a.pos.z) * t;
+    r.pos.w = a.pos.w + (b.pos.w - a.pos.w) * t;
+    for (Int i = 0; i < SW_MAX_VARYINGS; ++i)
+    {
+        r.o[i].x = a.o[i].x + (b.o[i].x - a.o[i].x) * t;
+        r.o[i].y = a.o[i].y + (b.o[i].y - a.o[i].y) * t;
+        r.o[i].z = a.o[i].z + (b.o[i].z - a.o[i].z) * t;
+        r.o[i].w = a.o[i].w + (b.o[i].w - a.o[i].w) * t;
+    }
+    return r;
+}
+
+static Int ClipTriangleNearPlane(const SW_VSOutput in[3], SW_VSOutput out[][3])
+{
+    Bool inside[3];
+    Int numInside = 0;
+    for (Int i = 0; i < 3; ++i)
+    {
+        inside[i] = in[i].pos.w >= kNearEpsilon;
+        if (inside[i]) { ++numInside; }
+    }
+
+    if (numInside == 3)
+    {
+        out[0][0] = in[0];
+        out[0][1] = in[1];
+        out[0][2] = in[2];
+        return 1;
+    }
+
+    if (numInside == 0)
+    {
+        return 0;
+    }
+
+    SW_VSOutput poly[4];
+    Int polyCount = 0;
+
+    for (Int i = 0; i < 3; ++i)
+    {
+        Int j = (i + 1) % 3;
+        const SW_VSOutput& a = in[i];
+        const SW_VSOutput& b = in[j];
+
+        if (inside[i])
+        {
+            poly[polyCount++] = a;
+        }
+
+        if (inside[i] != inside[j])
+        {
+            Float t = (kNearEpsilon - a.pos.w) / (b.pos.w - a.pos.w);
+            poly[polyCount++] = LerpVertex(a, b, t);
+        }
+    }
+
+    out[0][0] = poly[0];
+    out[0][1] = poly[1];
+    out[0][2] = poly[2];
+    if (polyCount == 4)
+    {
+        out[1][0] = poly[0];
+        out[1][1] = poly[2];
+        out[1][2] = poly[3];
+        return 2;
+    }
+    return 1;
+}
+
 Int Rasterizer::FindSVPositionInput(const D3D11SW_ParsedShader& shader)
 {
     for (const auto& e : shader.inputs)
@@ -331,12 +407,21 @@ void Rasterizer::RasterizeTriangle(
     }
 
     const D3D11_VIEWPORT& vp = state.viewports[0];
+
+    Bool needsClip = false;
     for (Int v = 0; v < 3; ++v)
     {
-        if (tri[v].pos.w <= 0.f)
+        if (tri[v].pos.w < kNearEpsilon) { needsClip = true; break; }
+    }
+    if (needsClip)
+    {
+        SW_VSOutput clipped[2][3];
+        Int n = ClipTriangleNearPlane(tri, clipped);
+        for (Int t = 0; t < n; ++t)
         {
-            return;
+            RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state);
         }
+        return;
     }
 
     Float ndcX[3], ndcY[3], ndcZ[3], invW[3];
