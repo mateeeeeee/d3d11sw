@@ -186,3 +186,13 @@ TEST_F(DrawNearClipGoldenTests, AllInFront)
     };
     DrawTriangle(verts, 3, "draw_near_clip_all_front", true);
 }
+
+TEST_F(DrawNearClipGoldenTests, OffscreenTriangle)
+{
+    float verts[] = {
+        -0.5f, -0.5f, 0.5f, 1.f,
+         0.5f, -0.5f, 0.5f, 1.f,
+       500.0f, 500.f, 0.5f, 1.f,
+    };
+    DrawTriangle(verts, 3, "draw_near_clip_offscreen", true);
+}

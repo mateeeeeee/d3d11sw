@@ -18,6 +18,7 @@ Rasterizer::Config Rasterizer::Config::FromEnv()
     cfg.tiling       = GetEnvBool("D3D11SW_TILING", true);
     cfg.tileSize     = GetEnvInt("D3D11SW_TILE_SIZE", 16);
     cfg.tileThreads  = GetEnvInt("D3D11SW_TILE_THREADS", -1);
+    cfg.guardBandK   = GetEnvFloat("D3D11SW_GUARD_BAND_K", 1.f);
     if (cfg.tileSize < 4 || (cfg.tileSize & (cfg.tileSize - 1)) != 0)
     {
         cfg.tileSize = 16;
@@ -27,6 +28,7 @@ Rasterizer::Config Rasterizer::Config::FromEnv()
         cfg.tileThreads = static_cast<Int>(std::thread::hardware_concurrency());
         if (cfg.tileThreads < 1) { cfg.tileThreads = 1; }
     }
+    if (cfg.guardBandK < 1.f) { cfg.guardBandK = 1.f; }
     return cfg;
 }
 
@@ -291,7 +293,7 @@ static void ProcessTileTrampoline(void* ctx, Uint32 tileIdx)
     ProcessOneTile(*static_cast<const TileContext*>(ctx), tileIdx, psIn, psOut);
 }
 
-static constexpr Float kNearEpsilon = 1e-5f;
+static constexpr Float NearEpsilon = 1e-5f;
 
 static SW_VSOutput LerpVertex(const SW_VSOutput& a, const SW_VSOutput& b, Float t)
 {
@@ -310,17 +312,58 @@ static SW_VSOutput LerpVertex(const SW_VSOutput& a, const SW_VSOutput& b, Float 
     return r;
 }
 
-static Int ClipTriangleNearPlane(const SW_VSOutput in[3], SW_VSOutput out[][3])
+static constexpr Int MaxClipVerts = 8;
+
+static Int ClipPolygonAgainstPlane(
+    const SW_VSOutput* in, Int inCount,
+    SW_VSOutput* out,
+    Float px, Float py, Float pz, Float pw)
 {
-    Bool inside[3];
-    Int numInside = 0;
-    for (Int i = 0; i < 3; ++i)
+    if (inCount < 3) { return 0; }
+
+    Int outCount = 0;
+    for (Int i = 0; i < inCount; ++i)
     {
-        inside[i] = in[i].pos.w >= kNearEpsilon;
-        if (inside[i]) { ++numInside; }
+        Int j = (i + 1) % inCount;
+        const SW_VSOutput& a = in[i];
+        const SW_VSOutput& b = in[j];
+
+        Float dA = a.pos.x * px + a.pos.y * py + a.pos.z * pz + a.pos.w * pw;
+        Float dB = b.pos.x * px + b.pos.y * py + b.pos.z * pz + b.pos.w * pw;
+
+        Bool aInside = dA >= 0.f;
+        Bool bInside = dB >= 0.f;
+
+        if (aInside)
+        {
+            out[outCount++] = a;
+        }
+
+        if (aInside != bInside)
+        {
+            Float t = dA / (dA - dB);
+            out[outCount++] = LerpVertex(a, b, t);
+        }
+    }
+    return outCount;
+}
+
+static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3], Float guardBandK)
+{
+    Bool anyNear = false;
+    Bool anyOther = false;
+    for (Int v = 0; v < 3; ++v)
+    {
+        const auto& p = in[v].pos;
+        if (p.w < NearEpsilon) { anyNear = true; break; }
+        Float Kw = guardBandK * p.w;
+        if (p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw || p.z > p.w)
+        {
+            anyOther = true;
+        }
     }
 
-    if (numInside == 3)
+    if (!anyNear && !anyOther)
     {
         out[0][0] = in[0];
         out[0][1] = in[1];
@@ -328,43 +371,68 @@ static Int ClipTriangleNearPlane(const SW_VSOutput in[3], SW_VSOutput out[][3])
         return 1;
     }
 
-    if (numInside == 0)
+    SW_VSOutput bufA[MaxClipVerts];
+    SW_VSOutput bufB[MaxClipVerts];
+
+    bufA[0] = in[0];
+    bufA[1] = in[1];
+    bufA[2] = in[2];
+    Int count = 3;
+
+    SW_VSOutput* src = bufA;
+    SW_VSOutput* dst = bufB;
+
+    if (anyNear)
     {
-        return 0;
-    }
-
-    SW_VSOutput poly[4];
-    Int polyCount = 0;
-
-    for (Int i = 0; i < 3; ++i)
-    {
-        Int j = (i + 1) % 3;
-        const SW_VSOutput& a = in[i];
-        const SW_VSOutput& b = in[j];
-
-        if (inside[i])
+        Int outCount = 0;
+        for (Int i = 0; i < count; ++i)
         {
-            poly[polyCount++] = a;
-        }
+            Int j = (i + 1) % count;
+            const SW_VSOutput& a = src[i];
+            const SW_VSOutput& b = src[j];
 
-        if (inside[i] != inside[j])
-        {
-            Float t = (kNearEpsilon - a.pos.w) / (b.pos.w - a.pos.w);
-            poly[polyCount++] = LerpVertex(a, b, t);
+            Float dA = a.pos.w - NearEpsilon;
+            Float dB = b.pos.w - NearEpsilon;
+            Bool aIn = dA >= 0.f;
+            Bool bIn = dB >= 0.f;
+
+            if (aIn) { dst[outCount++] = a; }
+            if (aIn != bIn)
+            {
+                Float t = dA / (dA - dB);
+                dst[outCount++] = LerpVertex(a, b, t);
+            }
         }
+        count = outCount;
+        std::swap(src, dst);
+        if (count < 3) { return 0; }
     }
 
-    out[0][0] = poly[0];
-    out[0][1] = poly[1];
-    out[0][2] = poly[2];
-    if (polyCount == 4)
+    struct { Float px, py, pz, pw; } planes[] =
     {
-        out[1][0] = poly[0];
-        out[1][1] = poly[2];
-        out[1][2] = poly[3];
-        return 2;
+        {  1.f,  0.f,  0.f, guardBandK },  //left:   x + K*w >= 0
+        { -1.f,  0.f,  0.f, guardBandK },  //right: -x + K*w >= 0
+        {  0.f, -1.f,  0.f, guardBandK },  //top:   -y + K*w >= 0
+        {  0.f,  1.f,  0.f, guardBandK },  //bottom: y + K*w >= 0
+        {  0.f,  0.f, -1.f, 1.f        },  //far:   -z + w >= 0
+    };
+
+    for (const auto& pl : planes)
+    {
+        Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw);
+        count = outCount;
+        std::swap(src, dst);
+        if (count < 3) { return 0; }
     }
-    return 1;
+
+    Int numTris = count - 2;
+    for (Int t = 0; t < numTris; ++t)
+    {
+        out[t][0] = src[0];
+        out[t][1] = src[t + 1];
+        out[t][2] = src[t + 2];
+    }
+    return numTris;
 }
 
 Int Rasterizer::FindSVPositionInput(const D3D11SW_ParsedShader& shader)
@@ -411,12 +479,19 @@ void Rasterizer::RasterizeTriangle(
     Bool needsClip = false;
     for (Int v = 0; v < 3; ++v)
     {
-        if (tri[v].pos.w < kNearEpsilon) { needsClip = true; break; }
+        const auto& p = tri[v].pos;
+        Float Kw = _config.guardBandK * p.w;
+        if (p.w < NearEpsilon || p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
+            || p.z > p.w)
+        {
+            needsClip = true;
+            break;
+        }
     }
     if (needsClip)
     {
-        SW_VSOutput clipped[2][3];
-        Int n = ClipTriangleNearPlane(tri, clipped);
+        SW_VSOutput clipped[6][3];
+        Int n = ClipTriangle(tri, clipped, _config.guardBandK);
         for (Int t = 0; t < n; ++t)
         {
             RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state);

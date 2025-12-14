@@ -39,9 +39,10 @@ public:
 private:
     struct Config
     {
-        Bool tiling;
-        Int  tileSize;
-        Int  tileThreads;
+        Bool  tiling;
+        Int   tileSize;
+        Int   tileThreads;
+        Float guardBandK;
 
         static Config FromEnv();
     };

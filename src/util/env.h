@@ -48,4 +48,11 @@ inline Int GetEnvInt(const char* name, Int defaultValue = 0)
     return val;
 }
 
+inline Float GetEnvFloat(const char* name, Float defaultValue = 0.f)
+{
+    Float val;
+    FindEnvVar(name, val, defaultValue);
+    return val;
+}
+
 }
