@@ -132,3 +132,83 @@ TEST(DrawPipeline, DepthValueRoundtrip_D24S8)
     Float read = SWRasterizer::ReadDepthValue(DXGI_FORMAT_D24_UNORM_S8_UINT, buf);
     EXPECT_NEAR(read, 0.5f, 1.f / 16777215.f);
 }
+
+TEST(DrawPipeline, ApplyLogicOp_Clear)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_CLEAR, 0xAB, 0xCD), 0);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Set)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_SET, 0x00, 0x00), 0xFF);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Copy)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_COPY, 0xAB, 0xCD), 0xAB);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_CopyInverted)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_COPY_INVERTED, 0xAB, 0xCD), (UINT8)~0xAB);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Noop)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_NOOP, 0xAB, 0xCD), 0xCD);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Invert)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_INVERT, 0xAB, 0xCD), (UINT8)~0xCD);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_And)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_AND, 0xF0, 0x3C), (UINT8)(0xF0 & 0x3C));
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Nand)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_NAND, 0xF0, 0x3C), (UINT8)~(0xF0 & 0x3C));
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Or)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_OR, 0xF0, 0x0F), 0xFF);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Nor)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_NOR, 0xF0, 0x0F), 0x00);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Xor)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_XOR, 0xFF, 0xAA), 0x55);
+}
+
+TEST(DrawPipeline, ApplyLogicOp_Equiv)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_EQUIV, 0xFF, 0xAA), (UINT8)~(0xFF ^ 0xAA));
+}
+
+TEST(DrawPipeline, ApplyLogicOp_AndReverse)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_AND_REVERSE, 0xF0, 0x3C), (UINT8)(0xF0 & ~0x3C));
+}
+
+TEST(DrawPipeline, ApplyLogicOp_AndInverted)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_AND_INVERTED, 0xF0, 0x3C), (UINT8)(~0xF0 & 0x3C));
+}
+
+TEST(DrawPipeline, ApplyLogicOp_OrReverse)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_OR_REVERSE, 0xF0, 0x0C), (UINT8)(0xF0 | ~0x0C));
+}
+
+TEST(DrawPipeline, ApplyLogicOp_OrInverted)
+{
+    EXPECT_EQ(SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP_OR_INVERTED, 0xF0, 0x0C), (UINT8)(~0xF0 | 0x0C));
+}

@@ -498,16 +498,51 @@ void SWRasterizer::WritePixel(OMState& om, Int px, Int py, const SW_PSOutput& ps
 {
     for (UINT rt = 0; rt < om.activeRTCount; ++rt)
     {
-        BlendAndWrite(om, px, py, rt, psOut.oC[rt]);
+        BlendAndWrite(om, px, py, rt, psOut.oC[rt], psOut.oC[1]);
     }
 }
 
-void SWRasterizer::BlendAndWrite(const OMState& om, Int px, Int py, UINT rtIdx, const SW_float4& color)
+void SWRasterizer::BlendAndWrite(const OMState& om, Int px, Int py, UINT rtIdx,
+                                 const SW_float4& color, const SW_float4& src1Color)
 {
     const RTInfo& info = om.rtInfos[rtIdx];
     UINT8* rtvPx = info.data + (UINT64)py * info.rowPitch + (UINT64)px * info.pixStride;
 
+    if (info.blendDesc.LogicOpEnable)
+    {
+        FLOAT srcColorF[4] = { color.x, color.y, color.z, color.w };
+        UINT8 srcPacked[16];
+        PackRTVColor(info.fmt, srcColorF, srcPacked);
+
+        UINT8 result[16];
+        for (UINT b = 0; b < info.pixStride; ++b)
+        {
+            result[b] = ApplyLogicOp(info.blendDesc.LogicOp, srcPacked[b], rtvPx[b]);
+        }
+
+        UINT8 writeMask = info.blendDesc.RenderTargetWriteMask;
+        if (writeMask != D3D11_COLOR_WRITE_ENABLE_ALL)
+        {
+            UINT bytesPerComp = info.pixStride / 4;
+            if (bytesPerComp == 0) { bytesPerComp = 1; }
+            for (UINT c = 0; c < 4; ++c)
+            {
+                if (!(writeMask & (1 << c)))
+                {
+                    for (UINT b = c * bytesPerComp; b < (c + 1) * bytesPerComp && b < info.pixStride; ++b)
+                    {
+                        result[b] = rtvPx[b];
+                    }
+                }
+            }
+        }
+
+        std::memcpy(rtvPx, result, info.pixStride);
+        return;
+    }
+
     FLOAT srcColor[4] = { color.x, color.y, color.z, color.w };
+    FLOAT src1[4] = { src1Color.x, src1Color.y, src1Color.z, src1Color.w };
     FLOAT finalColor[4];
     if (info.blendDesc.BlendEnable)
     {
@@ -515,13 +550,13 @@ void SWRasterizer::BlendAndWrite(const OMState& om, Int px, Int py, UINT rtIdx, 
         UnpackColor(info.fmt, rtvPx, dstColor);
         for (Int c = 0; c < 3; ++c)
         {
-            Float sf = ComputeBlendFactor(info.blendDesc.SrcBlend, srcColor, dstColor, om.blendFactor, c);
-            Float df = ComputeBlendFactor(info.blendDesc.DestBlend, srcColor, dstColor, om.blendFactor, c);
+            Float sf = ComputeBlendFactor(info.blendDesc.SrcBlend, srcColor, dstColor, om.blendFactor, c, src1);
+            Float df = ComputeBlendFactor(info.blendDesc.DestBlend, srcColor, dstColor, om.blendFactor, c, src1);
             finalColor[c] = ComputeBlendOp(info.blendDesc.BlendOp, srcColor[c] * sf, dstColor[c] * df);
         }
         {
-            Float sf = ComputeBlendFactor(info.blendDesc.SrcBlendAlpha, srcColor, dstColor, om.blendFactor, 3);
-            Float df = ComputeBlendFactor(info.blendDesc.DestBlendAlpha, srcColor, dstColor, om.blendFactor, 3);
+            Float sf = ComputeBlendFactor(info.blendDesc.SrcBlendAlpha, srcColor, dstColor, om.blendFactor, 3, src1);
+            Float df = ComputeBlendFactor(info.blendDesc.DestBlendAlpha, srcColor, dstColor, om.blendFactor, 3, src1);
             finalColor[3] = ComputeBlendOp(info.blendDesc.BlendOpAlpha, srcColor[3] * sf, dstColor[3] * df);
         }
     }
@@ -684,7 +719,7 @@ void SWRasterizer::UnpackColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4])
 }
 
 Float SWRasterizer::ComputeBlendFactor(D3D11_BLEND factor, const FLOAT src[4], const FLOAT dst[4],
-                                        const FLOAT blendFactor[4], Int comp)
+                                        const FLOAT blendFactor[4], Int comp, const FLOAT src1[4])
 {
     switch (factor)
     {
@@ -705,6 +740,10 @@ Float SWRasterizer::ComputeBlendFactor(D3D11_BLEND factor, const FLOAT src[4], c
             Float f = std::min(src[3], 1.f - dst[3]);
             return comp == 3 ? 1.f : f;
         }
+        case D3D11_BLEND_SRC1_COLOR:      return src1[comp];
+        case D3D11_BLEND_INV_SRC1_COLOR:  return 1.f - src1[comp];
+        case D3D11_BLEND_SRC1_ALPHA:      return src1[3];
+        case D3D11_BLEND_INV_SRC1_ALPHA:  return 1.f - src1[3];
         default: return 1.f;
     }
 }
@@ -719,6 +758,30 @@ Float SWRasterizer::ComputeBlendOp(D3D11_BLEND_OP op, Float srcTerm, Float dstTe
         case D3D11_BLEND_OP_MIN:          return std::min(srcTerm, dstTerm);
         case D3D11_BLEND_OP_MAX:          return std::max(srcTerm, dstTerm);
         default:                          return srcTerm + dstTerm;
+    }
+}
+
+UINT8 SWRasterizer::ApplyLogicOp(D3D11_LOGIC_OP op, UINT8 src, UINT8 dst)
+{
+    switch (op)
+    {
+        case D3D11_LOGIC_OP_CLEAR:         return 0;
+        case D3D11_LOGIC_OP_SET:           return 0xFF;
+        case D3D11_LOGIC_OP_COPY:          return src;
+        case D3D11_LOGIC_OP_COPY_INVERTED: return ~src;
+        case D3D11_LOGIC_OP_NOOP:          return dst;
+        case D3D11_LOGIC_OP_INVERT:        return ~dst;
+        case D3D11_LOGIC_OP_AND:           return src & dst;
+        case D3D11_LOGIC_OP_NAND:          return ~(src & dst);
+        case D3D11_LOGIC_OP_OR:            return src | dst;
+        case D3D11_LOGIC_OP_NOR:           return ~(src | dst);
+        case D3D11_LOGIC_OP_XOR:           return src ^ dst;
+        case D3D11_LOGIC_OP_EQUIV:         return ~(src ^ dst);
+        case D3D11_LOGIC_OP_AND_REVERSE:   return src & ~dst;
+        case D3D11_LOGIC_OP_AND_INVERTED:  return ~src & dst;
+        case D3D11_LOGIC_OP_OR_REVERSE:    return src | ~dst;
+        case D3D11_LOGIC_OP_OR_INVERTED:   return ~src | dst;
+        default:                           return src;
     }
 }
 
@@ -1258,6 +1321,18 @@ void SWRasterizer::RasterizeTriangle(
     if (rsDesc.CullMode == D3D11_CULL_FRONT &&  frontFace) { return; }
 
     if (edgeArea == 0.f) { return; }
+
+    if (rsDesc.FillMode == D3D11_FILL_WIREFRAME)
+    {
+        SW_VSOutput edge[2];
+        edge[0] = tri[0]; edge[1] = tri[1];
+        RasterizeLine(edge, vsReflection, psReflection, psFn, psRes, om, state);
+        edge[0] = tri[1]; edge[1] = tri[2];
+        RasterizeLine(edge, vsReflection, psReflection, psFn, psRes, om, state);
+        edge[0] = tri[2]; edge[1] = tri[0];
+        RasterizeLine(edge, vsReflection, psReflection, psFn, psRes, om, state);
+        return;
+    }
 
     auto toFixed = [](Float v) -> I64 { return static_cast<I64>(v * 16.f + 0.5f); };
 

@@ -30,6 +30,7 @@ public:
     static void WriteDepthValue(DXGI_FORMAT fmt, UINT8* dst, Float depth);
     static UINT8 ReadStencilValue(DXGI_FORMAT fmt, const UINT8* src);
     static void WriteStencilValue(DXGI_FORMAT fmt, UINT8* dst, UINT8 val);
+    static UINT8 ApplyLogicOp(D3D11_LOGIC_OP op, UINT8 src, UINT8 dst);
 
     struct RTInfo
     {
@@ -121,7 +122,8 @@ private:
     static Bool TestDepth(const OMState& om, Int px, Int py, Float depth);
     static void WriteDepth(OMState& om, Int px, Int py, Float depth);
     static void WritePixel(OMState& om, Int px, Int py, const SW_PSOutput& psOut);
-    static void BlendAndWrite(const OMState& om, Int px, Int py, UINT rtIdx, const SW_float4& color);
+    static void BlendAndWrite(const OMState& om, Int px, Int py, UINT rtIdx,
+                              const SW_float4& color, const SW_float4& src1Color);
     static UINT8 ReadStencil(const OMState& om, Int px, Int py);
     static void WriteStencil(OMState& om, Int px, Int py, UINT8 val);
 
@@ -129,7 +131,7 @@ private:
     static Bool FormatHasStencil(DXGI_FORMAT fmt);
     static void UnpackColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4]);
     static Float ComputeBlendFactor(D3D11_BLEND factor, const FLOAT src[4], const FLOAT dst[4],
-                                    const FLOAT blendFactor[4], Int comp);
+                                    const FLOAT blendFactor[4], Int comp, const FLOAT src1[4]);
     static Float ComputeBlendOp(D3D11_BLEND_OP op, Float srcTerm, Float dstTerm);
 
     static Int FindSemanticRegister(const std::vector<D3D11SW_ShaderSignatureElement>& sig,
