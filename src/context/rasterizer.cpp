@@ -675,49 +675,6 @@ Bool SWRasterizer::CompareDepth(D3D11_COMPARISON_FUNC func, Float src, Float dst
     }
 }
 
-void SWRasterizer::UnpackColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4])
-{
-    rgba[0] = rgba[1] = rgba[2] = rgba[3] = 0.f;
-    switch (fmt)
-    {
-        case DXGI_FORMAT_R8G8B8A8_UNORM:
-        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-            rgba[0] = src[0] / 255.f;
-            rgba[1] = src[1] / 255.f;
-            rgba[2] = src[2] / 255.f;
-            rgba[3] = src[3] / 255.f;
-            break;
-        case DXGI_FORMAT_B8G8R8A8_UNORM:
-        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
-            rgba[0] = src[2] / 255.f;
-            rgba[1] = src[1] / 255.f;
-            rgba[2] = src[0] / 255.f;
-            rgba[3] = src[3] / 255.f;
-            break;
-        case DXGI_FORMAT_R32G32B32A32_FLOAT:
-            std::memcpy(rgba, src, 16);
-            break;
-        case DXGI_FORMAT_R32G32_FLOAT:
-            std::memcpy(rgba, src, 8);
-            break;
-        case DXGI_FORMAT_R32_FLOAT:
-            std::memcpy(rgba, src, 4);
-            break;
-        case DXGI_FORMAT_R16G16B16A16_UNORM:
-        {
-            UINT16 v[4];
-            std::memcpy(v, src, 8);
-            rgba[0] = v[0] / 65535.f;
-            rgba[1] = v[1] / 65535.f;
-            rgba[2] = v[2] / 65535.f;
-            rgba[3] = v[3] / 65535.f;
-            break;
-        }
-        default:
-            break;
-    }
-}
-
 Float SWRasterizer::ComputeBlendFactor(D3D11_BLEND factor, const FLOAT src[4], const FLOAT dst[4],
                                         const FLOAT blendFactor[4], Int comp, const FLOAT src1[4])
 {

@@ -129,7 +129,6 @@ private:
 
     static UINT DepthPixelStride(DXGI_FORMAT fmt);
     static Bool FormatHasStencil(DXGI_FORMAT fmt);
-    static void UnpackColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4]);
     static Float ComputeBlendFactor(D3D11_BLEND factor, const FLOAT src[4], const FLOAT dst[4],
                                     const FLOAT blendFactor[4], Int comp, const FLOAT src1[4]);
     static Float ComputeBlendOp(D3D11_BLEND_OP op, Float srcTerm, Float dstTerm);
