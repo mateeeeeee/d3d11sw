@@ -1,6 +1,9 @@
 #pragma once
 
+#include <memory>
+#include <vector>
 #include "common/unknown_impl.h"
+#include "dxgi/presenter.h"
 
 namespace d3d11sw {
 
@@ -46,8 +49,14 @@ public:
     HRESULT STDMETHODCALLTYPE GetRotation(DXGI_MODE_ROTATION* pRotation) override;
 
 private:
-    ID3D11Device*        _device;
-    DXGI_SWAP_CHAIN_DESC _desc;
+    ID3D11Device*                          _device;
+    DXGI_SWAP_CHAIN_DESC                   _desc;
+    ID3D11Texture2D*                       _backbuffer = nullptr;
+    std::unique_ptr<ISwapChainPresenter>   _presenter;
+    std::vector<Uint8>                     _presentBuffer;
+
+private:
+    HRESULT CreateBackbuffer();
 };
 
 }

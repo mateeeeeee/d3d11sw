@@ -97,6 +97,7 @@ set(D3D11SW_SOURCES
     dxgi/adapter.h
     dxgi/swapchain.cpp
     dxgi/swapchain.h
+    dxgi/presenter.h
     dxgi/device.cpp
     dxgi/device.h
 
@@ -110,6 +111,9 @@ set(D3D11SW_SOURCES
 
 if(WIN32)
     list(APPEND D3D11SW_SOURCES exports/d3d11sw.def)
+    list(APPEND D3D11SW_SOURCES dxgi/presenter_win32.cpp)
+elseif(APPLE)
+    list(APPEND D3D11SW_SOURCES dxgi/presenter_macos.mm)
 endif()
 
 add_library(d3d11 SHARED ${D3D11SW_SOURCES})
@@ -138,6 +142,10 @@ else()
     set_target_properties(d3d11 PROPERTIES
         OUTPUT_NAME "d3d11"
     )
+endif()
+
+if(APPLE)
+    target_link_libraries(d3d11 PRIVATE "-framework AppKit" "-framework QuartzCore")
 endif()
 
 target_compile_options(d3d11 PRIVATE

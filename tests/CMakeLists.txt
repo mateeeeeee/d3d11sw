@@ -118,6 +118,7 @@ add_gtest(test_draw_pipeline   unit/test_draw_pipeline.cpp)
 add_gtest(test_format_packing  unit/test_format_packing.cpp)
 add_gtest(test_clear_uav       unit/test_clear_uav.cpp)
 add_gtest(test_vertex_formats  unit/test_vertex_formats.cpp)
+add_gtest(test_swapchain       unit/test_swapchain.cpp)
 target_compile_definitions(test_vertex_formats PRIVATE
     D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
     D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"

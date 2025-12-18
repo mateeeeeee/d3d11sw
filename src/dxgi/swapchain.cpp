@@ -1,4 +1,5 @@
 #include "dxgi/swapchain.h"
+#include "resources/texture2d.h"
 
 namespace d3d11sw {
 
@@ -10,14 +11,36 @@ DXGISwapChainSW::DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DES
     {
         _device->AddRef();
     }
+    CreateBackbuffer();
+    _presenter = CreatePresenter((void*)_desc.OutputWindow);
 }
 
 DXGISwapChainSW::~DXGISwapChainSW()
 {
+    if (_backbuffer)
+    {
+        _backbuffer->Release();
+    }
     if (_device)
     {
         _device->Release();
     }
+}
+
+
+HRESULT DXGISwapChainSW::CreateBackbuffer()
+{
+    D3D11_TEXTURE2D_DESC texDesc{};
+    texDesc.Width       = _desc.BufferDesc.Width;
+    texDesc.Height      = _desc.BufferDesc.Height;
+    texDesc.MipLevels   = 1;
+    texDesc.ArraySize   = 1;
+    texDesc.Format      = _desc.BufferDesc.Format;
+    texDesc.SampleDesc  = { 1, 0 };
+    texDesc.Usage       = D3D11_USAGE_DEFAULT;
+    texDesc.BindFlags   = D3D11_BIND_RENDER_TARGET;
+
+    return _device->CreateTexture2D(&texDesc, nullptr, &_backbuffer);
 }
 
 
@@ -84,12 +107,54 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDevice(REFIID riid, void** ppDevic
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present(UINT SyncInterval, UINT Flags)
 {
+    if (!_presenter || !_backbuffer)
+    {
+        return S_OK;
+    }
+
+    auto* tex = static_cast<D3D11Texture2DSW*>(_backbuffer);
+    auto layout = tex->GetSubresourceLayout(0);
+    const Uint8* src = static_cast<const Uint8*>(tex->GetDataPtr()) + layout.Offset;
+    UINT w = _desc.BufferDesc.Width;
+    UINT h = _desc.BufferDesc.Height;
+
+    if (_desc.BufferDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM)
+    {
+        _presenter->Present(src, w, h, layout.RowPitch);
+    }
+    else
+    {
+        Usize totalBytes = (Usize)layout.RowPitch * h;
+        _presentBuffer.resize(totalBytes);
+        for (UINT y = 0; y < h; ++y)
+        {
+            const Uint8* row = src + (Usize)y * layout.RowPitch;
+            Uint8* dst = _presentBuffer.data() + (Usize)y * layout.RowPitch;
+            for (UINT x = 0; x < w; ++x)
+            {
+                dst[x * 4 + 0] = row[x * 4 + 2]; // B
+                dst[x * 4 + 1] = row[x * 4 + 1]; // G
+                dst[x * 4 + 2] = row[x * 4 + 0]; // R
+                dst[x * 4 + 3] = row[x * 4 + 3]; // A
+            }
+        }
+        _presenter->Present(_presentBuffer.data(), w, h, layout.RowPitch);
+    }
+
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetBuffer(UINT Buffer, REFIID riid, void** ppSurface)
 {
-    return E_NOTIMPL;
+    if (Buffer != 0)
+    {
+        return DXGI_ERROR_INVALID_CALL;
+    }
+    if (!_backbuffer)
+    {
+        return DXGI_ERROR_INVALID_CALL;
+    }
+    return _backbuffer->QueryInterface(riid, ppSurface);
 }
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetFullscreenState(BOOL Fullscreen, IDXGIOutput* pTarget)
@@ -118,7 +183,31 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDesc(DXGI_SWAP_CHAIN_DESC* pDesc)
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::ResizeBuffers(UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
 {
-    return E_NOTIMPL;
+    if (_backbuffer)
+    {
+        _backbuffer->Release();
+        _backbuffer = nullptr;
+    }
+
+    if (Width != 0)
+    {
+        _desc.BufferDesc.Width = Width;
+    }
+    if (Height != 0)
+    {
+        _desc.BufferDesc.Height = Height;
+    }
+    if (NewFormat != DXGI_FORMAT_UNKNOWN)
+    {
+        _desc.BufferDesc.Format = NewFormat;
+    }
+    if (BufferCount != 0)
+    {
+        _desc.BufferCount = BufferCount;
+    }
+    _desc.Flags = SwapChainFlags;
+
+    return CreateBackbuffer();
 }
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::ResizeTarget(const DXGI_MODE_DESC* pNewTargetParameters)
@@ -172,7 +261,7 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetCoreWindow(REFIID refiid, void** p
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present1(UINT SyncInterval, UINT PresentFlags, const DXGI_PRESENT_PARAMETERS* pPresentParameters)
 {
-    return S_OK;
+    return Present(SyncInterval, PresentFlags);
 }
 
 BOOL STDMETHODCALLTYPE DXGISwapChainSW::IsTemporaryMonoSupported()
