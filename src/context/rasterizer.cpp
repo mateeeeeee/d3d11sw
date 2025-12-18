@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <atomic>
 #include <bit>
+#include <cmath>
 #include <cstring>
 #include <latch>
 #include <semaphore>
@@ -834,6 +835,7 @@ struct TileContext
     Float iw2, diw0, diw1;
     Float dz0, dz1;
     Float ndcZ2;
+    Float depthBias;
     Float vpMinDepth, vpMaxDepth;
 
     const SW_float4* v0pw;
@@ -934,6 +936,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
 
                 Float depth = ctx.ndcZ2 + b0 * ctx.dz0 + b1 * ctx.dz1;
+                depth += ctx.depthBias;
                 depth = std::clamp(depth, ctx.vpMinDepth, ctx.vpMaxDepth);
 
                 UINT8 oldStencil = 0;
@@ -1279,6 +1282,50 @@ void SWRasterizer::RasterizeTriangle(
 
     if (edgeArea == 0.f) { return; }
 
+    Float depthBias = 0.f;
+    if (rsDesc.DepthBias != 0 || rsDesc.SlopeScaledDepthBias != 0.f)
+    {
+        //https://learn.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-output-merger-stage-depth-bias
+        Float invArea = 1.f / edgeArea;
+        Float dzdx = ((ndcZ[1] - ndcZ[0]) * (screenY[2] - screenY[0]) -
+                       (ndcZ[2] - ndcZ[0]) * (screenY[1] - screenY[0])) * invArea;
+        Float dzdy = ((ndcZ[2] - ndcZ[0]) * (screenX[1] - screenX[0]) -
+                       (ndcZ[1] - ndcZ[0]) * (screenX[2] - screenX[0])) * invArea;
+        Float maxSlope = std::max(std::abs(dzdx), std::abs(dzdy));
+
+        Float r = 0.f;
+        switch (om.dsvFmt)
+        {
+        case DXGI_FORMAT_D24_UNORM_S8_UINT:
+            r = 1.f / static_cast<Float>(1 << 24);
+            break;
+        case DXGI_FORMAT_D16_UNORM:
+            r = 1.f / static_cast<Float>(1 << 16);
+            break;
+        case DXGI_FORMAT_D32_FLOAT:
+        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+        {
+            Float maxZ = std::max({ndcZ[0], ndcZ[1], ndcZ[2]});
+            Int exp;
+            std::frexp(maxZ, &exp);
+            r = std::ldexp(1.f, exp - 23);
+            break;
+        }
+        default:
+            break;
+        }
+
+        depthBias = static_cast<Float>(rsDesc.DepthBias) * r + rsDesc.SlopeScaledDepthBias * maxSlope;
+        if (rsDesc.DepthBiasClamp > 0.f)
+        {
+            depthBias = std::min(depthBias, rsDesc.DepthBiasClamp);
+        }
+        else if (rsDesc.DepthBiasClamp < 0.f)
+        {
+            depthBias = std::max(depthBias, rsDesc.DepthBiasClamp);
+        }
+    }
+
     if (rsDesc.FillMode == D3D11_FILL_WIREFRAME)
     {
         SW_VSOutput edge[2];
@@ -1466,6 +1513,7 @@ void SWRasterizer::RasterizeTriangle(
     tctx.dz0         = dz0;
     tctx.dz1         = dz1;
     tctx.ndcZ2       = ndcZ[2];
+    tctx.depthBias   = depthBias;
     tctx.vpMinDepth  = vp.MinDepth;
     tctx.vpMaxDepth  = vp.MaxDepth;
 

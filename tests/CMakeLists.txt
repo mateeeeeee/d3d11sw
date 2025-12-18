@@ -111,6 +111,7 @@ add_golden_test(golden_draw_stencil_ops     golden/test_draw_stencil_ops.cpp)
 add_golden_test(golden_draw_logic_op        golden/test_draw_logic_op.cpp)
 add_golden_test(golden_draw_dual_source     golden/test_draw_dual_source.cpp)
 add_golden_test(golden_draw_wireframe      golden/test_draw_wireframe.cpp)
+add_golden_test(golden_draw_depth_bias     golden/test_draw_depth_bias.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
 add_gtest(test_draw_pipeline   unit/test_draw_pipeline.cpp)
