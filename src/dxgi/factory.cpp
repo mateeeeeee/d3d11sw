@@ -1,4 +1,5 @@
 #include "dxgi/factory.h"
+#include "dxgi/swapchain.h"
 
 namespace d3d11sw {
 
@@ -79,7 +80,23 @@ HRESULT STDMETHODCALLTYPE DXGIFactorySW::GetWindowAssociation(HWND* pWindowHandl
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::CreateSwapChain(IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain)
 {
-    return E_NOTIMPL;
+    if (!pDevice || !pDesc || !ppSwapChain)
+    {
+        return DXGI_ERROR_INVALID_CALL;
+    }
+
+    ID3D11Device* d3dDevice = nullptr;
+    HRESULT hr = pDevice->QueryInterface(__uuidof(ID3D11Device), (void**)&d3dDevice);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    auto* sc = new DXGISwapChainSW(d3dDevice, *pDesc);
+    *ppSwapChain = sc;
+
+    d3dDevice->Release();
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::CreateSoftwareAdapter(HMODULE Module, IDXGIAdapter** ppAdapter)
@@ -106,7 +123,35 @@ BOOL STDMETHODCALLTYPE DXGIFactorySW::IsWindowedStereoEnabled()
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::CreateSwapChainForHwnd(IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain)
 {
-    return E_NOTIMPL;
+    if (!pDevice || !pDesc || !ppSwapChain)
+    {
+        return DXGI_ERROR_INVALID_CALL;
+    }
+
+    ID3D11Device* d3dDevice = nullptr;
+    HRESULT hr = pDevice->QueryInterface(__uuidof(ID3D11Device), (void**)&d3dDevice);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+
+    DXGI_SWAP_CHAIN_DESC legacyDesc{};
+    legacyDesc.BufferDesc.Width   = pDesc->Width;
+    legacyDesc.BufferDesc.Height  = pDesc->Height;
+    legacyDesc.BufferDesc.Format  = pDesc->Format;
+    legacyDesc.SampleDesc         = pDesc->SampleDesc;
+    legacyDesc.BufferUsage        = pDesc->BufferUsage;
+    legacyDesc.BufferCount        = pDesc->BufferCount;
+    legacyDesc.OutputWindow       = hWnd;
+    legacyDesc.Windowed           = TRUE;
+    legacyDesc.SwapEffect         = pDesc->SwapEffect;
+    legacyDesc.Flags              = pDesc->Flags;
+
+    auto* sc = new DXGISwapChainSW(d3dDevice, legacyDesc);
+    *ppSwapChain = sc;
+
+    d3dDevice->Release();
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::CreateSwapChainForCoreWindow(IUnknown* pDevice, IUnknown* pWindow, const DXGI_SWAP_CHAIN_DESC1* pDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain)

@@ -1,4 +1,5 @@
 #include "dxgi/adapter.h"
+#include "dxgi/factory.h"
 #include <cstring>
 
 namespace d3d11sw {
@@ -46,7 +47,14 @@ HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetPrivateData(REFGUID Name, UINT* pDat
 
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetParent(REFIID riid, void** ppParent)
 {
-    return E_NOTIMPL;
+    if (!ppParent)
+    {
+        return E_POINTER;
+    }
+    auto* factory = new DXGIFactorySW();
+    HRESULT hr = factory->QueryInterface(riid, ppParent);
+    factory->Release();
+    return hr;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::EnumOutputs(UINT Output, IDXGIOutput** ppOutput)

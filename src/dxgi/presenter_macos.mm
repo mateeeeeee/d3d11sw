@@ -29,8 +29,9 @@ public:
         }
 
         CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-        CGDataProviderRef provider = CGDataProviderCreateWithData(
-            nullptr, bgraData, (size_t)rowPitch * height, nullptr);
+        CFDataRef data = CFDataCreate(nullptr, (const UInt8*)bgraData, (CFIndex)rowPitch * height);
+        CGDataProviderRef provider = CGDataProviderCreateWithCFData(data);
+        CFRelease(data);
 
         CGImageRef image = CGImageCreate(
             width, height,

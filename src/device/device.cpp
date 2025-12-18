@@ -20,6 +20,7 @@
 #include "states/sampler_state.h"
 #include "misc/query.h"
 #include "util/format.h"
+#include "dxgi/device.h"
 
 namespace d3d11sw {
 
@@ -166,6 +167,12 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::QueryInterface(REFIID riid, void** ppv)
     else if (riid == __uuidof(ID3D11Device))
     {
         *ppv = static_cast<ID3D11Device*>(this);
+    }
+    else if (riid == __uuidof(IDXGIDevice1) || riid == __uuidof(IDXGIDevice))
+    {
+        auto* dxgiDevice = new DXGIDeviceSW(this);
+        *ppv = static_cast<IDXGIDevice1*>(dxgiDevice);
+        return S_OK;
     }
     else
     {

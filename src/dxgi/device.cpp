@@ -1,4 +1,5 @@
 #include "dxgi/device.h"
+#include "dxgi/adapter.h"
 
 namespace d3d11sw {
 
@@ -74,7 +75,13 @@ HRESULT STDMETHODCALLTYPE DXGIDeviceSW::GetParent(REFIID riid, void** ppParent)
 
 HRESULT STDMETHODCALLTYPE DXGIDeviceSW::GetAdapter(IDXGIAdapter** pAdapter)
 {
-    return E_NOTIMPL;
+    if (!pAdapter)
+    {
+        return E_INVALIDARG;
+    }
+    auto* adapter = new DXGIAdapterSW();
+    *pAdapter = adapter;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIDeviceSW::CreateSurface(const DXGI_SURFACE_DESC* pDesc, UINT NumSurfaces, DXGI_USAGE Usage, const DXGI_SHARED_RESOURCE* pSharedResource, IDXGISurface** ppSurface)
