@@ -74,7 +74,16 @@ std::string EmitSrc(const SM4Operand& op)
         base = std::format("out_v[{}]", op.indices[0]);
         break;
     case D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER:
-        base = std::format("res->cb[{}][{}]", op.indices[0], op.indices[1]);
+        if (op.relativeReg >= 0)
+        {
+            static const Char* compName[] = {"x","y","z","w"};
+            base = std::format("res->cb[{}][{} + sw_bits_uint(r[{}].{})]",
+                op.indices[0], op.indices[1], op.relativeReg, compName[op.relativeComp]);
+        }
+        else
+        {
+            base = std::format("res->cb[{}][{}]", op.indices[0], op.indices[1]);
+        }
         break;
     case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID:                    base = "_tid";  break;
     case D3D11_SB_OPERAND_TYPE_INPUT_THREAD_GROUP_ID:              base = "_gid";  break;

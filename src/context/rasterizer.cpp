@@ -1217,7 +1217,8 @@ void SWRasterizer::RasterizeTriangle(
     SW_PSFn psFn,
     SW_Resources& psRes,
     OMState& om,
-    D3D11SW_PIPELINE_STATE& state)
+    D3D11SW_PIPELINE_STATE& state,
+    Bool alreadyClipped)
 {
     if (state.numViewports == 0)
     {
@@ -1240,11 +1241,15 @@ void SWRasterizer::RasterizeTriangle(
     }
     if (needsClip)
     {
+        if (alreadyClipped)
+        {
+            return;
+        }
         SW_VSOutput clipped[6][3];
         Int n = ClipTriangle(tri, clipped, _config.guardBandK);
         for (Int t = 0; t < n; ++t)
         {
-            RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state);
+            RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state, true);
         }
         return;
     }

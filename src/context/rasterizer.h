@@ -105,7 +105,8 @@ private:
                            const D3D11SW_ParsedShader& vsRefl,
                            const D3D11SW_ParsedShader& psRefl,
                            SW_PSFn psFn, SW_Resources& psRes,
-                           OMState& om, D3D11SW_PIPELINE_STATE& state);
+                           OMState& om, D3D11SW_PIPELINE_STATE& state,
+                           Bool alreadyClipped = false);
 
     void RasterizeLine(const SW_VSOutput endpts[2],
                        const D3D11SW_ParsedShader& vsRefl,

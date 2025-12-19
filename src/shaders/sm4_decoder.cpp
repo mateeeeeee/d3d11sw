@@ -71,24 +71,39 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
             }
             case D3D10_SB_OPERAND_INDEX_RELATIVE:
             {
-                SM4Operand dummy{};
-                consumed += ReadOperand(tokens, offset + consumed, dummy);
+                SM4Operand relOp{};
+                consumed += ReadOperand(tokens, offset + consumed, relOp);
+                if (relOp.type == D3D10_SB_OPERAND_TYPE_TEMP)
+                {
+                    op.relativeReg  = static_cast<Int>(relOp.indices[0]);
+                    op.relativeComp = relOp.swizzle[0];
+                }
                 break;
             }
             case D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE:
             {
                 op.indices[dim] = tokens[offset + consumed];
                 consumed++;
-                SM4Operand dummy{};
-                consumed += ReadOperand(tokens, offset + consumed, dummy);
+                SM4Operand relOp{};
+                consumed += ReadOperand(tokens, offset + consumed, relOp);
+                if (relOp.type == D3D10_SB_OPERAND_TYPE_TEMP)
+                {
+                    op.relativeReg  = static_cast<Int>(relOp.indices[0]);
+                    op.relativeComp = relOp.swizzle[0];
+                }
                 break;
             }
             case D3D10_SB_OPERAND_INDEX_IMMEDIATE64_PLUS_RELATIVE:
             {
                 op.indices[dim] = tokens[offset + consumed];
                 consumed += 2;
-                SM4Operand dummy{};
-                consumed += ReadOperand(tokens, offset + consumed, dummy);
+                SM4Operand relOp{};
+                consumed += ReadOperand(tokens, offset + consumed, relOp);
+                if (relOp.type == D3D10_SB_OPERAND_TYPE_TEMP)
+                {
+                    op.relativeReg  = static_cast<Int>(relOp.indices[0]);
+                    op.relativeComp = relOp.swizzle[0];
+                }
                 break;
             }
         }

@@ -18,6 +18,8 @@ struct SM4Operand
     Bool           negate       = false;
     Bool           absolute     = false;
     Bool           intContext   = false;
+    Int            relativeReg  = -1;
+    Uint8          relativeComp = 0;
 };
 
 struct SM4Instruction
