@@ -1243,15 +1243,24 @@ void SWRasterizer::RasterizeTriangle(
     {
         if (alreadyClipped)
         {
+            for (Int v = 0; v < 3; ++v)
+            {
+                if (tri[v].pos.w < NearEpsilon)
+                {
+                    return;
+                }
+            }
+        }
+        else
+        {
+            SW_VSOutput clipped[6][3];
+            Int n = ClipTriangle(tri, clipped, _config.guardBandK);
+            for (Int t = 0; t < n; ++t)
+            {
+                RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state, true);
+            }
             return;
         }
-        SW_VSOutput clipped[6][3];
-        Int n = ClipTriangle(tri, clipped, _config.guardBandK);
-        for (Int t = 0; t < n; ++t)
-        {
-            RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state, true);
-        }
-        return;
     }
 
     Float ndcX[3], ndcY[3], ndcZ[3], invW[3];
