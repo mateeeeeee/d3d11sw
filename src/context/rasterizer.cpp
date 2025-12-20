@@ -1109,10 +1109,14 @@ static SW_VSOutput LerpVertex(const SW_VSOutput& a, const SW_VSOutput& b, Float 
         r.o[i].z = a.o[i].z + (b.o[i].z - a.o[i].z) * t;
         r.o[i].w = a.o[i].w + (b.o[i].w - a.o[i].w) * t;
     }
+    for (Int i = 0; i < 8; ++i)
+    {
+        r.clipDist[i] = a.clipDist[i] + (b.clipDist[i] - a.clipDist[i]) * t;
+    }
     return r;
 }
 
-static constexpr Int MaxClipVerts = 8;
+static constexpr Int MaxClipVerts = 24;
 
 static Int ClipPolygonAgainstPlane(
     const SW_VSOutput* in, Int inCount,
@@ -1148,18 +1152,54 @@ static Int ClipPolygonAgainstPlane(
     return outCount;
 }
 
-static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3], Float guardBandK)
+static Int ClipPolygonAgainstClipDist(
+    const SW_VSOutput* in, Int inCount,
+    SW_VSOutput* out, Int clipIdx)
+{
+    if (inCount < 3) { return 0; }
+
+    Int outCount = 0;
+    for (Int i = 0; i < inCount; ++i)
+    {
+        Int j = (i + 1) % inCount;
+        const SW_VSOutput& a = in[i];
+        const SW_VSOutput& b = in[j];
+
+        Float dA = a.clipDist[clipIdx];
+        Float dB = b.clipDist[clipIdx];
+
+        if (dA >= 0.f)
+        {
+            out[outCount++] = a;
+        }
+
+        if ((dA >= 0.f) != (dB >= 0.f))
+        {
+            Float t = dA / (dA - dB);
+            out[outCount++] = LerpVertex(a, b, t);
+        }
+    }
+    return outCount;
+}
+
+static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
+                        Float guardBandK, Bool depthClip, Int numClipDist)
 {
     Bool anyNear = false;
     Bool anyOther = false;
     for (Int v = 0; v < 3; ++v)
     {
         const auto& p = in[v].pos;
-        if (p.w < NearEpsilon) { anyNear = true; break; }
+        if (depthClip && p.w < NearEpsilon) { anyNear = true; break; }
         Float Kw = guardBandK * p.w;
-        if (p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw || p.z > p.w)
+        if (p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
+            || (depthClip && p.z > p.w))
         {
             anyOther = true;
+        }
+        for (Int c = 0; c < numClipDist; ++c)
+        {
+            if (in[v].clipDist[c] < 0.f) { anyOther = true; }
         }
     }
 
@@ -1208,18 +1248,47 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3], Float gua
         if (count < 3) { return 0; }
     }
 
-    struct { Float px, py, pz, pw; } planes[] =
+    if (depthClip)
     {
-        {  1.f,  0.f,  0.f, guardBandK },
-        { -1.f,  0.f,  0.f, guardBandK },
-        {  0.f, -1.f,  0.f, guardBandK },
-        {  0.f,  1.f,  0.f, guardBandK },
-        {  0.f,  0.f, -1.f, 1.f        },
-    };
+        struct { Float px, py, pz, pw; } planes[] =
+        {
+            {  1.f,  0.f,  0.f, guardBandK },
+            { -1.f,  0.f,  0.f, guardBandK },
+            {  0.f, -1.f,  0.f, guardBandK },
+            {  0.f,  1.f,  0.f, guardBandK },
+            {  0.f,  0.f, -1.f, 1.f        },
+        };
 
-    for (const auto& pl : planes)
+        for (const auto& pl : planes)
+        {
+            Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw);
+            count = outCount;
+            std::swap(src, dst);
+            if (count < 3) { return 0; }
+        }
+    }
+    else
     {
-        Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw);
+        struct { Float px, py, pz, pw; } planes[] =
+        {
+            {  1.f,  0.f,  0.f, guardBandK },
+            { -1.f,  0.f,  0.f, guardBandK },
+            {  0.f, -1.f,  0.f, guardBandK },
+            {  0.f,  1.f,  0.f, guardBandK },
+        };
+
+        for (const auto& pl : planes)
+        {
+            Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw);
+            count = outCount;
+            std::swap(src, dst);
+            if (count < 3) { return 0; }
+        }
+    }
+
+    for (Int c = 0; c < numClipDist; ++c)
+    {
+        Int outCount = ClipPolygonAgainstClipDist(src, count, dst, c);
         count = outCount;
         std::swap(src, dst);
         if (count < 3) { return 0; }
@@ -1277,17 +1346,36 @@ void SWRasterizer::RasterizeTriangle(
 
     const D3D11_VIEWPORT& vp = state.viewports[0];
 
+    D3D11_RASTERIZER_DESC rsDesc{};
+    rsDesc.FillMode = D3D11_FILL_SOLID;
+    rsDesc.CullMode = D3D11_CULL_BACK;
+    rsDesc.FrontCounterClockwise = FALSE;
+    rsDesc.DepthClipEnable = TRUE;
+    if (state.rsState)
+    {
+        state.rsState->GetDesc(&rsDesc);
+    }
+
+    Bool depthClip = rsDesc.DepthClipEnable;
+    Int numClipDist = static_cast<Int>(vsReflection.numClipDistances);
+
     Bool needsClip = false;
     for (Int v = 0; v < 3; ++v)
     {
         const auto& p = tri[v].pos;
         Float Kw = _config.guardBandK * p.w;
-        if (p.w < NearEpsilon || p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
-            || p.z > p.w)
+        if ((depthClip && p.w < NearEpsilon)
+            || p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
+            || (depthClip && p.z > p.w))
         {
             needsClip = true;
             break;
         }
+        for (Int c = 0; c < numClipDist; ++c)
+        {
+            if (tri[v].clipDist[c] < 0.f) { needsClip = true; break; }
+        }
+        if (needsClip) { break; }
     }
     if (needsClip)
     {
@@ -1295,7 +1383,7 @@ void SWRasterizer::RasterizeTriangle(
         {
             for (Int v = 0; v < 3; ++v)
             {
-                if (tri[v].pos.w < NearEpsilon)
+                if (depthClip && tri[v].pos.w < NearEpsilon)
                 {
                     return;
                 }
@@ -1303,8 +1391,8 @@ void SWRasterizer::RasterizeTriangle(
         }
         else
         {
-            SW_VSOutput clipped[6][3];
-            Int n = ClipTriangle(tri, clipped, _config.guardBandK);
+            SW_VSOutput clipped[22][3];
+            Int n = ClipTriangle(tri, clipped, _config.guardBandK, depthClip, numClipDist);
             for (Int t = 0; t < n; ++t)
             {
                 RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state, true);
@@ -1325,15 +1413,6 @@ void SWRasterizer::RasterizeTriangle(
 
         screenX[v] = (ndcX[v] * 0.5f + 0.5f) * vp.Width  + vp.TopLeftX;
         screenY[v] = (1.f - (ndcY[v] * 0.5f + 0.5f)) * vp.Height + vp.TopLeftY;
-    }
-
-    D3D11_RASTERIZER_DESC rsDesc{};
-    rsDesc.FillMode = D3D11_FILL_SOLID;
-    rsDesc.CullMode = D3D11_CULL_BACK;
-    rsDesc.FrontCounterClockwise = FALSE;
-    if (state.rsState)
-    {
-        state.rsState->GetDesc(&rsDesc);
     }
 
     Float edgeArea = (screenX[1] - screenX[0]) * (screenY[2] - screenY[0])

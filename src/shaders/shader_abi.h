@@ -71,7 +71,7 @@ struct SW_Resources
 };
 
 struct SW_VSInput  { SW_float4 v[SW_MAX_VS_INPUTS]; };
-struct SW_VSOutput { SW_float4 pos; SW_float4 o[SW_MAX_VARYINGS]; };
+struct SW_VSOutput { SW_float4 pos; SW_float4 o[SW_MAX_VARYINGS]; float clipDist[8]; };
 
 struct SW_PSInput  { SW_float4 pos; SW_float4 v[SW_MAX_VARYINGS]; unsigned isFrontFace; };
 struct SW_PSOutput { SW_float4 oC[SW_MAX_PS_OUTPUTS]; float oDepth; bool depthWritten; bool discarded; };

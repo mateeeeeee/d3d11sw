@@ -234,6 +234,26 @@ Bool DXBCParser::Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& ou
             break;
         }
     }
+
+    for (const auto& e : out.outputs)
+    {
+        if (e.svType == D3D_NAME_CLIP_DISTANCE)
+        {
+            Uint32 base = e.semanticIndex * 4;
+            for (Uint32 c = 0; c < 4; ++c)
+            {
+                if (e.mask & (1u << c))
+                {
+                    Uint32 idx = base + c + 1;
+                    if (idx > out.numClipDistances)
+                    {
+                        out.numClipDistances = idx;
+                    }
+                }
+            }
+        }
+    }
+
     return true;
 }
 
