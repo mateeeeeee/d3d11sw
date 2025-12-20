@@ -58,6 +58,9 @@ struct D3D11SW_ParsedShader
     Uint32                                       threadGroupY;
     Uint32                                       threadGroupZ;
     std::vector<D3D11SW_TGSMDecl>                tgsm;
+    Bool                                         usesDiscard    = false;
+    Bool                                         writesSVDepth  = false;
+    Bool                                         usesUAVs       = false;
 };
 
 D3D11SW_TODO(no state, should it be free functions?);

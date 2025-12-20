@@ -856,6 +856,7 @@ struct TileContext
     Int numTilesX;
     Bool useTiling;
     Bool frontFace;
+    Bool earlyZ;
 };
 
 void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
@@ -941,43 +942,45 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
 
                 UINT8 oldStencil = 0;
                 const D3D11_DEPTH_STENCILOP_DESC* stencilOps = nullptr;
-                D3D11_COMPARISON_FUNC stencilFunc = D3D11_COMPARISON_ALWAYS;
-                if (om.stencilEnabled)
-                {
-                    oldStencil = SWRasterizer::ReadStencil(om, px, py);
-                    stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
-                    stencilFunc = ctx.frontFace
-                        ? om.stencilFront.StencilFunc
-                        : om.stencilBack.StencilFunc;
 
-                    UINT8 maskedRef = om.stencilRef & om.stencilReadMask;
-                    UINT8 maskedVal = oldStencil & om.stencilReadMask;
-                    if (!SWRasterizer::CompareStencil(stencilFunc, maskedRef, maskedVal))
-                    {
-                        UINT8 result = SWRasterizer::ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
-                        UINT8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                        SWRasterizer::WriteStencil(om, px, py, written);
-                        w0 += ctx.w0_dx;
-                        w1 += ctx.w1_dx;
-                        w2 += ctx.w2_dx;
-                        continue;
-                    }
-                }
-
-                if (om.depthEnabled)
+                if (ctx.earlyZ)
                 {
-                    if (!SWRasterizer::TestDepth(om, px, py, depth))
+                    if (om.stencilEnabled)
                     {
-                        if (om.stencilEnabled)
+                        oldStencil = SWRasterizer::ReadStencil(om, px, py);
+                        stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+
+                        UINT8 maskedRef = om.stencilRef & om.stencilReadMask;
+                        UINT8 maskedVal = oldStencil & om.stencilReadMask;
+                        if (!SWRasterizer::CompareStencil(
+                                ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                maskedRef, maskedVal))
                         {
-                            UINT8 result = SWRasterizer::ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                            UINT8 result = SWRasterizer::ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
                             UINT8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
                             SWRasterizer::WriteStencil(om, px, py, written);
+                            w0 += ctx.w0_dx;
+                            w1 += ctx.w1_dx;
+                            w2 += ctx.w2_dx;
+                            continue;
                         }
-                        w0 += ctx.w0_dx;
-                        w1 += ctx.w1_dx;
-                        w2 += ctx.w2_dx;
-                        continue;
+                    }
+
+                    if (om.depthEnabled)
+                    {
+                        if (!SWRasterizer::TestDepth(om, px, py, depth))
+                        {
+                            if (om.stencilEnabled)
+                            {
+                                UINT8 result = SWRasterizer::ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                                UINT8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                SWRasterizer::WriteStencil(om, px, py, written);
+                            }
+                            w0 += ctx.w0_dx;
+                            w1 += ctx.w1_dx;
+                            w2 += ctx.w2_dx;
+                            continue;
+                        }
                     }
                 }
 
@@ -1006,13 +1009,60 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
 
                 if (psOut.discarded)
                 {
+                    w0 += ctx.w0_dx;
+                    w1 += ctx.w1_dx;
+                    w2 += ctx.w2_dx;
                     continue;
+                }
+
+                if (!ctx.earlyZ)
+                {
+                    Float testDepth = psOut.depthWritten ? psOut.oDepth : depth;
+
+                    if (om.stencilEnabled)
+                    {
+                        oldStencil = SWRasterizer::ReadStencil(om, px, py);
+                        stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+
+                        UINT8 maskedRef = om.stencilRef & om.stencilReadMask;
+                        UINT8 maskedVal = oldStencil & om.stencilReadMask;
+                        if (!SWRasterizer::CompareStencil(
+                                ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                maskedRef, maskedVal))
+                        {
+                            UINT8 result = SWRasterizer::ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
+                            UINT8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                            SWRasterizer::WriteStencil(om, px, py, written);
+                            w0 += ctx.w0_dx;
+                            w1 += ctx.w1_dx;
+                            w2 += ctx.w2_dx;
+                            continue;
+                        }
+                    }
+
+                    if (om.depthEnabled)
+                    {
+                        if (!SWRasterizer::TestDepth(om, px, py, testDepth))
+                        {
+                            if (om.stencilEnabled)
+                            {
+                                UINT8 result = SWRasterizer::ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                                UINT8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                SWRasterizer::WriteStencil(om, px, py, written);
+                            }
+                            w0 += ctx.w0_dx;
+                            w1 += ctx.w1_dx;
+                            w2 += ctx.w2_dx;
+                            continue;
+                        }
+                    }
+
+                    depth = testDepth;
                 }
 
                 if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
                 {
-                    Float writeD = psOut.depthWritten ? psOut.oDepth : depth;
-                    SWRasterizer::WriteDepth(om, px, py, writeD);
+                    SWRasterizer::WriteDepth(om, px, py, depth);
                 }
 
                 if (om.stencilEnabled)
@@ -1554,6 +1604,7 @@ void SWRasterizer::RasterizeTriangle(
     tctx.numTilesX = numTilesX;
     tctx.useTiling = useTiling;
     tctx.frontFace = frontFace;
+    tctx.earlyZ    = !psReflection.usesDiscard && !psReflection.writesSVDepth && !psReflection.usesUAVs;
 
     Bool useThreads = useTiling && _config.tileThreads > 0
                       && totalTiles > _config.tileThreads;

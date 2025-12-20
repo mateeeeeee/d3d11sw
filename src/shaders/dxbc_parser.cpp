@@ -123,6 +123,26 @@ Bool DXBCParser::ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedS
     out.threadGroupX  = threadGroup[0];
     out.threadGroupY  = threadGroup[1];
     out.threadGroupZ  = threadGroup[2];
+
+    for (const auto& instr : out.instrs)
+    {
+        if (instr.op == D3D10_SB_OPCODE_DISCARD)
+        {
+            out.usesDiscard = true;
+        }
+        for (const auto& operand : instr.operands)
+        {
+            if (operand.type == D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH)
+            {
+                out.writesSVDepth = true;
+            }
+            if (operand.type == D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW)
+            {
+                out.usesUAVs = true;
+            }
+        }
+    }
+
     return true;
 }
 

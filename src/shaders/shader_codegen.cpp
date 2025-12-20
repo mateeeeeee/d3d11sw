@@ -143,6 +143,21 @@ std::string EmitSrc(const SM4Operand& op)
 void EmitWrite(CodeWriter& w, std::string_view dst, Uint8 mask,
                std::string_view expr, Bool sat)
 {
+    if (dst == "out_ptr->oDepth")
+    {
+        w.Line("{{ SW_float4 _t = {};", expr);
+        if (sat)
+        {
+            w.Line("  out_ptr->oDepth = sw_saturate(_t.x);");
+        }
+        else
+        {
+            w.Line("  out_ptr->oDepth = _t.x;");
+        }
+        w.Line("  out_ptr->depthWritten = true;");
+        w.Line("}}");
+        return;
+    }
     w.Line("{{ SW_float4 _t = {};", expr);
     for (Int i = 0; i < 4; ++i)
     {
