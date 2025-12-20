@@ -287,3 +287,41 @@ TEST_F(ShaderRuntimeTests, Bufinfo)
     SW_float4 r = sw_bufinfo(u);
     EXPECT_EQ(sw_bits_uint(r.x), 1024u);
 }
+
+TEST_F(ShaderRuntimeTests, UavStoreTyped_R8G8B8A8_UNORM)
+{
+    unsigned char pixels[4 * 4] = {};
+    SW_UAV u{};
+    u.data         = pixels;
+    u.format       = DXGI_FORMAT_R8G8B8A8_UNORM;
+    u.width        = 2;
+    u.elementCount = 4;
+    u.dimension    = D3D11_UAV_DIMENSION_TEXTURE2D;
+
+    sw_uav_store_typed(u, 0, 0, {1.0f, 0.0f, 0.0f, 1.0f});
+    sw_uav_store_typed(u, 1, 0, {0.0f, 1.0f, 0.0f, 1.0f});
+    sw_uav_store_typed(u, 0, 1, {0.0f, 0.0f, 1.0f, 1.0f});
+    sw_uav_store_typed(u, 1, 1, {0.5f, 0.25f, 0.75f, 1.0f});
+
+    EXPECT_EQ(pixels[0], 255); EXPECT_EQ(pixels[1], 0);   EXPECT_EQ(pixels[2], 0);   EXPECT_EQ(pixels[3], 255);
+    EXPECT_EQ(pixels[4], 0);   EXPECT_EQ(pixels[5], 255); EXPECT_EQ(pixels[6], 0);   EXPECT_EQ(pixels[7], 255);
+    EXPECT_EQ(pixels[8], 0);   EXPECT_EQ(pixels[9], 0);   EXPECT_EQ(pixels[10], 255); EXPECT_EQ(pixels[11], 255);
+    EXPECT_EQ(pixels[12], 127); EXPECT_EQ(pixels[13], 63); EXPECT_EQ(pixels[14], 191); EXPECT_EQ(pixels[15], 255);
+}
+
+TEST_F(ShaderRuntimeTests, UavStoreTyped_R8G8B8A8_UNORM_Clamps)
+{
+    unsigned char pixels[4] = {};
+    SW_UAV u{};
+    u.data         = pixels;
+    u.format       = DXGI_FORMAT_R8G8B8A8_UNORM;
+    u.width        = 1;
+    u.elementCount = 1;
+    u.dimension    = D3D11_UAV_DIMENSION_TEXTURE2D;
+
+    sw_uav_store_typed(u, 0, 0, {2.0f, -1.0f, 0.0f, 1.0f});
+    EXPECT_EQ(pixels[0], 255);
+    EXPECT_EQ(pixels[1], 0);
+    EXPECT_EQ(pixels[2], 0);
+    EXPECT_EQ(pixels[3], 255);
+}

@@ -472,10 +472,10 @@ static inline void sw_uav_store_typed(SW_UAV& u, unsigned x, unsigned y, SW_floa
         case DXGI_FORMAT_R8G8B8A8_UNORM:
         {
             unsigned char* p = static_cast<unsigned char*>(u.data) + idx * 4u;
-            p[0] = (unsigned char)sw_saturate(val.x) * 255;
-            p[1] = (unsigned char)sw_saturate(val.y) * 255;
-            p[2] = (unsigned char)sw_saturate(val.z) * 255;
-            p[3] = (unsigned char)sw_saturate(val.w) * 255;
+            p[0] = (unsigned char)(sw_saturate(val.x) * 255.f);
+            p[1] = (unsigned char)(sw_saturate(val.y) * 255.f);
+            p[2] = (unsigned char)(sw_saturate(val.z) * 255.f);
+            p[3] = (unsigned char)(sw_saturate(val.w) * 255.f);
             break;
         }
         default: break;
