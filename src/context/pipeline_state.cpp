@@ -37,6 +37,7 @@ void D3D11SW_PIPELINE_STATE::ReleaseAll()
     relA(hsSRVs); relA(dsSRVs); relA(csSRVs);
 
     relA(csUAVs);
+    relA(psUAVs);
 
     relA(vsSamplers); relA(psSamplers); relA(gsSamplers);
     relA(hsSamplers); relA(dsSamplers); relA(csSamplers);

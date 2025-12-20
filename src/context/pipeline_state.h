@@ -61,6 +61,7 @@ struct D3D11SW_PIPELINE_STATE
 
     //UAVs
     D3D11UnorderedAccessViewSW* csUAVs[D3D11_1_UAV_SLOT_COUNT];
+    D3D11UnorderedAccessViewSW* psUAVs[D3D11_1_UAV_SLOT_COUNT];
 
     //Samplers
     D3D11SamplerStateSW* vsSamplers[D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT];

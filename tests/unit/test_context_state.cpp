@@ -94,6 +94,53 @@ struct ContextStateTests : ::testing::Test
         EXPECT_TRUE(SUCCEEDED(device->CreateSamplerState(&desc, &ss)));
         return ss;
     }
+
+    ID3D11Texture2D* MakeTexture2D(UINT width = 64, UINT height = 64,
+                                    DXGI_FORMAT format = DXGI_FORMAT_R8G8B8A8_UNORM,
+                                    UINT bindFlags = D3D11_BIND_RENDER_TARGET)
+    {
+        D3D11_TEXTURE2D_DESC desc = {};
+        desc.Width      = width;
+        desc.Height     = height;
+        desc.MipLevels  = 1;
+        desc.ArraySize  = 1;
+        desc.Format     = format;
+        desc.SampleDesc = { 1, 0 };
+        desc.Usage      = D3D11_USAGE_DEFAULT;
+        desc.BindFlags  = bindFlags;
+
+        ID3D11Texture2D* tex = nullptr;
+        EXPECT_TRUE(SUCCEEDED(device->CreateTexture2D(&desc, nullptr, &tex)));
+        return tex;
+    }
+
+    ID3D11RenderTargetView* MakeRTV(ID3D11Texture2D* tex = nullptr)
+    {
+        bool ownTex = (tex == nullptr);
+        if (!tex)
+        {
+            tex = MakeTexture2D();
+        }
+
+        ID3D11RenderTargetView* rtv = nullptr;
+        EXPECT_TRUE(SUCCEEDED(device->CreateRenderTargetView(tex, nullptr, &rtv)));
+        if (ownTex) { tex->Release(); }
+        return rtv;
+    }
+
+    ID3D11UnorderedAccessView* MakeUAV()
+    {
+        ID3D11Buffer* buf = MakeBuffer(256, D3D11_BIND_UNORDERED_ACCESS);
+        D3D11_UNORDERED_ACCESS_VIEW_DESC desc = {};
+        desc.Format             = DXGI_FORMAT_R32_UINT;
+        desc.ViewDimension      = D3D11_UAV_DIMENSION_BUFFER;
+        desc.Buffer.NumElements = 64;
+
+        ID3D11UnorderedAccessView* uav = nullptr;
+        EXPECT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(buf, &desc, &uav)));
+        buf->Release();
+        return uav;
+    }
 };
 
 TEST_F(ContextStateTests, IA_InputLayout_RoundTrip)
@@ -431,8 +478,110 @@ TEST_F(ContextStateTests, ClearState_ReleasesRefs)
     ID3D11RasterizerState* rs = MakeRasterizerState();
     ASSERT_NE(rs, nullptr);
 
-    context->RSSetState(rs);  
-    context->ClearState();    
+    context->RSSetState(rs);
+    context->ClearState();
 
     rs->Release();
+}
+
+TEST_F(ContextStateTests, OM_SetRTVsAndUAVs_BothBindings)
+{
+    ID3D11RenderTargetView* rtv = MakeRTV();
+    ID3D11UnorderedAccessView* uav = MakeUAV();
+    ASSERT_NE(rtv, nullptr);
+    ASSERT_NE(uav, nullptr);
+
+    context->OMSetRenderTargetsAndUnorderedAccessViews(
+        1, &rtv, nullptr,
+        1, 1, &uav, nullptr);
+
+    ID3D11RenderTargetView* outRTV = nullptr;
+    context->OMGetRenderTargets(1, &outRTV, nullptr);
+    EXPECT_EQ(outRTV, rtv);
+    if (outRTV) { outRTV->Release(); }
+
+    ID3D11UnorderedAccessView* outUAV = nullptr;
+    context->OMGetRenderTargetsAndUnorderedAccessViews(
+        0, nullptr, nullptr,
+        1, 1, &outUAV);
+    EXPECT_EQ(outUAV, uav);
+    if (outUAV) { outUAV->Release(); }
+
+    rtv->Release();
+    uav->Release();
+}
+
+TEST_F(ContextStateTests, OM_SetRTVsAndUAVs_KeepRTVs)
+{
+    ID3D11RenderTargetView* rtv = MakeRTV();
+    ASSERT_NE(rtv, nullptr);
+
+    context->OMSetRenderTargets(1, &rtv, nullptr);
+
+    ID3D11UnorderedAccessView* uav = MakeUAV();
+    ASSERT_NE(uav, nullptr);
+
+    context->OMSetRenderTargetsAndUnorderedAccessViews(
+        D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL, nullptr, nullptr,
+        0, 1, &uav, nullptr);
+
+    ID3D11RenderTargetView* outRTV = nullptr;
+    context->OMGetRenderTargets(1, &outRTV, nullptr);
+    EXPECT_EQ(outRTV, rtv);
+    if (outRTV) { outRTV->Release(); }
+
+    rtv->Release();
+    uav->Release();
+}
+
+TEST_F(ContextStateTests, OM_SetRTVsAndUAVs_KeepUAVs)
+{
+    ID3D11UnorderedAccessView* uav = MakeUAV();
+    ASSERT_NE(uav, nullptr);
+
+    context->OMSetRenderTargetsAndUnorderedAccessViews(
+        0, nullptr, nullptr,
+        0, 1, &uav, nullptr);
+
+    ID3D11RenderTargetView* rtv = MakeRTV();
+    ASSERT_NE(rtv, nullptr);
+
+    context->OMSetRenderTargetsAndUnorderedAccessViews(
+        1, &rtv, nullptr,
+        D3D11_KEEP_UNORDERED_ACCESS_VIEWS, 0, nullptr, nullptr);
+
+    ID3D11UnorderedAccessView* outUAV = nullptr;
+    context->OMGetRenderTargetsAndUnorderedAccessViews(
+        0, nullptr, nullptr,
+        0, 1, &outUAV);
+    EXPECT_EQ(outUAV, uav);
+    if (outUAV) { outUAV->Release(); }
+
+    rtv->Release();
+    uav->Release();
+}
+
+TEST_F(ContextStateTests, CopyStructureCount_WritesZero)
+{
+    ID3D11Buffer* dst = MakeBuffer(256, D3D11_BIND_UNORDERED_ACCESS);
+    ASSERT_NE(dst, nullptr);
+
+    UINT initData = 0xDEADBEEF;
+    context->UpdateSubresource(dst, 0, nullptr, &initData, 0, 0);
+
+    ID3D11UnorderedAccessView* uav = MakeUAV();
+    ASSERT_NE(uav, nullptr);
+
+    context->CopyStructureCount(dst, 0, uav);
+
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    ASSERT_TRUE(SUCCEEDED(context->Map(dst, 0, D3D11_MAP_READ, 0, &mapped)));
+    UINT result = 0;
+    std::memcpy(&result, mapped.pData, sizeof(UINT));
+    context->Unmap(dst, 0);
+
+    EXPECT_EQ(result, 0u);
+
+    uav->Release();
+    dst->Release();
 }

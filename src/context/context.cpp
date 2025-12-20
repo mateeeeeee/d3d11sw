@@ -187,6 +187,31 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargets(UINT NumViews, I
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargetsAndUnorderedAccessViews(UINT NumRTVs, ID3D11RenderTargetView*const* ppRenderTargetViews, ID3D11DepthStencilView* pDepthStencilView, UINT UAVStartSlot, UINT NumUAVs, ID3D11UnorderedAccessView*const* ppUnorderedAccessViews, const UINT* pUAVInitialCounts)
 {
+    if (NumRTVs != D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL)
+    {
+        for (UINT i = NumRTVs; i < _state.numRenderTargets; i++)
+        {
+            SetSlot(_state.renderTargets[i], static_cast<D3D11RenderTargetViewSW*>(nullptr));
+        }
+        _state.numRenderTargets = NumRTVs;
+        for (UINT i = 0; i < NumRTVs; i++)
+        {
+            SetSlot(_state.renderTargets[i], ppRenderTargetViews ? static_cast<D3D11RenderTargetViewSW*>(ppRenderTargetViews[i]) : nullptr);
+        }
+        SetSlot(_state.depthStencilView, static_cast<D3D11DepthStencilViewSW*>(pDepthStencilView));
+    }
+
+    if (NumUAVs != D3D11_KEEP_UNORDERED_ACCESS_VIEWS)
+    {
+        for (UINT i = 0; i < NumUAVs; i++)
+        {
+            UINT slot = UAVStartSlot + i;
+            if (slot < D3D11_1_UAV_SLOT_COUNT)
+            {
+                SetSlot(_state.psUAVs[slot], ppUnorderedAccessViews ? static_cast<D3D11UnorderedAccessViewSW*>(ppUnorderedAccessViews[i]) : nullptr);
+            }
+        }
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetBlendState(ID3D11BlendState* pBlendState, const FLOAT BlendFactor[4], UINT SampleMask)
@@ -498,6 +523,13 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource(ID3D11Resource* p
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyStructureCount(ID3D11Buffer* pDstBuffer, UINT DstAlignedByteOffset, ID3D11UnorderedAccessView* pSrcView)
 {
+    if (!pDstBuffer || !pSrcView)
+    {
+        return;
+    }
+    auto* buf = static_cast<D3D11BufferSW*>(pDstBuffer);
+    UINT count = 0;
+    std::memcpy(static_cast<UINT8*>(buf->GetDataPtr()) + DstAlignedByteOffset, &count, sizeof(UINT));
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearRenderTargetView(ID3D11RenderTargetView* pRenderTargetView, const FLOAT ColorRGBA[4])
@@ -928,6 +960,37 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargets(UINT NumViews, I
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargetsAndUnorderedAccessViews(UINT NumRTVs, ID3D11RenderTargetView** ppRenderTargetViews, ID3D11DepthStencilView** ppDepthStencilView, UINT UAVStartSlot, UINT NumUAVs, ID3D11UnorderedAccessView** ppUnorderedAccessViews)
 {
+    if (ppRenderTargetViews)
+    {
+        for (UINT i = 0; i < NumRTVs; i++)
+        {
+            ppRenderTargetViews[i] = i < _state.numRenderTargets ? _state.renderTargets[i] : nullptr;
+            if (ppRenderTargetViews[i])
+            {
+                ppRenderTargetViews[i]->AddRef();
+            }
+        }
+    }
+    if (ppDepthStencilView)
+    {
+        *ppDepthStencilView = _state.depthStencilView;
+        if (_state.depthStencilView)
+        {
+            _state.depthStencilView->AddRef();
+        }
+    }
+    if (ppUnorderedAccessViews)
+    {
+        for (UINT i = 0; i < NumUAVs; i++)
+        {
+            UINT slot = UAVStartSlot + i;
+            ppUnorderedAccessViews[i] = slot < D3D11_1_UAV_SLOT_COUNT ? _state.psUAVs[slot] : nullptr;
+            if (ppUnorderedAccessViews[i])
+            {
+                ppUnorderedAccessViews[i]->AddRef();
+            }
+        }
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetBlendState(ID3D11BlendState** ppBlendState, FLOAT BlendFactor[4], UINT* pSampleMask)
