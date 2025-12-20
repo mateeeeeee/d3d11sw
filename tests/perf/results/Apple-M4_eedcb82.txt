@@ -1,0 +1,9 @@
+# Apple M4  eedcb82
+#
+# benchmark                    iter        min (us)    median (us)      mean (us)       max (us)    stddev (us)
+SingleGroup_8x8x1               100            4.38          16.96          16.74          54.62          10.02
+MultiGroup_4x4                  100           25.67         128.15         124.72         157.54          19.09
+MultiGroup_16x16                100         1062.17        1415.98        1371.24        1488.38         107.14
+LargeDispatch_128x128             3        88751.29       90622.25       90788.50       92991.96        1735.23
+SharedMem_1Group                100          233.21         391.29         383.59         554.92          90.62
+SharedMem_16x16                 100        76567.75      100770.02      115883.45      245408.12       37065.77

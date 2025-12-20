@@ -45,6 +45,7 @@ struct SW_Sampler
     float                      minLOD;
     float                      maxLOD;
     D3D11_COMPARISON_FUNC      comparisonFunc;
+    float                      borderColor[4];
 };
 
 struct SW_UAV

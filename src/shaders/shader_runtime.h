@@ -172,14 +172,26 @@ inline SW_float4 sw_swizzle(SW_float4 v, int x, int y, int z, int w)
     return { c[x], c[y], c[z], c[w] };
 }
 
-// Texture sampling (2D, MVP: nearest + bilinear, WRAP and CLAMP for now)
+// Texture sampling
 static inline float sw_addr(float u, D3D11_TEXTURE_ADDRESS_MODE mode)
 {
-    if (mode == D3D11_TEXTURE_ADDRESS_CLAMP)
+    switch (mode)
     {
+    case D3D11_TEXTURE_ADDRESS_CLAMP:
         return std::fmin(std::fmax(u, 0.f), 1.f);
+    case D3D11_TEXTURE_ADDRESS_MIRROR:
+    {
+        float t = std::fabs(u);
+        float m = t - 2.f * std::floor(t * 0.5f);
+        return m > 1.f ? 2.f - m : m;
     }
-    return u - std::floor(u); 
+    case D3D11_TEXTURE_ADDRESS_MIRROR_ONCE:
+        return std::fmin(std::fmax(std::fabs(u), 0.f), 1.f);
+    case D3D11_TEXTURE_ADDRESS_BORDER:
+        return u;
+    default:
+        return u - std::floor(u);
+    }
 }
 
 static inline SW_float4 sw_fetch_texel(const SW_Texture& t, unsigned x, unsigned y)
@@ -217,6 +229,18 @@ static inline SW_float4 sw_fetch_texel(const SW_Texture& t, unsigned x, unsigned
         default:
             return { 0.f, 0.f, 0.f, 0.f };
     }
+}
+
+static inline SW_float4 sw_fetch_border(const SW_Texture& t, int x, int y,
+                                         bool borderU, bool borderV, const float bc[4])
+{
+    if ((borderU && (x < 0 || x >= (int)t.width)) ||
+        (borderV && (y < 0 || y >= (int)t.height)))
+    {
+        return { bc[0], bc[1], bc[2], bc[3] };
+    }
+    return sw_fetch_texel(t, (unsigned)std::clamp(x, 0, std::max((int)t.width  - 1, 0)),
+                             (unsigned)std::clamp(y, 0, std::max((int)t.height - 1, 0)));
 }
 
 static inline SW_float4 sw_fetch_texel_3d(const SW_Texture& t, unsigned x, unsigned y, unsigned z)
@@ -288,6 +312,8 @@ static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
 {
     float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
     float sv = sw_addr(v, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressV));
+    bool bU = (s.addressU == D3D11_TEXTURE_ADDRESS_BORDER);
+    bool bV = (s.addressV == D3D11_TEXTURE_ADDRESS_BORDER);
 
     float fx = su * (float)t.width  - 0.5f;
     float fy = sv * (float)t.height - 0.5f;
@@ -295,9 +321,9 @@ static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
     if ((s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_MIP_POINT ||
         (s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR)
     {
-        unsigned px = (unsigned)std::max(fx + 0.5f, 0.f);
-        unsigned py = (unsigned)std::max(fy + 0.5f, 0.f);
-        return sw_fetch_texel(t, px, py);
+        int px = (int)(fx + 0.5f);
+        int py = (int)(fy + 0.5f);
+        return sw_fetch_border(t, px, py, bU, bV, s.borderColor);
     }
 
     int   x0 = (int)std::floor(fx);
@@ -305,10 +331,10 @@ static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
     float tx  = fx - (float)x0;
     float ty  = fy - (float)y0;
 
-    SW_float4 s00 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0,   0));
-    SW_float4 s10 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0,   0));
-    SW_float4 s01 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0+1, 0));
-    SW_float4 s11 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0+1, 0));
+    SW_float4 s00 = sw_fetch_border(t, x0,   y0,   bU, bV, s.borderColor);
+    SW_float4 s10 = sw_fetch_border(t, x0+1, y0,   bU, bV, s.borderColor);
+    SW_float4 s01 = sw_fetch_border(t, x0,   y0+1, bU, bV, s.borderColor);
+    SW_float4 s11 = sw_fetch_border(t, x0+1, y0+1, bU, bV, s.borderColor);
 
     auto lerp4 = [](SW_float4 a, SW_float4 b, float t) -> SW_float4 {
         return { a.x+(b.x-a.x)*t, a.y+(b.y-a.y)*t, a.z+(b.z-a.z)*t, a.w+(b.w-a.w)*t };
@@ -346,6 +372,8 @@ static inline SW_float4 sw_gather_2d(const SW_Texture& t, const SW_Sampler& s,
 {
     float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
     float sv = sw_addr(v, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressV));
+    bool bU = (s.addressU == D3D11_TEXTURE_ADDRESS_BORDER);
+    bool bV = (s.addressV == D3D11_TEXTURE_ADDRESS_BORDER);
 
     float fx = su * (float)t.width  - 0.5f;
     float fy = sv * (float)t.height - 0.5f;
@@ -353,10 +381,10 @@ static inline SW_float4 sw_gather_2d(const SW_Texture& t, const SW_Sampler& s,
     int x0 = (int)std::floor(fx);
     int y0 = (int)std::floor(fy);
 
-    SW_float4 s00 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0,   0));
-    SW_float4 s10 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0,   0));
-    SW_float4 s01 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0+1, 0));
-    SW_float4 s11 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0+1, 0));
+    SW_float4 s00 = sw_fetch_border(t, x0,   y0,   bU, bV, s.borderColor);
+    SW_float4 s10 = sw_fetch_border(t, x0+1, y0,   bU, bV, s.borderColor);
+    SW_float4 s01 = sw_fetch_border(t, x0,   y0+1, bU, bV, s.borderColor);
+    SW_float4 s11 = sw_fetch_border(t, x0+1, y0+1, bU, bV, s.borderColor);
 
     const float* c00 = &s00.x;
     const float* c10 = &s10.x;
@@ -371,6 +399,8 @@ static inline SW_float4 sw_gather_2d_cmp(const SW_Texture& t, const SW_Sampler& 
 {
     float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
     float sv = sw_addr(v, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressV));
+    bool bU = (s.addressU == D3D11_TEXTURE_ADDRESS_BORDER);
+    bool bV = (s.addressV == D3D11_TEXTURE_ADDRESS_BORDER);
 
     float fx = su * (float)t.width  - 0.5f;
     float fy = sv * (float)t.height - 0.5f;
@@ -378,10 +408,10 @@ static inline SW_float4 sw_gather_2d_cmp(const SW_Texture& t, const SW_Sampler& 
     int x0 = (int)std::floor(fx);
     int y0 = (int)std::floor(fy);
 
-    SW_float4 s00 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0,   0));
-    SW_float4 s10 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0,   0));
-    SW_float4 s01 = sw_fetch_texel(t, (unsigned)std::max(x0,   0), (unsigned)std::max(y0+1, 0));
-    SW_float4 s11 = sw_fetch_texel(t, (unsigned)std::max(x0+1, 0), (unsigned)std::max(y0+1, 0));
+    SW_float4 s00 = sw_fetch_border(t, x0,   y0,   bU, bV, s.borderColor);
+    SW_float4 s10 = sw_fetch_border(t, x0+1, y0,   bU, bV, s.borderColor);
+    SW_float4 s01 = sw_fetch_border(t, x0,   y0+1, bU, bV, s.borderColor);
+    SW_float4 s11 = sw_fetch_border(t, x0+1, y0+1, bU, bV, s.borderColor);
 
     const float* c00 = &s00.x;
     const float* c10 = &s10.x;

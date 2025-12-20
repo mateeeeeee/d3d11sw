@@ -95,6 +95,10 @@ void BuildStageResources(
         res.smp[i].minLOD          = desc.MinLOD;
         res.smp[i].maxLOD          = desc.MaxLOD;
         res.smp[i].comparisonFunc  = desc.ComparisonFunc;
+        res.smp[i].borderColor[0]  = desc.BorderColor[0];
+        res.smp[i].borderColor[1]  = desc.BorderColor[1];
+        res.smp[i].borderColor[2]  = desc.BorderColor[2];
+        res.smp[i].borderColor[3]  = desc.BorderColor[3];
     }
 }
 
