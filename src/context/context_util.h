@@ -7,6 +7,7 @@
 #include "resources/texture3d.h"
 #include <algorithm>
 #include <cmath>
+#include <bit>
 
 namespace d3d11sw {
 
@@ -233,10 +234,10 @@ inline void UnpackColor(DXGI_FORMAT fmt, const UINT8* src, FLOAT rgba[4])
             break;
         case DXGI_FORMAT_R8G8B8A8_SNORM:
         {
-            rgba[0] = std::max((INT8)src[0] / 127.f, -1.f);
-            rgba[1] = std::max((INT8)src[1] / 127.f, -1.f);
-            rgba[2] = std::max((INT8)src[2] / 127.f, -1.f);
-            rgba[3] = std::max((INT8)src[3] / 127.f, -1.f);
+            rgba[0] = std::fmax((INT8)src[0] / 127.f, -1.f);
+            rgba[1] = std::fmax((INT8)src[1] / 127.f, -1.f);
+            rgba[2] = std::fmax((INT8)src[2] / 127.f, -1.f);
+            rgba[3] = std::fmax((INT8)src[3] / 127.f, -1.f);
             break;
         }
         case DXGI_FORMAT_R8G8B8A8_UINT:

@@ -8,7 +8,7 @@
 namespace d3d11sw {
 
 
-class DXGISwapChainSW : public IDXGISwapChain1, private UnknownBase
+class D3D11SW_API DXGISwapChainSW : public IDXGISwapChain1, private UnknownBase
 {
 public:
     DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc);
