@@ -1358,6 +1358,15 @@ void SWRasterizer::RasterizeTriangle(
 
     Bool depthClip = rsDesc.DepthClipEnable;
     Int numClipDist = static_cast<Int>(vsReflection.numClipDistances);
+    Int numCullDist = static_cast<Int>(vsReflection.numCullDistances);
+
+    for (Int c = 0; c < numCullDist; ++c)
+    {
+        if (tri[0].cullDist[c] < 0.f && tri[1].cullDist[c] < 0.f && tri[2].cullDist[c] < 0.f)
+        {
+            return;
+        }
+    }
 
     Bool needsClip = false;
     for (Int v = 0; v < 3; ++v)

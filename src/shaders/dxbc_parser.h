@@ -62,6 +62,7 @@ struct D3D11SW_ParsedShader
     Bool                                         writesSVDepth  = false;
     Bool                                         usesUAVs       = false;
     Uint32                                       numClipDistances = 0;
+    Uint32                                       numCullDistances = 0;
 };
 
 D3D11SW_TODO(no state, should it be free functions?);

@@ -1191,6 +1191,17 @@ void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
                 }
             }
         }
+        else if (e.svType == D3D_NAME_CULL_DISTANCE)
+        {
+            Int base = e.semanticIndex * 4;
+            for (Int c = 0; c < 4; ++c)
+            {
+                if (e.mask & (1 << c))
+                {
+                    w.Line("out_ptr->cullDist[{}] = out_v[{}].{};", base + c, e.reg, Comp(c));
+                }
+            }
+        }
         else
         {
             w.Line("out_ptr->o[{}] = out_v[{}];", e.reg, e.reg);
