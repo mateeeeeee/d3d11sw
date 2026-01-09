@@ -1,5 +1,6 @@
 #pragma once
 #include <dxgiformat.h>
+#include <d3d11.h>
 #include <algorithm>
 #include "util/align.h"
 
@@ -237,4 +238,7 @@ namespace d3d11sw
         default:                                   return "INVALID";
         }
     }
+
+    UINT GetFormatSupport(DXGI_FORMAT format);
+    HRESULT ValidateTextureBindFlags(DXGI_FORMAT format, UINT bindFlags, Bool depthStencilAllowed);
 }

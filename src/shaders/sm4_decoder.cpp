@@ -3,7 +3,7 @@
 
 namespace d3d11sw {
 
-Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& op) const
+static Uint32 ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& op)
 {
     Uint32 t0       = tokens[offset];
     Uint32 consumed = 1;
@@ -125,11 +125,11 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
     return consumed;
 }
 
-Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
-                         std::vector<SM4Instruction>& out,
-                         Uint32& numTempsOut,
-                         Uint32  threadGroupSizeOut[3],
-                         std::vector<D3D11SW_TGSMDecl>& tgsmOut)
+Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
+               std::vector<SM4Instruction>& out,
+               Uint32& numTempsOut,
+               Uint32  threadGroupSizeOut[3],
+               std::vector<D3D11SW_TGSMDecl>& tgsmOut)
 {
     numTempsOut = 0;
     threadGroupSizeOut[0] = threadGroupSizeOut[1] = threadGroupSizeOut[2] = 1;
@@ -261,4 +261,4 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
     return true;
 }
 
-} 
+}

@@ -147,9 +147,8 @@ void* ShaderJIT::GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderTyp
 
     if (!fn)
     {
-        DXBCParser parser;
         D3D11SW_ParsedShader parsed;
-        if (!parser.Parse(bytecode, len, parsed))
+        if (!DXBCParse(bytecode, len, parsed))
         {
             D3D11SW_ERROR("ShaderJIT: DXBC parse failed");
             _cache[hash] = nullptr;

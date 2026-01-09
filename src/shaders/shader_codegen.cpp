@@ -784,7 +784,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto uv = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_sample_2d(res->tex[{}],res->smp[{}],({}).x,({}).y)",
+                std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
                             src1->indices[0], src2->indices[0], uv, uv), sat);
         }
         break;
@@ -796,7 +796,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto uv = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_sample_2d(res->tex[{}],res->smp[{}],({}).x,({}).y)",
+                std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
                             src1->indices[0], src2->indices[0], uv, uv), sat);
         }
         break;
@@ -808,7 +808,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             auto uv  = EmitSrc(*src0);
             auto ref = EmitSrc(*src3);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_sample_2d_cmp(res->tex[{}],res->smp[{}],({}).x,({}).y,({}).x)",
+                std::format("sw_sample_2d_cmp(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
                             src1->indices[0], src2->indices[0], uv, uv, ref), sat);
         }
         break;
@@ -819,7 +819,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             auto uv   = EmitSrc(*src0);
             int  comp = src1->swizzle[0];
             EmitWrite(w, dstBase, mask,
-                std::format("sw_gather_2d(res->tex[{}],res->smp[{}],({}).x,({}).y,{})",
+                std::format("sw_gather_2d(res->srv[{}],res->smp[{}],({}).x,({}).y,{})",
                             src1->indices[0], src2->indices[0], uv, uv, comp), sat);
         }
         break;
@@ -831,7 +831,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             auto ref  = EmitSrc(*src3);
             int  comp = src1->swizzle[0];
             EmitWrite(w, dstBase, mask,
-                std::format("sw_gather_2d_cmp(res->tex[{}],res->smp[{}],({}).x,({}).y,({}).x,{})",
+                std::format("sw_gather_2d_cmp(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x,{})",
                             src1->indices[0], src2->indices[0], uv, uv, ref, comp), sat);
         }
         break;
@@ -841,7 +841,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto coord = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_fetch_texel_3d(res->tex[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),sw_bits_uint(({}).z))",
+                std::format("sw_fetch_texel_3d(res->srv[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),sw_bits_uint(({}).z))",
                             src1->indices[0], coord, coord, coord), sat);
         }
         break;
@@ -877,7 +877,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             else if (src1->type == D3D10_SB_OPERAND_TYPE_RESOURCE)
             {
-                ref = std::format("res->tex[{}]", src1->indices[0]);
+                ref = std::format("res->srv[{}]", src1->indices[0]);
                 fn  = "sw_srv_load_raw";
             }
             else
@@ -938,7 +938,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             else if (src2->type == D3D10_SB_OPERAND_TYPE_RESOURCE)
             {
-                ref = std::format("res->tex[{}]", src2->indices[0]);
+                ref = std::format("res->srv[{}]", src2->indices[0]);
                 fn  = "sw_srv_load_structured";
             }
             else
@@ -1113,7 +1113,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
                 fn = "sw_resinfo_uint";
             }
             EmitWrite(w, dstBase, mask,
-                std::format("{}(res->tex[{}])", fn, src1->indices[0]), sat);
+                std::format("{}(res->srv[{}])", fn, src1->indices[0]), sat);
         }
         break;
 

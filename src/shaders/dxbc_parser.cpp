@@ -5,8 +5,8 @@
 
 namespace d3d11sw {
 
-Bool DXBCParser::ParseSignatureChunk(const Uint8* data, Usize size,
-                                      std::vector<D3D11SW_ShaderSignatureElement>& out)
+static Bool ParseSignatureChunk(const Uint8* data, Usize size,
+                                std::vector<D3D11SW_ShaderSignatureElement>& out)
 {
     if (size < 8)
     {
@@ -47,7 +47,21 @@ Bool DXBCParser::ParseSignatureChunk(const Uint8* data, Usize size,
     return true;
 }
 
-Bool DXBCParser::ParseRdefChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out)
+static D3D11SW_ShaderType ShaderTypeFromRdef(Uint16 shaderType)
+{
+    switch (shaderType)
+    {
+        case RDEF_SHTYPE_PS: return D3D11SW_ShaderType::Pixel;
+        case RDEF_SHTYPE_VS: return D3D11SW_ShaderType::Vertex;
+        case RDEF_SHTYPE_GS: return D3D11SW_ShaderType::Geometry;
+        case RDEF_SHTYPE_HS: return D3D11SW_ShaderType::Hull;
+        case RDEF_SHTYPE_DS: return D3D11SW_ShaderType::Domain;
+        case RDEF_SHTYPE_CS: return D3D11SW_ShaderType::Compute;
+        default:             return D3D11SW_ShaderType::Unknown;
+    }
+}
+
+static Bool ParseRdefChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out)
 {
     if (size < sizeof(DXBCRdefHeader))
     {
@@ -103,7 +117,7 @@ Bool DXBCParser::ParseRdefChunk(const Uint8* data, Usize size, D3D11SW_ParsedSha
     return true;
 }
 
-Bool DXBCParser::ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out)
+static Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out)
 {
     if (size < 8)
     {
@@ -113,10 +127,9 @@ Bool DXBCParser::ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedS
     const Uint32* tokens    = reinterpret_cast<const Uint32*>(data);
     Uint32        numDwords = static_cast<Uint32>(size / 4);
 
-    SM4Decoder decoder;
     Uint32 threadGroup[3] = {1, 1, 1};
-    if (!decoder.Decode(tokens, numDwords, out.instrs, out.numTemps, threadGroup,
-                        out.tgsm))
+    if (!SM4Decode(tokens, numDwords, out.instrs, out.numTemps, threadGroup,
+                   out.tgsm))
     {
         return false;
     }
@@ -146,7 +159,7 @@ Bool DXBCParser::ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedS
     return true;
 }
 
-Bool DXBCParser::ParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& out)
+Bool DXBCParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& out)
 {
     if (!bytecode || len < sizeof(DXBCContainerHeader) + 4)
     {
@@ -201,9 +214,9 @@ Bool DXBCParser::ParseReflection(const void* bytecode, Usize len, D3D11SW_Parsed
     return true;
 }
 
-Bool DXBCParser::Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out)
+Bool DXBCParse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out)
 {
-    if (!ParseReflection(bytecode, len, out))
+    if (!DXBCParseReflection(bytecode, len, out))
     {
         return false;
     }
@@ -267,18 +280,4 @@ Bool DXBCParser::Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& ou
     return true;
 }
 
-D3D11SW_ShaderType DXBCParser::ShaderTypeFromRdef(Uint16 shaderType)
-{
-    switch (shaderType)
-    {
-        case RDEF_SHTYPE_PS: return D3D11SW_ShaderType::Pixel;
-        case RDEF_SHTYPE_VS: return D3D11SW_ShaderType::Vertex;
-        case RDEF_SHTYPE_GS: return D3D11SW_ShaderType::Geometry;
-        case RDEF_SHTYPE_HS: return D3D11SW_ShaderType::Hull;
-        case RDEF_SHTYPE_DS: return D3D11SW_ShaderType::Domain;
-        case RDEF_SHTYPE_CS: return D3D11SW_ShaderType::Compute;
-        default:             return D3D11SW_ShaderType::Unknown;
-    }
 }
-
-} 

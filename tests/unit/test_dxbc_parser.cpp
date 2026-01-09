@@ -107,17 +107,15 @@ struct DXBCParserTests : ::testing::Test {};
 
 TEST_F(DXBCParserTests, NullInputFails)
 {
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    EXPECT_FALSE(parser.ParseReflection(nullptr, 0, out));
+    EXPECT_FALSE(DXBCParseReflection(nullptr, 0, out));
 }
 
 TEST_F(DXBCParserTests, TooSmallFails)
 {
     Uint8 tiny[4] = {0x44, 0x58, 0x42, 0x43}; // just "DXBC"
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    EXPECT_FALSE(parser.ParseReflection(tiny, sizeof(tiny), out));
+    EXPECT_FALSE(DXBCParseReflection(tiny, sizeof(tiny), out));
 }
 
 TEST_F(DXBCParserTests, WrongMagicFails)
@@ -126,27 +124,24 @@ TEST_F(DXBCParserTests, WrongMagicFails)
     auto blob = BuildDXBCBlob(FOURCC_SHDR, DwordsToBytes(tokens));
     blob[0] = 0xFF; // corrupt magic
 
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    EXPECT_FALSE(parser.ParseReflection(blob.data(), blob.size(), out));
+    EXPECT_FALSE(DXBCParseReflection(blob.data(), blob.size(), out));
 }
 
 TEST_F(DXBCParserTests, ParseShdrChunkSucceeds)
 {
     auto blob = BuildDXBCBlob(FOURCC_SHDR, DwordsToBytes(MakeMinimalVSTokens()));
 
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    EXPECT_TRUE(parser.Parse(blob.data(), blob.size(), out));
+    EXPECT_TRUE(DXBCParse(blob.data(), blob.size(), out));
 }
 
 TEST_F(DXBCParserTests, ParseShdrDecodesTemps)
 {
     auto blob = BuildDXBCBlob(FOURCC_SHDR, DwordsToBytes(MakeMinimalVSTokens()));
 
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
+    ASSERT_TRUE(DXBCParse(blob.data(), blob.size(), out));
     EXPECT_EQ(out.numTemps, 1u);
 }
 
@@ -154,9 +149,8 @@ TEST_F(DXBCParserTests, ParseShdrInstructionCount)
 {
     auto blob = BuildDXBCBlob(FOURCC_SHDR, DwordsToBytes(MakeMinimalVSTokens()));
 
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
+    ASSERT_TRUE(DXBCParse(blob.data(), blob.size(), out));
 
     // mov + ret = 2 instructions (dcl_temps not stored)
     EXPECT_EQ(out.instrs.size(), 2u);
@@ -166,9 +160,8 @@ TEST_F(DXBCParserTests, ParseShdrMovOpcode)
 {
     auto blob = BuildDXBCBlob(FOURCC_SHDR, DwordsToBytes(MakeMinimalVSTokens()));
 
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
+    ASSERT_TRUE(DXBCParse(blob.data(), blob.size(), out));
 
     EXPECT_EQ(out.instrs[0].op, D3D10_SB_OPCODE_MOV);
 }
@@ -177,9 +170,8 @@ TEST_F(DXBCParserTests, ParseShdrMovOperands)
 {
     auto blob = BuildDXBCBlob(FOURCC_SHDR, DwordsToBytes(MakeMinimalVSTokens()));
 
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    ASSERT_TRUE(parser.Parse(blob.data(), blob.size(), out));
+    ASSERT_TRUE(DXBCParse(blob.data(), blob.size(), out));
 
     const SM4Instruction& mov = out.instrs[0];
     ASSERT_EQ(mov.operands.size(), 2u);
@@ -202,9 +194,8 @@ TEST_F(DXBCParserTests, ParseISGNOneElement)
 {
     auto blob = BuildDXBCBlob(FOURCC_ISGN, MakeISGNPayload());
 
-    DXBCParser parser;
     D3D11SW_ParsedShader out;
-    ASSERT_TRUE(parser.ParseReflection(blob.data(), blob.size(), out));
+    ASSERT_TRUE(DXBCParseReflection(blob.data(), blob.size(), out));
 
     ASSERT_EQ(out.inputs.size(), 1u);
     EXPECT_STREQ(out.inputs[0].name, "POSITION");
@@ -219,12 +210,11 @@ struct SM4DecoderTests : ::testing::Test {};
 
 TEST_F(SM4DecoderTests, EmptyStreamFails)
 {
-    SM4Decoder decoder;
     std::vector<SM4Instruction> out;
     std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    EXPECT_FALSE(decoder.Decode(nullptr, 0, out, numTemps, tgs, tgsmDecls));
+    EXPECT_FALSE(SM4Decode(nullptr, 0, out, numTemps, tgs, tgsmDecls));
 }
 
 TEST_F(SM4DecoderTests, RetOnly)
@@ -235,12 +225,11 @@ TEST_F(SM4DecoderTests, RetOnly)
         0x0100003E,  // ret
     };
 
-    SM4Decoder decoder;
     std::vector<SM4Instruction> out;
     std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    EXPECT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), out, numTemps, tgs, tgsmDecls));
+    EXPECT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), out, numTemps, tgs, tgsmDecls));
     ASSERT_EQ(out.size(), 1u);
     EXPECT_EQ(out[0].op, D3D10_SB_OPCODE_RET);
 }
@@ -248,12 +237,11 @@ TEST_F(SM4DecoderTests, RetOnly)
 TEST_F(SM4DecoderTests, DclTempsExtractsCount)
 {
     auto tokens = MakeMinimalVSTokens();
-    SM4Decoder decoder;
     std::vector<SM4Instruction> instrs;
     std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    ASSERT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
+    ASSERT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
     EXPECT_EQ(numTemps, 1u);
 }
 
@@ -271,12 +259,11 @@ TEST_F(SM4DecoderTests, DclThreadGroupExtractsSize)
         ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_RET) | ENCODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(1),
     };
 
-    SM4Decoder decoder;
     std::vector<SM4Instruction> instrs;
     std::vector<D3D11SW_TGSMDecl> tgsmDecls;
     Uint32 numTemps = 0;
     Uint32 tgs[3]   = {};
-    ASSERT_TRUE(decoder.Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
+    ASSERT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
     EXPECT_EQ(tgs[0], 8u);
     EXPECT_EQ(tgs[1], 1u);
     EXPECT_EQ(tgs[2], 1u);

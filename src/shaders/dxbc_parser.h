@@ -29,20 +29,20 @@ struct D3D11SW_ShaderSignatureElement
 struct D3D11SW_CBufBinding
 {
     Uint32 slot;
-    Uint32 sizeVec4s; 
+    Uint32 sizeVec4s;
 };
 
 struct D3D11SW_TexBinding
 {
     Uint32 slot;
-    Uint32 dimension; 
+    Uint32 dimension;
 };
 
 struct D3D11SW_TGSMDecl
 {
     Uint32 slot;
-    Uint32 size;    
-    Uint32 stride;  
+    Uint32 size;
+    Uint32 stride;
 };
 
 struct D3D11SW_ParsedShader
@@ -65,20 +65,7 @@ struct D3D11SW_ParsedShader
     Uint32                                       numCullDistances = 0;
 };
 
-D3D11SW_TODO(no state, should it be free functions?);
-class D3D11SW_API DXBCParser
-{
-public:
-    Bool Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out);
-    Bool ParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& out);
+D3D11SW_API Bool DXBCParse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out);
+D3D11SW_API Bool DXBCParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& out);
 
-private:
-    Bool ParseSignatureChunk(const Uint8* data, Usize size,
-                             std::vector<D3D11SW_ShaderSignatureElement>& out);
-    Bool ParseRdefChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out);
-    Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& out);
-
-    D3D11SW_ShaderType ShaderTypeFromRdef(Uint16 shaderType);
-};
-
-} 
+}

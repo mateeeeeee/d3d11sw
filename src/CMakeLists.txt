@@ -22,6 +22,8 @@ set(D3D11SW_SOURCES
     context/dispatcher.cpp
     context/rasterizer.h
     context/rasterizer.cpp
+    context/depth_stencil_util.h
+    context/blend_util.h
 
     resources/buffer.cpp
     resources/buffer.h
@@ -104,6 +106,7 @@ set(D3D11SW_SOURCES
     util/align.h
     util/enum.h
     util/format.h
+    util/format.cpp
     util/hash.h
     util/dynamic_library.h
     util/dynamic_library.cpp

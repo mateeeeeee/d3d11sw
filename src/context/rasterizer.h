@@ -1,5 +1,6 @@
 #pragma once
 #include "context/pipeline_state.h"
+#include "context/depth_stencil_util.h"
 #include "shaders/shader_abi.h"
 #include "shaders/dxbc_parser.h"
 #include <memory>
@@ -22,15 +23,6 @@ public:
     void DrawIndexed(Uint indexCount, Uint startIndex, Int baseVertex,
                      Uint instanceCount, Uint startInstance,
                      D3D11SW_PIPELINE_STATE& state);
-
-    static Uint8 ApplyStencilOp(D3D11_STENCIL_OP op, Uint8 curVal, Uint8 ref);
-    static Bool CompareStencil(D3D11_COMPARISON_FUNC func, Uint8 ref, Uint8 val);
-    static Bool CompareDepth(D3D11_COMPARISON_FUNC func, Float src, Float dst);
-    static Float ReadDepthValue(DXGI_FORMAT fmt, const Uint8* src);
-    static void WriteDepthValue(DXGI_FORMAT fmt, Uint8* dst, Float depth);
-    static Uint8 ReadStencilValue(DXGI_FORMAT fmt, const Uint8* src);
-    static void WriteStencilValue(DXGI_FORMAT fmt, Uint8* dst, Uint8 val);
-    static Uint8 ApplyLogicOp(D3D11_LOGIC_OP op, Uint8 src, Uint8 dst);
 
     struct RTInfo
     {
@@ -127,12 +119,6 @@ private:
                               const SW_float4& color, const SW_float4& src1Color);
     static UINT8 ReadStencil(const OMState& om, Int px, Int py);
     static void WriteStencil(OMState& om, Int px, Int py, Uint8 val);
-
-    static UINT DepthPixelStride(DXGI_FORMAT fmt);
-    static Bool FormatHasStencil(DXGI_FORMAT fmt);
-    static Float ComputeBlendFactor(D3D11_BLEND factor, const Float src[4], const Float dst[4],
-                                    const Float blendFactor[4], Int comp, const Float src1[4]);
-    static Float ComputeBlendOp(D3D11_BLEND_OP op, Float srcTerm, Float dstTerm);
 
     static Int FindSemanticRegister(const std::vector<D3D11SW_ShaderSignatureElement>& sig,
                                     const Char* name, Uint32 semIdx);
