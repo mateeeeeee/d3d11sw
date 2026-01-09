@@ -247,9 +247,17 @@ inline std::map<std::string, double> LoadResultsFile(const char* path)
     return data;
 }
 
+inline bool ShouldSaveResults()
+{
+    const char* env = std::getenv("D3D11SW_PERF_RESULTS");
+    return env && std::strcmp(env, "1") == 0;
+}
+
 inline std::string FindLatestResultsFile()
 {
     std::string cpuPrefix = SanitizeForFilename(GetCpuName()) + "_";
+    std::string currentHash = RunCommand("git rev-parse --short HEAD");
+    std::string currentSuffix = "_" + currentHash + ".txt";
     std::filesystem::path dir(D3D11SW_PERF_RESULTS_DIR);
     std::error_code ec;
     if (!std::filesystem::is_directory(dir, ec))
@@ -269,6 +277,12 @@ inline std::string FindLatestResultsFile()
         if (name.size() > cpuPrefix.size() &&
             name.substr(0, cpuPrefix.size()) == cpuPrefix)
         {
+            if (ShouldSaveResults() &&
+                name.size() >= currentSuffix.size() &&
+                name.substr(name.size() - currentSuffix.size()) == currentSuffix)
+            {
+                continue;
+            }
             auto mtime = entry.last_write_time(ec);
             if (!ec && (best.empty() || mtime > bestTime))
             {
@@ -346,12 +360,6 @@ inline void PrintFooter()
         "------------------------------", "--------",
         "------------", "------------", "------------",
         "------------", "------------");
-}
-
-inline bool ShouldSaveResults()
-{
-    const char* env = std::getenv("D3D11SW_PERF_RESULTS");
-    return env && std::strcmp(env, "1") == 0;
 }
 
 inline std::string& GetResultsFilePath()

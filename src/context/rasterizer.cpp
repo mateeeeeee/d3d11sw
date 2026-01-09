@@ -32,7 +32,7 @@ SWRasterizer::Config SWRasterizer::Config::FromEnv()
     cfg.tiling       = GetEnvBool("D3D11SW_TILING", true);
     cfg.tileSize     = GetEnvInt("D3D11SW_TILE_SIZE", 16);
     cfg.tileThreads  = GetEnvInt("D3D11SW_TILE_THREADS", -1);
-    cfg.guardBandK   = GetEnvFloat("D3D11SW_GUARD_BAND_K", 1.f);
+    cfg.guardBandK   = GetEnvFloat("D3D11SW_GUARD_BAND_K", 16.f);
     if (cfg.tileSize < 4 || (cfg.tileSize & (cfg.tileSize - 1)) != 0)
     {
         cfg.tileSize = 16;
@@ -1190,7 +1190,7 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
     for (Int v = 0; v < 3; ++v)
     {
         const auto& p = in[v].pos;
-        if (depthClip && p.w < NearEpsilon) { anyNear = true; break; }
+        if (p.w < NearEpsilon) { anyNear = true; break; }
         Float Kw = guardBandK * p.w;
         if (p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
             || (depthClip && p.z > p.w))
@@ -1364,7 +1364,7 @@ void SWRasterizer::RasterizeTriangle(
     {
         const auto& p = tri[v].pos;
         Float Kw = _config.guardBandK * p.w;
-        if ((depthClip && p.w < NearEpsilon)
+        if (p.w < NearEpsilon
             || p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
             || (depthClip && p.z > p.w))
         {
@@ -1383,7 +1383,7 @@ void SWRasterizer::RasterizeTriangle(
         {
             for (Int v = 0; v < 3; ++v)
             {
-                if (depthClip && tri[v].pos.w < NearEpsilon)
+                if (tri[v].pos.w < NearEpsilon)
                 {
                     return;
                 }
