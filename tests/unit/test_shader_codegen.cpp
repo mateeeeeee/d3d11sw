@@ -5,7 +5,7 @@
 
 using namespace d3d11sw;
 
-static SM4Instruction MakeInstr(SM4OpCode op,
+static SM4Instruction MakeInstr(D3D10_SB_OPCODE_TYPE op,
                                   std::vector<SM4Operand> operands = {},
                                   Bool sat = false)
 {

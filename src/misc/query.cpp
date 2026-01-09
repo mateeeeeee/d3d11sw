@@ -162,7 +162,7 @@ void D3D11QuerySW::End()
     if (_desc.Query == D3D11_QUERY_TIMESTAMP)
     {
         auto now = std::chrono::steady_clock::now();
-        _timestamp = static_cast<UINT64>(now.time_since_epoch().count());
+        _timestamp = static_cast<Uint64>(now.time_since_epoch().count());
         using period = std::chrono::steady_clock::period;
         _timestamp = _timestamp * period::num * (1'000'000'000 / period::den);
     }
@@ -198,7 +198,7 @@ HRESULT D3D11QuerySW::GetData(void* pData, UINT DataSize)
         {
             return E_INVALIDARG;
         }
-        D3D11_QUERY_DATA_TIMESTAMP_DISJOINT data;
+        D3D11_QUERY_DATA_TIMESTAMP_DISJOINT data{};
         data.Frequency = 1'000'000'000;
         data.Disjoint  = FALSE;
         std::memcpy(pData, &data, sizeof(data));
@@ -207,7 +207,9 @@ HRESULT D3D11QuerySW::GetData(void* pData, UINT DataSize)
     case D3D11_QUERY_EVENT:
     {
         if (DataSize < sizeof(BOOL))
+        {
             return E_INVALIDARG;
+        }
         BOOL done = TRUE;
         std::memcpy(pData, &done, sizeof(BOOL));
         return S_OK;

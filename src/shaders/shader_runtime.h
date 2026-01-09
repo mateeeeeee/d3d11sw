@@ -194,7 +194,7 @@ static inline float sw_addr(float u, D3D11_TEXTURE_ADDRESS_MODE mode)
     }
 }
 
-static inline SW_float4 sw_fetch_texel(const SW_Texture& t, unsigned x, unsigned y)
+static inline SW_float4 sw_fetch_texel(const SW_SRV& t, unsigned x, unsigned y)
 {
     x = std::min(x, t.width  ? t.width  - 1 : 0u);
     y = std::min(y, t.height ? t.height - 1 : 0u);
@@ -231,7 +231,7 @@ static inline SW_float4 sw_fetch_texel(const SW_Texture& t, unsigned x, unsigned
     }
 }
 
-static inline SW_float4 sw_fetch_border(const SW_Texture& t, int x, int y,
+static inline SW_float4 sw_fetch_border(const SW_SRV& t, int x, int y,
                                          bool borderU, bool borderV, const float bc[4])
 {
     if ((borderU && (x < 0 || x >= (int)t.width)) ||
@@ -243,7 +243,7 @@ static inline SW_float4 sw_fetch_border(const SW_Texture& t, int x, int y,
                              (unsigned)std::clamp(y, 0, std::max((int)t.height - 1, 0)));
 }
 
-static inline SW_float4 sw_fetch_texel_3d(const SW_Texture& t, unsigned x, unsigned y, unsigned z)
+static inline SW_float4 sw_fetch_texel_3d(const SW_SRV& t, unsigned x, unsigned y, unsigned z)
 {
     z = std::min(z, t.depth ? t.depth - 1 : 0u);
     y = std::min(y, t.height ? t.height - 1 : 0u);
@@ -282,12 +282,12 @@ static inline SW_float4 sw_fetch_texel_3d(const SW_Texture& t, unsigned x, unsig
     }
 }
 
-static inline SW_float4 sw_resinfo_float(const SW_Texture& t)
+static inline SW_float4 sw_resinfo_float(const SW_SRV& t)
 {
     return { (float)t.width, (float)t.height, (float)t.depth, (float)t.mipLevels };
 }
 
-static inline SW_float4 sw_resinfo_rcpfloat(const SW_Texture& t)
+static inline SW_float4 sw_resinfo_rcpfloat(const SW_SRV& t)
 {
     return {
         t.width  ? 1.f / (float)t.width  : 0.f,
@@ -297,7 +297,7 @@ static inline SW_float4 sw_resinfo_rcpfloat(const SW_Texture& t)
     };
 }
 
-static inline SW_float4 sw_resinfo_uint(const SW_Texture& t)
+static inline SW_float4 sw_resinfo_uint(const SW_SRV& t)
 {
     return { sw_uint_bits(t.width), sw_uint_bits(t.height), sw_uint_bits(t.depth), sw_uint_bits(t.mipLevels) };
 }
@@ -307,7 +307,7 @@ static inline SW_float4 sw_bufinfo(const SW_UAV& u)
     return { sw_uint_bits(u.elementCount), 0.f, 0.f, 0.f };
 }
 
-static inline SW_float4 sw_sample_2d(const SW_Texture& t, const SW_Sampler& s,
+static inline SW_float4 sw_sample_2d(const SW_SRV& t, const SW_Sampler& s,
                                       float u, float v)
 {
     float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
@@ -359,7 +359,7 @@ static inline float sw_apply_cmp(D3D11_COMPARISON_FUNC fn, float val, float ref)
     }
 }
 
-static inline SW_float4 sw_sample_2d_cmp(const SW_Texture& t, const SW_Sampler& s,
+static inline SW_float4 sw_sample_2d_cmp(const SW_SRV& t, const SW_Sampler& s,
                                           float u, float v, float ref)
 {
     SW_float4 c = sw_sample_2d(t, s, u, v);
@@ -367,7 +367,7 @@ static inline SW_float4 sw_sample_2d_cmp(const SW_Texture& t, const SW_Sampler& 
     return { r, r, r, r };
 }
 
-static inline SW_float4 sw_gather_2d(const SW_Texture& t, const SW_Sampler& s,
+static inline SW_float4 sw_gather_2d(const SW_SRV& t, const SW_Sampler& s,
                                       float u, float v, int comp)
 {
     float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
@@ -394,7 +394,7 @@ static inline SW_float4 sw_gather_2d(const SW_Texture& t, const SW_Sampler& s,
     return { c01[comp], c11[comp], c10[comp], c00[comp] };
 }
 
-static inline SW_float4 sw_gather_2d_cmp(const SW_Texture& t, const SW_Sampler& s,
+static inline SW_float4 sw_gather_2d_cmp(const SW_SRV& t, const SW_Sampler& s,
                                           float u, float v, float ref, int comp)
 {
     float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
@@ -522,7 +522,7 @@ static inline SW_float4 sw_uav_load_raw(const SW_UAV& u, unsigned byteOffset)
     return { f, f, f, f };
 }
 
-static inline SW_float4 sw_srv_load_raw(const SW_Texture& t, unsigned byteOffset)
+static inline SW_float4 sw_srv_load_raw(const SW_SRV& t, unsigned byteOffset)
 {
     if (!t.data) { return {0,0,0,0}; }
     unsigned v;
@@ -548,7 +548,7 @@ static inline SW_float4 sw_uav_load_structured(const SW_UAV& u, unsigned idx, un
     return { f, f, f, f };
 }
 
-static inline SW_float4 sw_srv_load_structured(const SW_Texture& t, unsigned idx, unsigned byteOffset)
+static inline SW_float4 sw_srv_load_structured(const SW_SRV& t, unsigned idx, unsigned byteOffset)
 {
     if (!t.data || !t.stride) { return {0,0,0,0}; }
     unsigned base = idx * t.stride + byteOffset;

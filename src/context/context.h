@@ -175,7 +175,7 @@ public:
 private:
     D3D11SW_PIPELINE_STATE  _state{};
     SWDispatcher            _dispatcher;
-    SWRasterizer                _rasterizer;
+    SWRasterizer            _rasterizer;
 };
 
 }

@@ -120,10 +120,10 @@ Bool DXBCParser::ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedS
     {
         return false;
     }
+
     out.threadGroupX  = threadGroup[0];
     out.threadGroupY  = threadGroup[1];
     out.threadGroupZ  = threadGroup[2];
-
     for (const auto& instr : out.instrs)
     {
         if (instr.op == D3D10_SB_OPCODE_DISCARD)
@@ -154,10 +154,8 @@ Bool DXBCParser::ParseReflection(const void* bytecode, Usize len, D3D11SW_Parsed
     }
 
     const Uint8* base = static_cast<const Uint8*>(bytecode);
-
     DXBCContainerHeader hdr{};
     std::memcpy(&hdr, base, sizeof(DXBCContainerHeader));
-
     if (hdr.magic != DXBC_MAGIC)
     {
         return false;
@@ -172,7 +170,6 @@ Bool DXBCParser::ParseReflection(const void* bytecode, Usize len, D3D11SW_Parsed
     }
 
     const Uint32* offsets = reinterpret_cast<const Uint32*>(base + sizeof(DXBCContainerHeader));
-
     out = {};
     out.threadGroupX = out.threadGroupY = out.threadGroupZ = 1;
     for (Uint32 c = 0; c < hdr.chunkCount; ++c)
@@ -185,7 +182,6 @@ Bool DXBCParser::ParseReflection(const void* bytecode, Usize len, D3D11SW_Parsed
 
         DXBCChunkHeader chdr{};
         std::memcpy(&chdr, base + chunkOff, sizeof(DXBCChunkHeader));
-
         const Uint8* cdata = base + chunkOff + sizeof(DXBCChunkHeader);
         Usize        csz   = chdr.size;
         if (chdr.fourCC == FOURCC_ISGN)
@@ -215,7 +211,6 @@ Bool DXBCParser::Parse(const void* bytecode, Usize len, D3D11SW_ParsedShader& ou
     const Uint8* base = static_cast<const Uint8*>(bytecode);
     DXBCContainerHeader hdr{};
     std::memcpy(&hdr, base, sizeof(DXBCContainerHeader));
-
     const Uint32* offsets = reinterpret_cast<const Uint32*>(base + sizeof(DXBCContainerHeader));
     for (Uint32 c = 0; c < hdr.chunkCount; ++c)
     {

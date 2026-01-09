@@ -28,8 +28,7 @@ HRESULT STDMETHODCALLTYPE D3D11SamplerStateSW::QueryInterface(REFIID riid, void*
     return S_OK;
 }
 
-D3D11SamplerStateSW::D3D11SamplerStateSW(ID3D11Device* device)
-    : DeviceChildImpl(device) {}
+D3D11SamplerStateSW::D3D11SamplerStateSW(ID3D11Device* device) : DeviceChildImpl(device) {}
 
 HRESULT D3D11SamplerStateSW::Init(const D3D11_SAMPLER_DESC* pDesc)
 {

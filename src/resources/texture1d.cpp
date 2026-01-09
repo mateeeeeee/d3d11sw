@@ -48,7 +48,7 @@ HRESULT D3D11Texture1DSW::Init(
     if (_desc.MipLevels == 0)
     {
         _desc.MipLevels = 1;
-        for (UINT w = _desc.Width; w > 1; w >>= 1) 
+        for (Uint w = _desc.Width; w > 1; w >>= 1)
         {
             ++_desc.MipLevels;
         }

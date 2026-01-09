@@ -47,7 +47,6 @@ HRESULT D3D11BufferSW::Init(
 
     _desc = *pDesc;
     _data.resize(pDesc->ByteWidth, 0); 
-
     if (pInitialData && pInitialData->pSysMem)
     {
         std::memcpy(_data.data(), pInitialData->pSysMem, pDesc->ByteWidth);

@@ -36,8 +36,7 @@ HRESULT STDMETHODCALLTYPE D3D11RasterizerStateSW::QueryInterface(REFIID riid, vo
     return S_OK;
 }
 
-D3D11RasterizerStateSW::D3D11RasterizerStateSW(ID3D11Device* device)
-    : DeviceChildImpl(device) {}
+D3D11RasterizerStateSW::D3D11RasterizerStateSW(ID3D11Device* device) : DeviceChildImpl(device) {}
 
 HRESULT D3D11RasterizerStateSW::Init(const D3D11_RASTERIZER_DESC2* pDesc)
 {

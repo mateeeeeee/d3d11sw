@@ -22,8 +22,7 @@ SW_CSFn D3D11ComputeShaderSW::GetJitFn()
 {
     if (!_compiled)
     {
-        void* fn = GetShaderJIT().GetOrCompile(
-            _bytecode.data(), _bytecode.size(), D3D11SW_ShaderType::Compute);
+        void* fn = GetShaderJIT().GetOrCompile(_bytecode.data(), _bytecode.size(), D3D11SW_ShaderType::Compute);
         _jitFn    = reinterpret_cast<SW_CSFn>(fn);
         _compiled = true;
     }
@@ -32,7 +31,11 @@ SW_CSFn D3D11ComputeShaderSW::GetJitFn()
 
 HRESULT STDMETHODCALLTYPE D3D11ComputeShaderSW::QueryInterface(REFIID riid, void** ppv)
 {
-    if (!ppv) { return E_POINTER; }
+    if (!ppv) 
+    { 
+        return E_POINTER; 
+    }
+
     *ppv = nullptr;
     if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11ComputeShader))
     {

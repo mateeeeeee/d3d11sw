@@ -32,8 +32,7 @@ HRESULT STDMETHODCALLTYPE D3D11BlendStateSW::QueryInterface(REFIID riid, void** 
     return S_OK;
 }
 
-D3D11BlendStateSW::D3D11BlendStateSW(ID3D11Device* device)
-    : DeviceChildImpl(device) {}
+D3D11BlendStateSW::D3D11BlendStateSW(ID3D11Device* device) : DeviceChildImpl(device) {}
 
 HRESULT D3D11BlendStateSW::Init(const D3D11_BLEND_DESC1* pDesc)
 {

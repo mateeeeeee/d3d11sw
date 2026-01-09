@@ -52,7 +52,7 @@ HRESULT D3D11Texture2DSW::Init(
     if (_desc.MipLevels == 0)
     {
         _desc.MipLevels = 1;
-        for (UINT dim = std::max(_desc.Width, _desc.Height); dim > 1; dim >>= 1)
+        for (Uint dim = std::max(_desc.Width, _desc.Height); dim > 1; dim >>= 1)
         {
             ++_desc.MipLevels;
         }

@@ -22,8 +22,7 @@ SW_VSFn D3D11VertexShaderSW::GetJitFn()
 {
     if (!_compiled)
     {
-        void* fn = GetShaderJIT().GetOrCompile(
-            _bytecode.data(), _bytecode.size(), D3D11SW_ShaderType::Vertex);
+        void* fn = GetShaderJIT().GetOrCompile(_bytecode.data(), _bytecode.size(), D3D11SW_ShaderType::Vertex);
         _jitFn = reinterpret_cast<SW_VSFn>(fn);
         _compiled = true;
     }
@@ -32,7 +31,11 @@ SW_VSFn D3D11VertexShaderSW::GetJitFn()
 
 HRESULT STDMETHODCALLTYPE D3D11VertexShaderSW::QueryInterface(REFIID riid, void** ppv)
 {
-    if (!ppv) { return E_POINTER; }
+    if (!ppv) 
+    { 
+        return E_POINTER; 
+    }
+
     *ppv = nullptr;
     if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11VertexShader))
     {

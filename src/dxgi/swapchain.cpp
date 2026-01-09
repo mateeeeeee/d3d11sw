@@ -112,12 +112,11 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present(UINT SyncInterval, UINT Flags
         return S_OK;
     }
 
-    auto* tex = static_cast<D3D11Texture2DSW*>(_backbuffer);
-    auto layout = tex->GetSubresourceLayout(0);
+    D3D11Texture2DSW* tex = static_cast<D3D11Texture2DSW*>(_backbuffer);
+    D3D11SW_SUBRESOURCE_LAYOUT layout = tex->GetSubresourceLayout(0);
     const Uint8* src = static_cast<const Uint8*>(tex->GetDataPtr()) + layout.Offset;
-    UINT w = _desc.BufferDesc.Width;
-    UINT h = _desc.BufferDesc.Height;
-
+    Uint w = _desc.BufferDesc.Width;
+    Uint h = _desc.BufferDesc.Height;
     if (_desc.BufferDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM)
     {
         _presenter->Present(src, w, h, layout.RowPitch);
@@ -126,11 +125,11 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present(UINT SyncInterval, UINT Flags
     {
         Usize totalBytes = (Usize)layout.RowPitch * h;
         _presentBuffer.resize(totalBytes);
-        for (UINT y = 0; y < h; ++y)
+        for (Uint y = 0; y < h; ++y)
         {
             const Uint8* row = src + (Usize)y * layout.RowPitch;
             Uint8* dst = _presentBuffer.data() + (Usize)y * layout.RowPitch;
-            for (UINT x = 0; x < w; ++x)
+            for (Uint x = 0; x < w; ++x)
             {
                 dst[x * 4 + 0] = row[x * 4 + 2]; // B
                 dst[x * 4 + 1] = row[x * 4 + 1]; // G

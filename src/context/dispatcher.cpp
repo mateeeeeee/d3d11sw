@@ -1,4 +1,7 @@
 #include "context/dispatcher.h"
+#include "context/pipeline_state.h"
+#include "shaders/shader_abi.h"
+#include "shaders/dxbc_parser.h"
 #include "resources/buffer.h"
 #include "shaders/compute_shader.h"
 #include "views/shader_resource_view.h"
@@ -72,8 +75,8 @@ private:
     std::vector<Slot>          _slots;
     std::vector<std::thread>   _threads;
     std::barrier<>             _barrier;
-    std::latch*                _done{nullptr};
-    std::atomic<Bool>          _stop{false};
+    std::latch*                _done = nullptr;
+    std::atomic<Bool>          _stop = false;
 
 private:
     static void BarrierCb(void* ctx)
@@ -86,7 +89,11 @@ private:
         while (true)
         {
             _slots[i].start.acquire();
-            if (_stop.load(std::memory_order_acquire)) { return; }
+            if (_stop.load(std::memory_order_acquire)) 
+            { 
+                return; 
+            }
+
             GroupWork& w = _slots[i].work;
             w.fn(&w.input, w.res, w.tgsm, BarrierCb, &_barrier);
             _done->count_down();
@@ -125,7 +132,6 @@ public:
         _fn     = fn;
         _res    = res;
         _next.store(0, std::memory_order_relaxed);
-
         std::latch done(_n);
         _done = &done;
         _ready.release(_n);
@@ -136,14 +142,14 @@ private:
     Uint32                     _n;
     std::vector<std::thread>   _threads;
     std::counting_semaphore<>  _ready{0};
-    std::atomic<Bool>          _stop{false};
-    std::latch*                _done{nullptr};
+    std::atomic<Bool>          _stop = false;
+    std::latch*                _done = nullptr;
 
-    SW_CSInput*                _inputs{nullptr};
-    Uint32                     _count{0};
-    SW_CSFn                    _fn{nullptr};
-    SW_Resources*              _res{nullptr};
-    std::atomic<Uint32>        _next{0};
+    SW_CSInput*                _inputs = nullptr;
+    Uint32                     _count = 0;
+    SW_CSFn                    _fn = nullptr;
+    SW_Resources*              _res = nullptr;
+    std::atomic<Uint32>        _next = 0;
 
 private:
     static void NoBarrier(void*) {}
@@ -153,12 +159,19 @@ private:
         while (true)
         {
             _ready.acquire();
-            if (_stop.load(std::memory_order_acquire)) { return; }
+            if (_stop.load(std::memory_order_acquire)) 
+            { 
+                return; 
+            }
 
             while (true)
             {
                 Uint32 idx = _next.fetch_add(1, std::memory_order_relaxed);
-                if (idx >= _count) { break; }
+                if (idx >= _count) 
+                { 
+                    break; 
+                }
+
                 SW_TGSM tgsm[SW_MAX_TGSM] = {};
                 _fn(&_inputs[idx], _res, tgsm, NoBarrier, nullptr);
             }
@@ -172,7 +185,7 @@ SWDispatcher::~SWDispatcher() = default;
 
 void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& state)
 {
-    for (UINT i = 0; i < SW_MAX_CBUFS; ++i)
+    for (Uint i = 0; i < SW_MAX_CBUFS; ++i)
     {
         if (state.csCBs[i])
         {
@@ -180,27 +193,33 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
         }
     }
 
-    for (UINT i = 0; i < SW_MAX_TEXTURES; ++i)
+    for (Uint i = 0; i < SW_MAX_TEXTURES; ++i)
     {
-        D3D11ShaderResourceViewSW* srv = state.csSRVs[i];
-        if (!srv) { continue; }
+        D3D11ShaderResourceViewSW* srvSW = state.csSRVs[i];
+        if (!srvSW) 
+        { 
+            continue; 
+        }
 
-        D3D11SW_SUBRESOURCE_LAYOUT layout = srv->GetLayout();
-        SW_Texture& tex = res.tex[i];
-        tex.data        = srv->GetDataPtr();
-        tex.format      = srv->GetFormat();
-        tex.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
-        tex.height      = layout.NumRows;
-        tex.depth       = layout.NumSlices;
-        tex.rowPitch    = layout.RowPitch;
-        tex.slicePitch  = layout.DepthPitch;
-        tex.mipLevels   = 1;
+        D3D11SW_SUBRESOURCE_LAYOUT layout = srvSW->GetLayout();
+        SW_SRV& srv = res.srv[i];
+        srv.data        = srvSW->GetDataPtr();
+        srv.format      = srvSW->GetFormat();
+        srv.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
+        srv.height      = layout.NumRows;
+        srv.depth       = layout.NumSlices;
+        srv.rowPitch    = layout.RowPitch;
+        srv.slicePitch  = layout.DepthPitch;
+        srv.mipLevels   = 1;
     }
 
-    for (UINT i = 0; i < SW_MAX_SAMPLERS; ++i)
+    for (Uint i = 0; i < SW_MAX_SAMPLERS; ++i)
     {
         D3D11SamplerStateSW* smp = state.csSamplers[i];
-        if (!smp) { continue; }
+        if (!smp) 
+        { 
+            continue; 
+        }
 
         D3D11_SAMPLER_DESC desc{};
         smp->GetDesc(&desc);
@@ -212,12 +231,19 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
         res.smp[i].minLOD          = desc.MinLOD;
         res.smp[i].maxLOD          = desc.MaxLOD;
         res.smp[i].comparisonFunc  = desc.ComparisonFunc;
+		res.smp[i].borderColor[0]  = desc.BorderColor[0];
+		res.smp[i].borderColor[1]  = desc.BorderColor[1];
+		res.smp[i].borderColor[2]  = desc.BorderColor[2];
+		res.smp[i].borderColor[3]  = desc.BorderColor[3];
     }
 
-    for (UINT i = 0; i < SW_MAX_UAVS; ++i)
+    for (Uint i = 0; i < SW_MAX_UAVS; ++i)
     {
         D3D11UnorderedAccessViewSW* uavSW = state.csUAVs[i];
-        if (!uavSW) { continue; }
+        if (!uavSW) 
+        { 
+            continue; 
+        }
 
         D3D11_UNORDERED_ACCESS_VIEW_DESC1 desc{};
         uavSW->GetDesc1(&desc);
@@ -227,7 +253,6 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
         uav.data      = uavSW->GetDataPtr();
         uav.format    = desc.Format;
         uav.dimension = static_cast<D3D11_UAV_DIMENSION>(desc.ViewDimension);
-
         if (desc.ViewDimension == D3D11_UAV_DIMENSION_BUFFER)
         {
             uav.elementCount = desc.Buffer.NumElements;
@@ -250,21 +275,24 @@ void SWDispatcher::Dispatch(
     Uint32 groupCountX, Uint32 groupCountY, Uint32 groupCountZ,
     D3D11SW_PIPELINE_STATE& state)
 {
-    if (!state.cs) { return; }
+    if (!state.cs) 
+    { 
+        return; 
+    }
 
     SW_CSFn fn = state.cs->GetJitFn();
-    if (!fn) { return; }
+    if (!fn) 
+    { 
+        return; 
+    }
 
     const D3D11SW_ParsedShader& shader = state.cs->GetReflection();
-
     SW_Resources res{};
     BuildResources(res, state);
-
     Uint32 threadGroupX = shader.threadGroupX > 0 ? shader.threadGroupX : 1;
     Uint32 threadGroupY = shader.threadGroupY > 0 ? shader.threadGroupY : 1;
     Uint32 threadGroupZ = shader.threadGroupZ > 0 ? shader.threadGroupZ : 1;
-    Uint32 numThreads   = threadGroupX * threadGroupY * threadGroupZ;
-
+    const Uint32 numThreads   = threadGroupX * threadGroupY * threadGroupZ;
     const Bool useBarriers = !shader.tgsm.empty();
     if (!useBarriers)
     {
@@ -321,7 +349,7 @@ void SWDispatcher::Dispatch(
     }
 
     Uint32 tgsmTotalSize = 0;
-    for (const auto& decl : shader.tgsm)
+    for (const D3D11SW_TGSMDecl& decl : shader.tgsm)
     {
         if (decl.slot < SW_MAX_TGSM && decl.size > 0)
         {
@@ -329,14 +357,8 @@ void SWDispatcher::Dispatch(
         }
     }
 
-    void* tgsmBuf = nullptr;
-    if (tgsmTotalSize > 0)
-    {
-        tgsmBuf = std::malloc(tgsmTotalSize);
-    }
-
+    void* tgsmBuf = tgsmTotalSize > 0 ? std::malloc(tgsmTotalSize) : nullptr;
     std::vector<GroupWork> work(numThreads);
-
     for (Uint32 i = 0; i < numThreads; ++i)
     {
         work[i].fn  = fn;
@@ -367,7 +389,7 @@ void SWDispatcher::Dispatch(
             {
                 SW_TGSM tgsm[SW_MAX_TGSM] = {};
                 Uint32 tgsmOffset = 0;
-                for (const auto& decl : shader.tgsm)
+                for (const D3D11SW_TGSMDecl& decl : shader.tgsm)
                 {
                     if (decl.slot < SW_MAX_TGSM && decl.size > 0)
                     {

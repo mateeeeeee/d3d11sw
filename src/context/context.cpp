@@ -117,7 +117,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetInputLayout(ID3D11InputLayout*
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetVertexBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppVertexBuffers, const UINT* pStrides, const UINT* pOffsets)
 {
-    for (UINT i = 0; i < NumBuffers; i++)
+    for (Uint i = 0; i < NumBuffers; i++)
     {
         SetSlot(_state.vertexBuffers[StartSlot + i], ppVertexBuffers ? static_cast<D3D11BufferSW*>(ppVertexBuffers[i]) : nullptr);
         _state.vbStrides[StartSlot + i] = ppVertexBuffers && pStrides ? pStrides[i] : 0;
@@ -173,12 +173,12 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetSamplers(UINT StartSlot, UINT 
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargets(UINT NumViews, ID3D11RenderTargetView*const* ppRenderTargetViews, ID3D11DepthStencilView* pDepthStencilView)
 {
-    for (UINT i = NumViews; i < _state.numRenderTargets; i++)
+    for (Uint i = NumViews; i < _state.numRenderTargets; i++)
     {
         SetSlot(_state.renderTargets[i], static_cast<D3D11RenderTargetViewSW*>(nullptr));
     }
     _state.numRenderTargets = NumViews;
-    for (UINT i = 0; i < NumViews; i++)
+    for (Uint i = 0; i < NumViews; i++)
     {
         SetSlot(_state.renderTargets[i], ppRenderTargetViews ? static_cast<D3D11RenderTargetViewSW*>(ppRenderTargetViews[i]) : nullptr);
     }
@@ -189,12 +189,12 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargetsAndUnorderedAcces
 {
     if (NumRTVs != D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL)
     {
-        for (UINT i = NumRTVs; i < _state.numRenderTargets; i++)
+        for (Uint i = NumRTVs; i < _state.numRenderTargets; i++)
         {
             SetSlot(_state.renderTargets[i], static_cast<D3D11RenderTargetViewSW*>(nullptr));
         }
         _state.numRenderTargets = NumRTVs;
-        for (UINT i = 0; i < NumRTVs; i++)
+        for (Uint i = 0; i < NumRTVs; i++)
         {
             SetSlot(_state.renderTargets[i], ppRenderTargetViews ? static_cast<D3D11RenderTargetViewSW*>(ppRenderTargetViews[i]) : nullptr);
         }
@@ -203,9 +203,9 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargetsAndUnorderedAcces
 
     if (NumUAVs != D3D11_KEEP_UNORDERED_ACCESS_VIEWS)
     {
-        for (UINT i = 0; i < NumUAVs; i++)
+        for (Uint i = 0; i < NumUAVs; i++)
         {
-            UINT slot = UAVStartSlot + i;
+            Uint slot = UAVStartSlot + i;
             if (slot < D3D11_1_UAV_SLOT_COUNT)
             {
                 SetSlot(_state.psUAVs[slot], ppUnorderedAccessViews ? static_cast<D3D11UnorderedAccessViewSW*>(ppUnorderedAccessViews[i]) : nullptr);
@@ -219,7 +219,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetBlendState(ID3D11BlendState* p
     SetSlot(_state.blendState, static_cast<D3D11BlendStateSW*>(pBlendState));
     if (BlendFactor)
     {
-        std::memcpy(_state.blendFactor, BlendFactor, sizeof(FLOAT) * 4);
+        std::memcpy(_state.blendFactor, BlendFactor, sizeof(Float) * 4);
     }
     else
     {
@@ -358,7 +358,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawAuto()
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
-    D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS args;
+    D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS args{};
     std::memcpy(&args, static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs, sizeof(args));
     _rasterizer.DrawIndexed(args.IndexCountPerInstance, args.StartIndexLocation, args.BaseVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
@@ -366,7 +366,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstancedIndirect(ID3D11
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
-    D3D11_DRAW_INSTANCED_INDIRECT_ARGS args;
+    D3D11_DRAW_INSTANCED_INDIRECT_ARGS args{};
     std::memcpy(&args, static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs, sizeof(args));
     _rasterizer.Draw(args.VertexCountPerInstance, args.StartVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
@@ -380,7 +380,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBuf
 {
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
     Uint8* ptr = static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs;
-    UINT counts[3];
+    UINT counts[3] = {};
     std::memcpy(counts, ptr, sizeof(counts));
     _dispatcher.Dispatch(counts[0], counts[1], counts[2], _state);
 }
@@ -433,24 +433,23 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CopySubresourceRegion(ID3D11Resourc
             const Uint8* srcBase = static_cast<const Uint8*>(src->GetDataPtr()) + srcLayout.Offset;
             Uint8*       dstBase = static_cast<Uint8*>(dst->GetDataPtr())       + dstLayout.Offset;
 
-            UINT bx0         = pSrcBox ? pSrcBox->left  / srcLayout.BlockSize : 0;
-            UINT by0         = pSrcBox ? pSrcBox->top   / srcLayout.BlockSize : 0;
-            UINT bz0         = pSrcBox ? pSrcBox->front : 0;
-            UINT copyBlocksX = pSrcBox ? (pSrcBox->right  - pSrcBox->left)  / srcLayout.BlockSize : srcLayout.RowPitch / srcLayout.PixelStride;
-            UINT copyBlocksY = pSrcBox ? (pSrcBox->bottom - pSrcBox->top)   / srcLayout.BlockSize : srcLayout.NumRows;
-            UINT copySlices  = pSrcBox ? (pSrcBox->back   - pSrcBox->front)                       : srcLayout.NumSlices;
-            UINT copyBytes   = copyBlocksX * srcLayout.PixelStride;
+            Uint bx0         = pSrcBox ? pSrcBox->left  / srcLayout.BlockSize : 0;
+            Uint by0         = pSrcBox ? pSrcBox->top   / srcLayout.BlockSize : 0;
+            Uint bz0         = pSrcBox ? pSrcBox->front : 0;
+            Uint copyBlocksX = pSrcBox ? (pSrcBox->right  - pSrcBox->left)  / srcLayout.BlockSize : srcLayout.RowPitch / srcLayout.PixelStride;
+            Uint copyBlocksY = pSrcBox ? (pSrcBox->bottom - pSrcBox->top)   / srcLayout.BlockSize : srcLayout.NumRows;
+            Uint copySlices  = pSrcBox ? (pSrcBox->back   - pSrcBox->front)                       : srcLayout.NumSlices;
+            Uint copyBytes   = copyBlocksX * srcLayout.PixelStride;
 
-            UINT dbx = DstX / dstLayout.BlockSize;
-            UINT dby = DstY / dstLayout.BlockSize;
-
-            for (UINT z = 0; z < copySlices; ++z)
+            Uint dbx = DstX / dstLayout.BlockSize;
+            Uint dby = DstY / dstLayout.BlockSize;
+            for (Uint z = 0; z < copySlices; ++z)
             {
-                for (UINT y = 0; y < copyBlocksY; ++y)
+                for (Uint y = 0; y < copyBlocksY; ++y)
                 {
                     std::memcpy(
-                    dstBase + (UINT64)(DstZ + bz0 + z) * dstLayout.DepthPitch + (UINT64)(dby + y) * dstLayout.RowPitch + dbx * dstLayout.PixelStride,
-                    srcBase + (UINT64)(bz0  + z)       * srcLayout.DepthPitch + (UINT64)(by0 + y) * srcLayout.RowPitch + bx0 * srcLayout.PixelStride,
+                    dstBase + (Uint64)(DstZ + bz0 + z) * dstLayout.DepthPitch + (Uint64)(dby + y) * dstLayout.RowPitch + dbx * dstLayout.PixelStride,
+                    srcBase + (Uint64)(bz0  + z)       * srcLayout.DepthPitch + (Uint64)(by0 + y) * srcLayout.RowPitch + bx0 * srcLayout.PixelStride,
                     copyBytes);
                 }
             }
@@ -486,34 +485,33 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource(ID3D11Resource* p
         const Uint8* src     = static_cast<const Uint8*>(pSrcData);
         if (!pDstBox)
         {
-            for (UINT z = 0; z < layout.NumSlices; ++z)
+            for (Uint z = 0; z < layout.NumSlices; ++z)
             {
-                for (UINT y = 0; y < layout.NumRows; ++y)
+                for (Uint y = 0; y < layout.NumRows; ++y)
                 {
                     std::memcpy(
-                        dstBase + (UINT64)z * layout.DepthPitch + (UINT64)y * layout.RowPitch,
-                        src     + (UINT64)z * SrcDepthPitch     + (UINT64)y * SrcRowPitch,
+                        dstBase + (Uint64)z * layout.DepthPitch + (Uint64)y * layout.RowPitch,
+                        src     + (Uint64)z * SrcDepthPitch     + (Uint64)y * SrcRowPitch,
                         layout.RowPitch);
                 }
             }
         }
         else
         {
-            UINT bx0         = pDstBox->left  / layout.BlockSize;
-            UINT by0         = pDstBox->top   / layout.BlockSize;
-            UINT bz0         = pDstBox->front;
-            UINT copyBlocksX = (pDstBox->right  - pDstBox->left)  / layout.BlockSize;
-            UINT copyBlocksY = (pDstBox->bottom - pDstBox->top)   / layout.BlockSize;
-            UINT copySlices  =  pDstBox->back   - pDstBox->front;
-            UINT copyBytes   = copyBlocksX * layout.PixelStride;
-
-            for (UINT z = 0; z < copySlices; ++z)
+            Uint bx0         = pDstBox->left  / layout.BlockSize;
+            Uint by0         = pDstBox->top   / layout.BlockSize;
+            Uint bz0         = pDstBox->front;
+            Uint copyBlocksX = (pDstBox->right  - pDstBox->left)  / layout.BlockSize;
+            Uint copyBlocksY = (pDstBox->bottom - pDstBox->top)   / layout.BlockSize;
+            Uint copySlices  =  pDstBox->back   - pDstBox->front;
+            Uint copyBytes   = copyBlocksX * layout.PixelStride;
+            for (Uint z = 0; z < copySlices; ++z)
             {
-                for (UINT y = 0; y < copyBlocksY; ++y)
+                for (Uint y = 0; y < copyBlocksY; ++y)
                 {
                     std::memcpy(
-                        dstBase + (UINT64)(bz0 + z) * layout.DepthPitch + (UINT64)(by0 + y) * layout.RowPitch + bx0 * layout.PixelStride,
-                        src     + (UINT64)z          * SrcDepthPitch     + (UINT64)y          * SrcRowPitch,
+                        dstBase + (Uint64)(bz0 + z) * layout.DepthPitch + (Uint64)(by0 + y) * layout.RowPitch + bx0 * layout.PixelStride,
+                        src     + (Uint64)z          * SrcDepthPitch     + (Uint64)y          * SrcRowPitch,
                         copyBytes);
                 }
             }
@@ -528,8 +526,9 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyStructureCount(ID3D11Buffer* pD
         return;
     }
     auto* buf = static_cast<D3D11BufferSW*>(pDstBuffer);
-    UINT count = 0;
-    std::memcpy(static_cast<UINT8*>(buf->GetDataPtr()) + DstAlignedByteOffset, &count, sizeof(UINT));
+    Uint count = 0;
+    D3D11SW_TODO("Handle structure count after implementing append/consume buffers");
+    std::memcpy(static_cast<Uint8*>(buf->GetDataPtr()) + DstAlignedByteOffset, &count, sizeof(Uint));
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearRenderTargetView(ID3D11RenderTargetView* pRenderTargetView, const FLOAT ColorRGBA[4])
@@ -539,12 +538,12 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearRenderTargetView(ID3D11RenderT
         return;
     }
 
-    D3D11RenderTargetViewSW* rtv    = static_cast<D3D11RenderTargetViewSW*>(pRenderTargetView);
+    D3D11RenderTargetViewSW* rtv = static_cast<D3D11RenderTargetViewSW*>(pRenderTargetView);
     D3D11SW_SUBRESOURCE_LAYOUT layout = rtv->GetLayout();
 
-    UINT8 pixel[16];
+    Uint8 pixel[16] = {};
     PackRTVColor(rtv->GetFormat(), ColorRGBA, pixel);
-    ForEachPixel(rtv->GetDataPtr(), layout, [&pixel, &layout](UINT8* px)
+    ForEachPixel(rtv->GetDataPtr(), layout, [&pixel, &layout](Uint8* px)
     {
         std::memcpy(px, pixel, layout.PixelStride);
     });
@@ -560,9 +559,9 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewUint(ID3D11
     D3D11UnorderedAccessViewSW* uav = static_cast<D3D11UnorderedAccessViewSW*>(pUnorderedAccessView);
     D3D11SW_SUBRESOURCE_LAYOUT layout = uav->GetLayout();
 
-    UINT8 pixel[16];
+    Uint8 pixel[16] = {};
     PackUAVUint(uav->GetFormat(), Values, pixel);
-    ForEachPixel(uav->GetDataPtr(), layout, [&pixel, &layout](UINT8* px)
+    ForEachPixel(uav->GetDataPtr(), layout, [&pixel, &layout](Uint8* px)
     {
         std::memcpy(px, pixel, layout.PixelStride);
     });
@@ -578,9 +577,9 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewFloat(ID3D1
     D3D11UnorderedAccessViewSW* uav    = static_cast<D3D11UnorderedAccessViewSW*>(pUnorderedAccessView);
     D3D11SW_SUBRESOURCE_LAYOUT layout = uav->GetLayout();
 
-    UINT8 pixel[16];
+    Uint8 pixel[16] = {};
     PackRTVColor(uav->GetFormat(), Values, pixel);
-    ForEachPixel(uav->GetDataPtr(), layout, [&pixel, &layout](UINT8* px)
+    ForEachPixel(uav->GetDataPtr(), layout, [&pixel, &layout](Uint8* px)
     {
         std::memcpy(px, pixel, layout.PixelStride);
     });
@@ -594,7 +593,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
     }
 
     D3D11DepthStencilViewSW* dsv = static_cast<D3D11DepthStencilViewSW*>(pDepthStencilView);
-    UINT8*  data   = dsv->GetDataPtr();
+    Uint8* data = dsv->GetDataPtr();
     D3D11SW_SUBRESOURCE_LAYOUT layout = dsv->GetLayout();
     DXGI_FORMAT fmt = dsv->GetFormat();
     switch (fmt)
@@ -605,7 +604,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
             {
                 break;
             }
-            ForEachPixel(data, layout, [Depth](UINT8* px)
+            ForEachPixel(data, layout, [Depth](Uint8* px)
             {
                 std::memcpy(px, &Depth, 4);
             });
@@ -617,8 +616,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
             {
                 break;
             }
-            UINT16 d16 = (UINT16)(std::clamp(Depth, 0.f, 1.f) * 65535.f + 0.5f);
-            ForEachPixel(data, layout, [d16](UINT8* px)
+            Uint16 d16 = (Uint16)(std::clamp(Depth, 0.f, 1.f) * 65535.f + 0.5f);
+            ForEachPixel(data, layout, [d16](Uint8* px)
             {
                 std::memcpy(px, &d16, 2);
             });
@@ -628,30 +627,30 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
         {
             Bool clearDepth   = (ClearFlags & D3D11_CLEAR_DEPTH)   != 0;
             Bool clearStencil = (ClearFlags & D3D11_CLEAR_STENCIL) != 0;
-            UINT32 d24 = std::min((UINT32)(std::clamp(Depth, 0.f, 1.f) * 16777215.f + 0.5f), 0xFFFFFFu);
+            Uint32 d24 = std::min((Uint32)(std::clamp(Depth, 0.f, 1.f) * 16777215.f + 0.5f), 0xFFFFFFu);
             if (clearDepth && clearStencil)
             {
-                UINT32 packed = ((UINT32)Stencil << 24) | (d24 & 0x00FFFFFFu);
-                ForEachPixel(data, layout, [packed](UINT8* px)
+                Uint32 packed = ((Uint32)Stencil << 24) | (d24 & 0x00FFFFFFu);
+                ForEachPixel(data, layout, [packed](Uint8* px)
                 {
                     std::memcpy(px, &packed, 4);
                 });
             }
             else if (clearDepth)
             {
-                ForEachPixel(data, layout, [d24](UINT8* px)
+                ForEachPixel(data, layout, [d24](Uint8* px)
                 {
-                    UINT32 v; std::memcpy(&v, px, 4);
+                        Uint32 v; std::memcpy(&v, px, 4);
                     v = (v & 0xFF000000u) | (d24 & 0x00FFFFFFu);
                     std::memcpy(px, &v, 4);
                 });
             }
             else if (clearStencil)
             {
-                ForEachPixel(data, layout, [Stencil](UINT8* px)
+                ForEachPixel(data, layout, [Stencil](Uint8* px)
                 {
-                    UINT32 v; std::memcpy(&v, px, 4);
-                    v = (v & 0x00FFFFFFu) | ((UINT32)Stencil << 24);
+                    Uint32 v; std::memcpy(&v, px, 4);
+                    v = (v & 0x00FFFFFFu) | ((Uint32)Stencil << 24);
                     std::memcpy(px, &v, 4);
                 });
             }
@@ -663,14 +662,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
             Bool clearStencil = (ClearFlags & D3D11_CLEAR_STENCIL) != 0;
             if (clearDepth)
             {
-                ForEachPixel(data, layout, [Depth](UINT8* px)
+                ForEachPixel(data, layout, [Depth](Uint8* px)
                 {
                     std::memcpy(px, &Depth, 4);
                 });
             }
             if (clearStencil)
             {
-                ForEachPixel(data, layout, [Stencil](UINT8* px)
+                ForEachPixel(data, layout, [Stencil](Uint8* px)
                 {
                     px[4] = Stencil;
                 });
@@ -841,7 +840,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetInputLayout(ID3D11InputLayout*
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetVertexBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppVertexBuffers, UINT* pStrides, UINT* pOffsets)
 {
-    for (UINT i = 0; i < NumBuffers; i++)
+    for (Uint i = 0; i < NumBuffers; i++)
     {
         if (ppVertexBuffers)
         {
@@ -939,7 +938,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargets(UINT NumViews, I
 {
     if (ppRenderTargetViews)
     {
-        for (UINT i = 0; i < NumViews; i++)
+        for (Uint i = 0; i < NumViews; i++)
         {
             ppRenderTargetViews[i] = i < _state.numRenderTargets ? _state.renderTargets[i] : nullptr;
             if (ppRenderTargetViews[i])
@@ -962,7 +961,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargetsAndUnorderedAcces
 {
     if (ppRenderTargetViews)
     {
-        for (UINT i = 0; i < NumRTVs; i++)
+        for (Uint i = 0; i < NumRTVs; i++)
         {
             ppRenderTargetViews[i] = i < _state.numRenderTargets ? _state.renderTargets[i] : nullptr;
             if (ppRenderTargetViews[i])
@@ -981,9 +980,9 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargetsAndUnorderedAcces
     }
     if (ppUnorderedAccessViews)
     {
-        for (UINT i = 0; i < NumUAVs; i++)
+        for (Uint i = 0; i < NumUAVs; i++)
         {
-            UINT slot = UAVStartSlot + i;
+            Uint slot = UAVStartSlot + i;
             ppUnorderedAccessViews[i] = slot < D3D11_1_UAV_SLOT_COUNT ? _state.psUAVs[slot] : nullptr;
             if (ppUnorderedAccessViews[i])
             {
@@ -1005,7 +1004,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetBlendState(ID3D11BlendState** 
     }
     if (BlendFactor)
     {
-        std::memcpy(BlendFactor, _state.blendFactor, sizeof(FLOAT) * 4);
+        std::memcpy(BlendFactor, _state.blendFactor, sizeof(Float) * 4);
     }
     if (pSampleMask)
     {
@@ -1051,7 +1050,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetViewports(UINT* pNumViewports,
     {
         if (pViewports)
         {
-            UINT copyCount = *pNumViewports < _state.numViewports ? *pNumViewports : _state.numViewports;
+            Uint copyCount = *pNumViewports < _state.numViewports ? *pNumViewports : _state.numViewports;
             std::memcpy(pViewports, _state.viewports, copyCount * sizeof(D3D11_VIEWPORT));
         }
         *pNumViewports = _state.numViewports;
@@ -1064,7 +1063,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetScissorRects(UINT* pNumRects, 
     {
         if (pRects)
         {
-            UINT copyCount = *pNumRects < _state.numScissorRects ? *pNumRects : _state.numScissorRects;
+            Uint copyCount = *pNumRects < _state.numScissorRects ? *pNumRects : _state.numScissorRects;
             std::memcpy(pRects, _state.scissorRects, copyCount * sizeof(D3D11_RECT));
         }
         *pNumRects = _state.numScissorRects;

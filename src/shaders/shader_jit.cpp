@@ -22,11 +22,7 @@ ShaderJIT& GetShaderJIT()
 
 std::string ShaderJIT::CacheDir() const
 {
-#ifdef D3D11SW_PLATFORM_WINDOWS
-    return (std::filesystem::temp_directory_path() / "d3d11sw").string() + "/";
-#else
-    return "/tmp/d3d11sw/";
-#endif
+    return "/tmp/d3d11sw/"; //return (std::filesystem::temp_directory_path() / "d3d11sw").string() + "/";
 }
 
 Uint64 ShaderJIT::Hash(const void* data, Usize len) const
@@ -128,8 +124,7 @@ void* ShaderJIT::GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderTyp
         }
     }
 
-    Uint64 hash = Hash(bytecode, len) ^ _runtimeHash;
-
+    const Uint64 hash = Hash(bytecode, len) ^ _runtimeHash;
     auto it = _cache.find(hash);
     if (it != _cache.end())
     {
@@ -161,7 +156,6 @@ void* ShaderJIT::GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderTyp
             return nullptr;
         }
         parsed.type = type;
-
         std::string src = EmitShader(parsed, "shaders/shader_runtime.h");
         if (!WriteCpp(cppPath, src))
         {
@@ -176,10 +170,8 @@ void* ShaderJIT::GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderTyp
             _cache[hash] = nullptr;
             return nullptr;
         }
-
         fn = LoadSymbol(libPath);
     }
-
     _cache[hash] = fn;
     return fn;
 }

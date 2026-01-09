@@ -1,13 +1,12 @@
 #pragma once
-#include "context/pipeline_state.h"
-#include "shaders/shader_abi.h"
-#include "shaders/dxbc_parser.h"
 #include <memory>
 
 namespace d3d11sw {
 
 class GroupThreadPool;
 class BatchThreadPool;
+struct SW_Resources;
+struct D3D11SW_PIPELINE_STATE;
 
 class D3D11SW_API SWDispatcher
 {

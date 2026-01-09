@@ -22,7 +22,7 @@ struct SW_uint3
     unsigned x, y, z;
 };
 
-struct SW_Texture
+struct SW_SRV
 {
     const void* data;
     unsigned    width;
@@ -65,7 +65,7 @@ struct SW_UAV
 struct SW_Resources
 {
     const SW_float4* cb[SW_MAX_CBUFS];
-    SW_Texture       tex[SW_MAX_TEXTURES];
+    SW_SRV           srv[SW_MAX_TEXTURES];
     SW_Sampler       smp[SW_MAX_SAMPLERS];
     SW_UAV           uav[SW_MAX_UAVS];
 };

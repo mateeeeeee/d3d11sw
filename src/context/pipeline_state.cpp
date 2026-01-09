@@ -55,7 +55,7 @@ void BuildStageResources(
     D3D11ShaderResourceViewSW* const* srvs,
     D3D11SamplerStateSW* const* samplers)
 {
-    for (UINT i = 0; i < SW_MAX_CBUFS; ++i)
+    for (Uint i = 0; i < SW_MAX_CBUFS; ++i)
     {
         if (cbs[i])
         {
@@ -63,13 +63,16 @@ void BuildStageResources(
         }
     }
 
-    for (UINT i = 0; i < SW_MAX_TEXTURES; ++i)
+    for (Uint i = 0; i < SW_MAX_TEXTURES; ++i)
     {
         D3D11ShaderResourceViewSW* srv = srvs[i];
-        if (!srv) { continue; }
+        if (!srv) 
+        { 
+            continue; 
+        }
 
         D3D11SW_SUBRESOURCE_LAYOUT layout = srv->GetLayout();
-        SW_Texture& tex = res.tex[i];
+        SW_SRV& tex = res.srv[i];
         tex.data        = srv->GetDataPtr();
         tex.format      = srv->GetFormat();
         tex.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
@@ -81,10 +84,13 @@ void BuildStageResources(
         tex.stride      = layout.PixelStride;
     }
 
-    for (UINT i = 0; i < SW_MAX_SAMPLERS; ++i)
+    for (Uint i = 0; i < SW_MAX_SAMPLERS; ++i)
     {
         D3D11SamplerStateSW* smp = samplers[i];
-        if (!smp) { continue; }
+        if (!smp) 
+        { 
+            continue; 
+        }
 
         D3D11_SAMPLER_DESC desc{};
         smp->GetDesc(&desc);

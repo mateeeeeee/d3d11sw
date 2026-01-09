@@ -28,8 +28,7 @@ HRESULT STDMETHODCALLTYPE D3D11DepthStencilStateSW::QueryInterface(REFIID riid, 
     return S_OK;
 }
 
-D3D11DepthStencilStateSW::D3D11DepthStencilStateSW(ID3D11Device* device)
-    : DeviceChildImpl(device) {}
+D3D11DepthStencilStateSW::D3D11DepthStencilStateSW(ID3D11Device* device) : DeviceChildImpl(device) {}
 
 HRESULT D3D11DepthStencilStateSW::Init(const D3D11_DEPTH_STENCIL_DESC* pDesc)
 {

@@ -27,7 +27,7 @@ private:
 	Uint64      Hash(const void* data, Usize len) const;
 	Bool        WriteCpp(const std::string& path, const std::string& src) const;
 	Bool        Compile(const std::string& srcPath, const std::string& libPath) const;
-	void* LoadSymbol(const std::string& libPath);
+	void*       LoadSymbol(const std::string& libPath);
 };
 
 D3D11SW_API ShaderJIT& GetShaderJIT();

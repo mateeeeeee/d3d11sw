@@ -92,7 +92,7 @@ HRESULT STDMETHODCALLTYPE DXGIFactorySW::CreateSwapChain(IUnknown* pDevice, DXGI
         return hr;
     }
 
-    auto* sc = new DXGISwapChainSW(d3dDevice, *pDesc);
+    DXGISwapChainSW* sc = new DXGISwapChainSW(d3dDevice, *pDesc);
     *ppSwapChain = sc;
 
     d3dDevice->Release();
@@ -147,7 +147,7 @@ HRESULT STDMETHODCALLTYPE DXGIFactorySW::CreateSwapChainForHwnd(IUnknown* pDevic
     legacyDesc.SwapEffect         = pDesc->SwapEffect;
     legacyDesc.Flags              = pDesc->Flags;
 
-    auto* sc = new DXGISwapChainSW(d3dDevice, legacyDesc);
+    DXGISwapChainSW* sc = new DXGISwapChainSW(d3dDevice, legacyDesc);
     *ppSwapChain = sc;
 
     d3dDevice->Release();

@@ -29,10 +29,10 @@ struct D3D11SW_PIPELINE_STATE
     D3D11InputLayoutSW*  inputLayout;
     D3D11BufferSW*       indexBuffer;
     DXGI_FORMAT          indexFormat;
-    UINT                 indexOffset;
+    Uint                 indexOffset;
     D3D11BufferSW*       vertexBuffers[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
-    UINT                 vbStrides[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
-    UINT                 vbOffsets[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
+    Uint                 vbStrides[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
+    Uint                 vbOffsets[D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT];
     D3D11_PRIMITIVE_TOPOLOGY topology;
 
     //Shaders
@@ -74,19 +74,19 @@ struct D3D11SW_PIPELINE_STATE
     //RS
     D3D11RasterizerStateSW* rsState;
     D3D11_VIEWPORT          viewports[D3D11_VIEWPORT_AND_SCISSORRECT_MAX_INDEX + 1];
-    UINT                    numViewports;
+    Uint                    numViewports;
     D3D11_RECT              scissorRects[D3D11_VIEWPORT_AND_SCISSORRECT_MAX_INDEX + 1];
-    UINT                    numScissorRects;
+    Uint                    numScissorRects;
 
     //OM
     D3D11RenderTargetViewSW*  renderTargets[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
-    UINT                      numRenderTargets;
+    Uint                      numRenderTargets;
     D3D11DepthStencilViewSW*  depthStencilView;
     D3D11BlendStateSW*        blendState;
-    FLOAT                     blendFactor[4];
-    UINT                      sampleMask;
+    Float                     blendFactor[4];
+    Uint                      sampleMask;
     D3D11DepthStencilStateSW* depthStencilState;
-    UINT                      stencilRef;
+    Uint                      stencilRef;
 
     void ReleaseAll();
 };

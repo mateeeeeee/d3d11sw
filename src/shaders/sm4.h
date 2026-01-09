@@ -5,12 +5,9 @@
 
 namespace d3d11sw {
 
-using SM4OpCode      = D3D10_SB_OPCODE_TYPE;
-using SM4OperandType = D3D10_SB_OPERAND_TYPE;
-
 struct SM4Operand
 {
-    SM4OperandType type         = D3D10_SB_OPERAND_TYPE_NULL;
+    D3D10_SB_OPERAND_TYPE type  = D3D10_SB_OPERAND_TYPE_NULL;
     Uint8          writeMask    = 0xF;
     Uint8          swizzle[4]   = {0,1,2,3};
     Uint32         indices[2]   = {};
@@ -24,7 +21,7 @@ struct SM4Operand
 
 struct SM4Instruction
 {
-    SM4OpCode               op            = D3D10_SB_OPCODE_NOP;
+    D3D10_SB_OPCODE_TYPE    op            = D3D10_SB_OPCODE_NOP;
     Bool                    saturate      = false;
     Bool                    testNonZero   = true;
     Uint8                   resInfoReturn = 0;

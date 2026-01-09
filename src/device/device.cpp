@@ -40,6 +40,7 @@ HRESULT D3D11DeviceSW::CreateAndInit(T** ppOut, ArgsT&&... args)
 	catch (...) { return E_FAIL; }
 }
 
+D3D11SW_TODO("Move these to util file?")
 static UINT GetFormatSupport(DXGI_FORMAT format)
 {
     static constexpr UINT kColor =
@@ -1441,6 +1442,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeferredContext3(UINT ContextFlag
     return E_NOTIMPL;
 }
 
+D3D11SW_TODO("Dont forget these")
 void STDMETHODCALLTYPE D3D11DeviceSW::WriteToSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
 {
 }

@@ -24,8 +24,8 @@ public:
 
 private:
     D3D11_QUERY_DESC1 _desc{};
-    UINT64            _timestamp = 0;
-    bool              _ended = false;
+    Uint64            _timestamp = 0;
+    Bool              _ended = false;
 };
 
 class D3D11SW_API D3D11PredicateSW final : public DeviceChildImpl<ID3D11Predicate>

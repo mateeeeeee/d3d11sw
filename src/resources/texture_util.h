@@ -15,55 +15,53 @@ namespace d3d11sw {
 // For 3D textures:    depth=Depth, arraySize=1
 inline void BuildTextureLayouts(
     DXGI_FORMAT                        Format,
-    UINT                               Width,
-    UINT                               Height,
-    UINT                               Depth,
-    UINT                               MipLevels,
-    UINT                               ArraySize,
+    Uint                               Width,
+    Uint                               Height,
+    Uint                               Depth,
+    Uint                               MipLevels,
+    Uint                               ArraySize,
     std::vector<D3D11SW_SUBRESOURCE_LAYOUT>& outLayouts,
     std::vector<Uint8>&                    outData)
 {
-    UINT blockSize   = GetFormatBlockSize(Format);
-    UINT pixelStride = GetFormatStride(Format);
+    Uint blockSize   = GetFormatBlockSize(Format);
+    Uint pixelStride = GetFormatStride(Format);
 
     struct MipInfo
     {
-        UINT64 Base;
-        UINT   RowPitch;
-        UINT   DepthPitch;
-        UINT   NumRows;
-        UINT   NumSlices;
+        Uint64 Base;
+        Uint   RowPitch;
+        Uint   DepthPitch;
+        Uint   NumRows;
+        Uint   NumSlices;
     };
 
     std::vector<MipInfo> mipInfo(MipLevels);
-    UINT64 offset = 0;
-
-    for (UINT mip = 0; mip < MipLevels; ++mip)
+    Uint64 offset = 0;
+    for (Uint mip = 0; mip < MipLevels; ++mip)
     {
-        UINT mipW = std::max(1u, Width  >> mip);
-        UINT mipH = std::max(1u, Height >> mip);
-        UINT mipD = std::max(1u, Depth  >> mip);
+        Uint mipW = std::max(1u, Width  >> mip);
+        Uint mipH = std::max(1u, Height >> mip);
+        Uint mipD = std::max(1u, Depth  >> mip);
 
-        UINT numBlocksX = std::max(1u, DivideAndRoundUp(mipW, blockSize));
-        UINT numBlocksY = std::max(1u, DivideAndRoundUp(mipH, blockSize));
+        Uint numBlocksX = std::max(1u, DivideAndRoundUp(mipW, blockSize));
+        Uint numBlocksY = std::max(1u, DivideAndRoundUp(mipH, blockSize));
 
-        UINT rowPitch   = numBlocksX * pixelStride;
-        UINT depthPitch = rowPitch * numBlocksY;
+        Uint rowPitch   = numBlocksX * pixelStride;
+        Uint depthPitch = rowPitch * numBlocksY;
 
         mipInfo[mip] = { offset, rowPitch, depthPitch, numBlocksY, mipD };
-        offset += (UINT64)depthPitch * mipD * ArraySize;
+        offset += (Uint64)depthPitch * mipD * ArraySize;
     }
 
     outData.assign(offset, 0);
-
     outLayouts.resize(MipLevels * ArraySize);
-    for (UINT mip = 0; mip < MipLevels; ++mip)
+    for (Uint mip = 0; mip < MipLevels; ++mip)
     {
         auto& mi = mipInfo[mip];
-        for (UINT slice = 0; slice < ArraySize; ++slice)
+        for (Uint slice = 0; slice < ArraySize; ++slice)
         {
-            UINT   subres      = mip + slice * MipLevels;
-            UINT64 sliceOffset = mi.Base + (UINT64)slice * mi.DepthPitch * mi.NumSlices;
+            Uint   subres      = mip + slice * MipLevels;
+            Uint64 sliceOffset = mi.Base + (Uint64)slice * mi.DepthPitch * mi.NumSlices;
             outLayouts[subres] = { sliceOffset, mi.RowPitch, mi.DepthPitch,
                                    mi.NumRows, mi.NumSlices, blockSize, pixelStride };
         }
@@ -72,7 +70,7 @@ inline void BuildTextureLayouts(
 
 inline void CopyInitialData(
     const D3D11_SUBRESOURCE_DATA*              pInitialData,
-    UINT                                       SubresourceCount,
+    Uint                                       SubresourceCount,
     const std::vector<D3D11SW_SUBRESOURCE_LAYOUT>& Layouts,
     std::vector<Uint8>&                            Data)
 {
@@ -81,21 +79,24 @@ inline void CopyInitialData(
         return;
     }
 
-    for (UINT subres = 0; subres < SubresourceCount; ++subres)
+    for (Uint subres = 0; subres < SubresourceCount; ++subres)
     {
-        if (!pInitialData[subres].pSysMem) continue;
+        if (!pInitialData[subres].pSysMem)
+        {
+            continue;
+        }
 
         const auto& layout      = Layouts[subres];
         Uint8*      dst         = Data.data() + layout.Offset;
         const Uint8* src        = static_cast<const Uint8*>(pInitialData[subres].pSysMem);
-        UINT         srcRowPitch   = pInitialData[subres].SysMemPitch;
-        UINT         srcDepthPitch = pInitialData[subres].SysMemSlicePitch;
+        Uint         srcRowPitch   = pInitialData[subres].SysMemPitch;
+        Uint         srcDepthPitch = pInitialData[subres].SysMemSlicePitch;
 
-        for (UINT z = 0; z < layout.NumSlices; ++z)
-            for (UINT y = 0; y < layout.NumRows; ++y)
+        for (Uint z = 0; z < layout.NumSlices; ++z)
+            for (Uint y = 0; y < layout.NumRows; ++y)
                 std::memcpy(
-                    dst + (UINT64)z * layout.DepthPitch + (UINT64)y * layout.RowPitch,
-                    src + (UINT64)z * srcDepthPitch     + (UINT64)y * srcRowPitch,
+                    dst + (Uint64)z * layout.DepthPitch + (Uint64)y * layout.RowPitch,
+                    src + (Uint64)z * srcDepthPitch     + (Uint64)y * srcRowPitch,
                     layout.RowPitch);
     }
 }

@@ -142,7 +142,7 @@ TEST_F(ShaderRuntimeTests, UsubbWithBorrow)
 TEST_F(ShaderRuntimeTests, FetchTexel1D)
 {
     float data[] = { 1.f, 2.f, 3.f, 4.f };
-    SW_Texture t{};
+    SW_SRV t{};
     t.data     = data;
     t.format   = DXGI_FORMAT_R32_FLOAT;
     t.width    = 4;
@@ -174,7 +174,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel3d)
         }
     }
 
-    SW_Texture t{};
+    SW_SRV t{};
     t.data       = data;
     t.format     = DXGI_FORMAT_R8G8B8A8_UNORM;
     t.width      = 2;
@@ -199,7 +199,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel3d)
 TEST_F(ShaderRuntimeTests, FetchTexel3dClamps)
 {
     float data[4] = { 1.f, 2.f, 3.f, 4.f };
-    SW_Texture t{};
+    SW_SRV t{};
     t.data       = data;
     t.format     = DXGI_FORMAT_R32_FLOAT;
     t.width      = 2;
@@ -215,7 +215,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel3dClamps)
 TEST_F(ShaderRuntimeTests, FetchTexel2dVia3d)
 {
     float data[] = { 10.f, 20.f, 30.f, 40.f };
-    SW_Texture t{};
+    SW_SRV t{};
     t.data       = data;
     t.format     = DXGI_FORMAT_R32_FLOAT;
     t.width      = 2;
@@ -236,7 +236,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel2dVia3d)
 
 TEST_F(ShaderRuntimeTests, ResinfoFloat)
 {
-    SW_Texture t{};
+    SW_SRV t{};
     t.width    = 256;
     t.height   = 128;
     t.depth    = 1;
@@ -251,7 +251,7 @@ TEST_F(ShaderRuntimeTests, ResinfoFloat)
 
 TEST_F(ShaderRuntimeTests, ResinfoRcpFloat)
 {
-    SW_Texture t{};
+    SW_SRV t{};
     t.width    = 4;
     t.height   = 2;
     t.depth    = 1;
@@ -266,7 +266,7 @@ TEST_F(ShaderRuntimeTests, ResinfoRcpFloat)
 
 TEST_F(ShaderRuntimeTests, ResinfoUint)
 {
-    SW_Texture t{};
+    SW_SRV t{};
     t.width    = 512;
     t.height   = 256;
     t.depth    = 64;

@@ -11,7 +11,6 @@ HRESULT STDMETHODCALLTYPE D3D11HullShaderSW::QueryInterface(REFIID riid, void** 
     }
 
     *ppv = nullptr;
-
     if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11HullShader))
     {
         *ppv = static_cast<ID3D11HullShader*>(this);

@@ -79,7 +79,7 @@ HRESULT STDMETHODCALLTYPE DXGIDeviceSW::GetAdapter(IDXGIAdapter** pAdapter)
     {
         return E_INVALIDARG;
     }
-    auto* adapter = new DXGIAdapterSW();
+    DXGIAdapterSW* adapter = new DXGIAdapterSW();
     *pAdapter = adapter;
     return S_OK;
 }

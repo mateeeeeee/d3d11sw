@@ -13,9 +13,7 @@ public:
     explicit D3D11InputLayoutSW(ID3D11Device* device);
 
     HRESULT Init(const D3D11_INPUT_ELEMENT_DESC* pElements, UINT numElements);
-
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
-
     const std::vector<D3D11_INPUT_ELEMENT_DESC>& GetElements() const { return _elements; }
 
 private:

@@ -51,7 +51,7 @@ HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetParent(REFIID riid, void** ppParent)
     {
         return E_POINTER;
     }
-    auto* factory = new DXGIFactorySW();
+    DXGIFactorySW* factory = new DXGIFactorySW();
     HRESULT hr = factory->QueryInterface(riid, ppParent);
     factory->Release();
     return hr;

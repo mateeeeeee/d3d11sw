@@ -14,7 +14,6 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
     Uint32 opType   = DECODE_D3D10_SB_OPERAND_TYPE(t0);
     Uint32 indexDim = DECODE_D3D10_SB_OPERAND_INDEX_DIMENSION(t0);
     Bool   hasExt   = DECODE_IS_D3D10_SB_OPERAND_EXTENDED(t0);
-
     if (hasExt)
     {
         Uint32 ext = tokens[offset + consumed];
@@ -27,7 +26,7 @@ Uint32 SM4Decoder::ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& 
         }
     }
 
-    op.type     = static_cast<SM4OperandType>(opType);
+    op.type     = static_cast<D3D10_SB_OPERAND_TYPE>(opType);
 
     op.writeMask  = 0xF;
     op.swizzle[0] = 0; op.swizzle[1] = 1; op.swizzle[2] = 2; op.swizzle[3] = 3;
@@ -134,7 +133,6 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
 {
     numTempsOut = 0;
     threadGroupSizeOut[0] = threadGroupSizeOut[1] = threadGroupSizeOut[2] = 1;
-
     if (numDwords < 2)
     {
         return false;
@@ -147,21 +145,18 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
     }
 
     Uint32 pos = 2;
-
     while (pos < totalLen)
     {
         Uint32    opTok    = tokens[pos];
-        SM4OpCode op       = DECODE_D3D10_SB_OPCODE_TYPE(opTok);
+        D3D10_SB_OPCODE_TYPE op       = DECODE_D3D10_SB_OPCODE_TYPE(opTok);
         Bool      sat      = DECODE_IS_D3D10_SB_INSTRUCTION_SATURATE_ENABLED(opTok) != 0;
         Uint32    instrLen = DECODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(opTok);
-
         if (instrLen == 0)
         {
             break;
         }
 
         Uint32 instrEnd = pos + instrLen;
-
         if (op == D3D10_SB_OPCODE_DCL_TEMPS)
         {
             if (pos + 1 < instrEnd)
@@ -266,4 +261,4 @@ Bool SM4Decoder::Decode(const Uint32* tokens, Uint32 numDwords,
     return true;
 }
 
-} // namespace d3d11sw
+} 
