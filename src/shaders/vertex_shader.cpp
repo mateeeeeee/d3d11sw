@@ -11,7 +11,7 @@ HRESULT D3D11VertexShaderSW::Init(const void* bytecode, SIZE_T len)
                      static_cast<const Uint8*>(bytecode) + len);
 
     DXBCParser parser;
-    if (!parser.ParseReflection(_bytecode.data(), _bytecode.size(), _reflection))
+    if (!parser.Parse(_bytecode.data(), _bytecode.size(), _reflection))
     {
         return E_INVALIDARG;
     }
