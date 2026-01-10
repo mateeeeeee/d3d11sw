@@ -24,6 +24,11 @@ set(D3D11SW_SOURCES
     context/rasterizer.cpp
     context/depth_stencil_util.h
     context/blend_util.h
+    context/shader_util.h
+    context/output_merger.h
+    context/output_merger.cpp
+    context/vertex_pipeline.h
+    context/vertex_pipeline.cpp
 
     resources/buffer.cpp
     resources/buffer.h
