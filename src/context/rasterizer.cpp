@@ -662,7 +662,6 @@ void SWRasterizer::RasterizeTriangle(
     D3D11SW_PIPELINE_STATE& state,
     Bool alreadyClipped)
 {
-    ScratchArena arena;
     if (state.numViewports == 0)
     {
         return;
@@ -730,6 +729,7 @@ void SWRasterizer::RasterizeTriangle(
         }
         else
         {
+            ScratchArena arena;
             using TriVerts = SW_VSOutput[3];
             TriVerts* clipped = arena.Alloc<TriVerts>(MaxClipVerts - 2);
             Int n = ClipTriangle(tri, clipped, _config.guardBandK, depthClip, numClipDist, arena);

@@ -67,7 +67,7 @@ D3D11SW_FORCEINLINE void WriteStencil(OMState& om, Int px, Int py, Uint8 val)
     WriteStencilValue(om.dsvFmt, dsvPx, val);
 }
 
-inline void BlendAndWrite(const OMState& om, Int px, Int py, Uint rtIdx,
+D3D11SW_FORCEINLINE void BlendAndWrite(const OMState& om, Int px, Int py, Uint rtIdx,
                           const SW_float4& color, const SW_float4& src1Color)
 {
     const RTInfo& info = om.rtInfos[rtIdx];
