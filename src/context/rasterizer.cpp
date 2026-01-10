@@ -16,6 +16,7 @@
 #include "resources/buffer.h"
 #include "util/env.h"
 #include "util/fixed_point.h"
+#include "util/scratch_arena.h"
 #include <algorithm>
 #include <atomic>
 #include <bit>
@@ -506,9 +507,9 @@ static Int ClipPolygonAgainstClipDist(
     return outCount;
 }
 
-D3D11SW_TODO("Lots of stack used here, MSVC reports 28724 bytes")
 static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
-                        Float guardBandK, Bool depthClip, Int numClipDist)
+                        Float guardBandK, Bool depthClip, Int numClipDist,
+                        ScratchArena& arena)
 {
     Bool anyNear = false;
     Bool anyOther = false;
@@ -544,8 +545,8 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
         return 1;
     }
 
-    SW_VSOutput bufA[MaxClipVerts];
-    SW_VSOutput bufB[MaxClipVerts];
+    SW_VSOutput* bufA = arena.Alloc<SW_VSOutput>(MaxClipVerts);
+    SW_VSOutput* bufB = arena.Alloc<SW_VSOutput>(MaxClipVerts);
 
     bufA[0] = in[0];
     bufA[1] = in[1];
@@ -651,7 +652,6 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
     return numTris;
 }
 
-D3D11SW_TODO("This function uses 43808 bytes of stack")
 void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput tri[3],
     const D3D11SW_ParsedShader& vsReflection,
@@ -662,6 +662,7 @@ void SWRasterizer::RasterizeTriangle(
     D3D11SW_PIPELINE_STATE& state,
     Bool alreadyClipped)
 {
+    ScratchArena arena;
     if (state.numViewports == 0)
     {
         return;
@@ -729,8 +730,9 @@ void SWRasterizer::RasterizeTriangle(
         }
         else
         {
-            SW_VSOutput clipped[22][3];
-            Int n = ClipTriangle(tri, clipped, _config.guardBandK, depthClip, numClipDist);
+            using TriVerts = SW_VSOutput[3];
+            TriVerts* clipped = arena.Alloc<TriVerts>(MaxClipVerts - 2);
+            Int n = ClipTriangle(tri, clipped, _config.guardBandK, depthClip, numClipDist, arena);
             for (Int t = 0; t < n; ++t)
             {
                 RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state, true);

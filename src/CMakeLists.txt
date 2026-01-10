@@ -113,6 +113,7 @@ set(D3D11SW_SOURCES
     util/format.h
     util/format.cpp
     util/fixed_point.h
+    util/scratch_arena.h
     util/hash.h
     util/dynamic_library.h
     util/dynamic_library.cpp

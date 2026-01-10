@@ -508,7 +508,7 @@ inline void CopySubresourceData(
                 std::memcpy(
                     dstBase + (Uint64)z * dstDepthPitch + (Uint64)y * dstRowPitch,
                     srcBase + (Uint64)z * srcDepthPitch + (Uint64)y * srcRowPitch,
-                    std::min(dstRowPitch, srcRowPitch));
+                    layout.RowPitch);
             }
         }
     }
