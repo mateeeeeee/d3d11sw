@@ -15,6 +15,7 @@
 #include "views/shader_resource_view.h"
 #include "resources/buffer.h"
 #include "util/env.h"
+#include "util/fixed_point.h"
 #include <algorithm>
 #include <atomic>
 #include <bit>
@@ -137,16 +138,15 @@ SWRasterizer::~SWRasterizer() = default;
 
 struct VaryingMap { Int vsOutReg; Int psInReg; };
 
-using I64 = Int64;
 struct TileContext
 {
-    I64 w0_tileOrig, w1_tileOrig, w2_tileOrig;
-    I64 w0_tileStepX, w1_tileStepX, w2_tileStepX;
-    I64 w0_tileStepY, w1_tileStepY, w2_tileStepY;
-    I64 w0_dx, w1_dx, w2_dx;
-    I64 w0_dy, w1_dy, w2_dy;
-    I64 w0_cornerDx, w1_cornerDx, w2_cornerDx;
-    I64 w0_cornerDy, w1_cornerDy, w2_cornerDy;
+    Fixed28_4 w0_tileOrig, w1_tileOrig, w2_tileOrig;
+    Fixed28_4 w0_tileStepX, w1_tileStepX, w2_tileStepX;
+    Fixed28_4 w0_tileStepY, w1_tileStepY, w2_tileStepY;
+    Fixed28_4 w0_dx, w1_dx, w2_dx;
+    Fixed28_4 w0_dy, w1_dy, w2_dy;
+    Fixed28_4 w0_cornerDx, w1_cornerDx, w2_cornerDx;
+    Fixed28_4 w0_cornerDy, w1_cornerDy, w2_cornerDy;
 
     Float invArea2;
     Float iw2, diw0, diw1;
@@ -185,32 +185,32 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     Int tileX = ctx.tileMinX + tileCol * ctx.tileStepX;
     Int tileY = ctx.tileMinY + tileRow * ctx.tileStepY;
 
-    I64 w0_tile = ctx.w0_tileOrig + static_cast<I64>(tileCol) * ctx.w0_tileStepX
-                                  + static_cast<I64>(tileRow) * ctx.w0_tileStepY;
-    I64 w1_tile = ctx.w1_tileOrig + static_cast<I64>(tileCol) * ctx.w1_tileStepX
-                                  + static_cast<I64>(tileRow) * ctx.w1_tileStepY;
-    I64 w2_tile = ctx.w2_tileOrig + static_cast<I64>(tileCol) * ctx.w2_tileStepX
-                                  + static_cast<I64>(tileRow) * ctx.w2_tileStepY;
+    Fixed28_4 w0_tile = ctx.w0_tileOrig + ctx.w0_tileStepX * static_cast<Int64>(tileCol)
+                                      + ctx.w0_tileStepY * static_cast<Int64>(tileRow);
+    Fixed28_4 w1_tile = ctx.w1_tileOrig + ctx.w1_tileStepX * static_cast<Int64>(tileCol)
+                                      + ctx.w1_tileStepY * static_cast<Int64>(tileRow);
+    Fixed28_4 w2_tile = ctx.w2_tileOrig + ctx.w2_tileStepX * static_cast<Int64>(tileCol)
+                                      + ctx.w2_tileStepY * static_cast<Int64>(tileRow);
 
     Bool allOutside = false;
     Bool fullyCovered = false;
     if (ctx.useTiling)
     {
-        I64 w0_TL = w0_tile;
-        I64 w1_TL = w1_tile;
-        I64 w2_TL = w2_tile;
+        Fixed28_4 w0_TL = w0_tile;
+        Fixed28_4 w1_TL = w1_tile;
+        Fixed28_4 w2_TL = w2_tile;
 
-        I64 w0_TR = w0_TL + ctx.w0_cornerDx;
-        I64 w1_TR = w1_TL + ctx.w1_cornerDx;
-        I64 w2_TR = w2_TL + ctx.w2_cornerDx;
+        Fixed28_4 w0_TR = w0_TL + ctx.w0_cornerDx;
+        Fixed28_4 w1_TR = w1_TL + ctx.w1_cornerDx;
+        Fixed28_4 w2_TR = w2_TL + ctx.w2_cornerDx;
 
-        I64 w0_BL = w0_TL + ctx.w0_cornerDy;
-        I64 w1_BL = w1_TL + ctx.w1_cornerDy;
-        I64 w2_BL = w2_TL + ctx.w2_cornerDy;
+        Fixed28_4 w0_BL = w0_TL + ctx.w0_cornerDy;
+        Fixed28_4 w1_BL = w1_TL + ctx.w1_cornerDy;
+        Fixed28_4 w2_BL = w2_TL + ctx.w2_cornerDy;
 
-        I64 w0_BR = w0_TR + ctx.w0_cornerDy;
-        I64 w1_BR = w1_TR + ctx.w1_cornerDy;
-        I64 w2_BR = w2_TR + ctx.w2_cornerDy;
+        Fixed28_4 w0_BR = w0_TR + ctx.w0_cornerDy;
+        Fixed28_4 w1_BR = w1_TR + ctx.w1_cornerDy;
+        Fixed28_4 w2_BR = w2_TR + ctx.w2_cornerDy;
 
         allOutside =
             (w0_TL < 0 && w0_TR < 0 && w0_BL < 0 && w0_BR < 0) ||
@@ -233,17 +233,17 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     Int tMinY = std::max(tileY, ctx.minY);
     Int tMaxY = std::min(tileY + ctx.tileStepY, ctx.maxY);
 
-    I64 w0_pixRowStart = w0_tile + ctx.w0_dx * (tMinX - tileX) + ctx.w0_dy * (tMinY - tileY);
-    I64 w1_pixRowStart = w1_tile + ctx.w1_dx * (tMinX - tileX) + ctx.w1_dy * (tMinY - tileY);
-    I64 w2_pixRowStart = w2_tile + ctx.w2_dx * (tMinX - tileX) + ctx.w2_dy * (tMinY - tileY);
+    Fixed28_4 w0_pixRowStart = w0_tile + ctx.w0_dx * (tMinX - tileX) + ctx.w0_dy * (tMinY - tileY);
+    Fixed28_4 w1_pixRowStart = w1_tile + ctx.w1_dx * (tMinX - tileX) + ctx.w1_dy * (tMinY - tileY);
+    Fixed28_4 w2_pixRowStart = w2_tile + ctx.w2_dx * (tMinX - tileX) + ctx.w2_dy * (tMinY - tileY);
 
     OMState& om = *ctx.om;
     psIn.isFrontFace = ctx.frontFace ? 1u : 0u;
     for (Int py = tMinY; py < tMaxY; ++py)
     {
-        I64 w0 = w0_pixRowStart;
-        I64 w1 = w1_pixRowStart;
-        I64 w2 = w2_pixRowStart;
+        Fixed28_4 w0 = w0_pixRowStart;
+        Fixed28_4 w1 = w1_pixRowStart;
+        Fixed28_4 w2 = w2_pixRowStart;
 
         Float pyCenter = static_cast<Float>(py) + 0.5f;
         for (Int px = tMinX; px < tMaxX; ++px)
@@ -829,16 +829,16 @@ void SWRasterizer::RasterizeTriangle(
         return;
     }
 
-    auto toFixed = [](Float v) -> I64 { return static_cast<I64>(v * 16.f + 0.5f); };
+    auto toFixed = [](Float v) -> Fixed28_4 { return Fixed28_4::FromFloat(v); };
 
-    I64 fx[3], fy[3];
+    Fixed28_4 fx[3], fy[3];
     for (Int v = 0; v < 3; ++v)
     {
         fx[v] = toFixed(screenX[v]);
         fy[v] = toFixed(screenY[v]);
     }
 
-    I64 fixedArea2 = (fx[1] - fx[0]) * (fy[2] - fy[0]) - (fy[1] - fy[0]) * (fx[2] - fx[0]);
+    Fixed28_4 fixedArea2 = (fx[1] - fx[0]) * (fy[2] - fy[0]) - (fy[1] - fy[0]) * (fx[2] - fx[0]);
     if (fixedArea2 == 0) 
     { 
         return; 
@@ -892,23 +892,23 @@ void SWRasterizer::RasterizeTriangle(
         return; 
     }
 
-    auto edgeFn = [](I64 ax, I64 ay, I64 bx, I64 by, I64 px, I64 py) -> I64
+    auto edgeFn = [](Fixed28_4 ax, Fixed28_4 ay, Fixed28_4 bx, Fixed28_4 by, Fixed28_4 px, Fixed28_4 py) -> Fixed28_4
     {
         return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
     };
 
     auto isTopLeft = [&](Int a, Int b) -> Bool
     {
-        I64 edgeY = fy[b] - fy[a];
-        I64 edgeX = fx[b] - fx[a];
+        Fixed28_4 edgeY = fy[b] - fy[a];
+        Fixed28_4 edgeX = fx[b] - fx[a];
         Bool isTop  = (edgeY == 0 && edgeX > 0);
         Bool isLeft = (edgeY < 0);
         return isTop || isLeft;
     };
 
-    I64 bias0 = isTopLeft(1, 2) ? 0 : -1;
-    I64 bias1 = isTopLeft(2, 0) ? 0 : -1;
-    I64 bias2 = isTopLeft(0, 1) ? 0 : -1;
+    Fixed28_4 bias0 = isTopLeft(1, 2) ? Fixed28_4(0) : Fixed28_4(-1);
+    Fixed28_4 bias1 = isTopLeft(2, 0) ? Fixed28_4(0) : Fixed28_4(-1);
+    Fixed28_4 bias2 = isTopLeft(0, 1) ? Fixed28_4(0) : Fixed28_4(-1);
 
     Float invArea2 = 1.f / static_cast<Float>(fixedArea2);
     Int svPosRegPS = FindSVPositionInput(psReflection);
@@ -963,36 +963,36 @@ void SWRasterizer::RasterizeTriangle(
     Int tileStepX = useTiling ? TILE : (maxX - minX);
     Int tileStepY = useTiling ? TILE : (maxY - minY);
 
-    I64 tileStartX = static_cast<I64>(tileMinX) * 16 + 8;
-    I64 tileStartY = static_cast<I64>(tileMinY) * 16 + 8;
+    Fixed28_4 tileStartX = Fixed28_4(static_cast<Int64>(tileMinX) * 16 + 8);
+    Fixed28_4 tileStartY = Fixed28_4(static_cast<Int64>(tileMinY) * 16 + 8);
 
-    I64 w0_dx = -(fy[2] - fy[1]) * 16;
-    I64 w1_dx = -(fy[0] - fy[2]) * 16;
-    I64 w2_dx = -(fy[1] - fy[0]) * 16;
+    Fixed28_4 w0_dx = -(fy[2] - fy[1]) * 16;
+    Fixed28_4 w1_dx = -(fy[0] - fy[2]) * 16;
+    Fixed28_4 w2_dx = -(fy[1] - fy[0]) * 16;
 
-    I64 w0_dy = (fx[2] - fx[1]) * 16;
-    I64 w1_dy = (fx[0] - fx[2]) * 16;
-    I64 w2_dy = (fx[1] - fx[0]) * 16;
+    Fixed28_4 w0_dy = (fx[2] - fx[1]) * 16;
+    Fixed28_4 w1_dy = (fx[0] - fx[2]) * 16;
+    Fixed28_4 w2_dy = (fx[1] - fx[0]) * 16;
 
-    I64 w0_tileOrig = edgeFn(fx[1], fy[1], fx[2], fy[2], tileStartX, tileStartY) + bias0;
-    I64 w1_tileOrig = edgeFn(fx[2], fy[2], fx[0], fy[0], tileStartX, tileStartY) + bias1;
-    I64 w2_tileOrig = edgeFn(fx[0], fy[0], fx[1], fy[1], tileStartX, tileStartY) + bias2;
+    Fixed28_4 w0_tileOrig = edgeFn(fx[1], fy[1], fx[2], fy[2], tileStartX, tileStartY) + bias0;
+    Fixed28_4 w1_tileOrig = edgeFn(fx[2], fy[2], fx[0], fy[0], tileStartX, tileStartY) + bias1;
+    Fixed28_4 w2_tileOrig = edgeFn(fx[0], fy[0], fx[1], fy[1], tileStartX, tileStartY) + bias2;
 
-    I64 w0_tileStepX = w0_dx * TILE;
-    I64 w1_tileStepX = w1_dx * TILE;
-    I64 w2_tileStepX = w2_dx * TILE;
+    Fixed28_4 w0_tileStepX = w0_dx * TILE;
+    Fixed28_4 w1_tileStepX = w1_dx * TILE;
+    Fixed28_4 w2_tileStepX = w2_dx * TILE;
 
-    I64 w0_tileStepY = w0_dy * TILE;
-    I64 w1_tileStepY = w1_dy * TILE;
-    I64 w2_tileStepY = w2_dy * TILE;
+    Fixed28_4 w0_tileStepY = w0_dy * TILE;
+    Fixed28_4 w1_tileStepY = w1_dy * TILE;
+    Fixed28_4 w2_tileStepY = w2_dy * TILE;
 
-    I64 w0_cornerDx = w0_dx * (TILE - 1);
-    I64 w1_cornerDx = w1_dx * (TILE - 1);
-    I64 w2_cornerDx = w2_dx * (TILE - 1);
+    Fixed28_4 w0_cornerDx = w0_dx * (TILE - 1);
+    Fixed28_4 w1_cornerDx = w1_dx * (TILE - 1);
+    Fixed28_4 w2_cornerDx = w2_dx * (TILE - 1);
 
-    I64 w0_cornerDy = w0_dy * (TILE - 1);
-    I64 w1_cornerDy = w1_dy * (TILE - 1);
-    I64 w2_cornerDy = w2_dy * (TILE - 1);
+    Fixed28_4 w0_cornerDy = w0_dy * (TILE - 1);
+    Fixed28_4 w1_cornerDy = w1_dy * (TILE - 1);
+    Fixed28_4 w2_cornerDy = w2_dy * (TILE - 1);
 
     Int numTilesX = (maxX - tileMinX + tileStepX - 1) / tileStepX;
     Int numTilesY = (maxY - tileMinY + tileStepY - 1) / tileStepY;

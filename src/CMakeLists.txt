@@ -112,6 +112,7 @@ set(D3D11SW_SOURCES
     util/enum.h
     util/format.h
     util/format.cpp
+    util/fixed_point.h
     util/hash.h
     util/dynamic_library.h
     util/dynamic_library.cpp
