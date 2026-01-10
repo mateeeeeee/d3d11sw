@@ -494,5 +494,45 @@ static void RunOnSWResource(ID3D11Resource* pResource, Fn&& fn)
     }
 }
 
+inline void CopySubresourceData(
+    Uint8* dstBase, Uint dstRowPitch, Uint dstDepthPitch,
+    const Uint8* srcBase, Uint srcRowPitch, Uint srcDepthPitch,
+    const D3D11SW_SUBRESOURCE_LAYOUT& layout, const D3D11_BOX* box)
+{
+    if (!box)
+    {
+        for (Uint z = 0; z < layout.NumSlices; ++z)
+        {
+            for (Uint y = 0; y < layout.NumRows; ++y)
+            {
+                std::memcpy(
+                    dstBase + (Uint64)z * dstDepthPitch + (Uint64)y * dstRowPitch,
+                    srcBase + (Uint64)z * srcDepthPitch + (Uint64)y * srcRowPitch,
+                    std::min(dstRowPitch, srcRowPitch));
+            }
+        }
+    }
+    else
+    {
+        Uint bx0         = box->left  / layout.BlockSize;
+        Uint by0         = box->top   / layout.BlockSize;
+        Uint bz0         = box->front;
+        Uint copyBlocksX = (box->right  - box->left)  / layout.BlockSize;
+        Uint copyBlocksY = (box->bottom - box->top)   / layout.BlockSize;
+        Uint copySlices  =  box->back   - box->front;
+        Uint copyBytes   = copyBlocksX * layout.PixelStride;
+        for (Uint z = 0; z < copySlices; ++z)
+        {
+            for (Uint y = 0; y < copyBlocksY; ++y)
+            {
+                std::memcpy(
+                    dstBase + (Uint64)(bz0 + z) * dstDepthPitch + (Uint64)(by0 + y) * dstRowPitch + bx0 * layout.PixelStride,
+                    srcBase + (Uint64)z          * srcDepthPitch + (Uint64)y          * srcRowPitch,
+                    copyBytes);
+            }
+        }
+    }
+}
+
 }
 

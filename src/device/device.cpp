@@ -20,6 +20,7 @@
 #include "states/sampler_state.h"
 #include "misc/query.h"
 #include "util/format.h"
+#include "context/context_util.h"
 #include "dxgi/device.h"
 
 namespace d3d11sw {
@@ -1345,13 +1346,40 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeferredContext3(UINT ContextFlag
     return E_NOTIMPL;
 }
 
-D3D11SW_TODO("Dont forget these")
 void STDMETHODCALLTYPE D3D11DeviceSW::WriteToSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
 {
+    if (!pDstResource || !pSrcData)
+    {
+        return;
+    }
+
+    RunOnSWResource(pDstResource, [&](auto* dst)
+    {
+        auto         layout  = dst->GetSubresourceLayout(DstSubresource);
+        Uint8*       dstBase = static_cast<Uint8*>(dst->GetDataPtr()) + layout.Offset;
+        const Uint8* src     = static_cast<const Uint8*>(pSrcData);
+        CopySubresourceData(dstBase, layout.RowPitch, layout.DepthPitch,
+                            src, SrcRowPitch, SrcDepthPitch,
+                            layout, pDstBox);
+    });
 }
 
 void STDMETHODCALLTYPE D3D11DeviceSW::ReadFromSubresource(void* pDstData, UINT DstRowPitch, UINT DstDepthPitch, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox)
 {
+    if (!pDstData || !pSrcResource)
+    {
+        return;
+    }
+
+    RunOnSWResource(pSrcResource, [&](auto* src)
+    {
+        auto         layout  = src->GetSubresourceLayout(SrcSubresource);
+        const Uint8* srcBase = static_cast<const Uint8*>(src->GetDataPtr()) + layout.Offset;
+        Uint8*       dst     = static_cast<Uint8*>(pDstData);
+        CopySubresourceData(dst, DstRowPitch, DstDepthPitch,
+                            srcBase, layout.RowPitch, layout.DepthPitch,
+                            layout, pSrcBox);
+    });
 }
 
 // ---- ID3D11Device4 ----

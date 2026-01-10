@@ -478,44 +478,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource(ID3D11Resource* p
         return;
     }
 
-    RunOnSWResource(pDstResource, [&](auto* dst) 
+    RunOnSWResource(pDstResource, [&](auto* dst)
     {
         auto         layout  = dst->GetSubresourceLayout(DstSubresource);
         Uint8*       dstBase = static_cast<Uint8*>(dst->GetDataPtr()) + layout.Offset;
         const Uint8* src     = static_cast<const Uint8*>(pSrcData);
-        if (!pDstBox)
-        {
-            for (Uint z = 0; z < layout.NumSlices; ++z)
-            {
-                for (Uint y = 0; y < layout.NumRows; ++y)
-                {
-                    std::memcpy(
-                        dstBase + (Uint64)z * layout.DepthPitch + (Uint64)y * layout.RowPitch,
-                        src     + (Uint64)z * SrcDepthPitch     + (Uint64)y * SrcRowPitch,
-                        layout.RowPitch);
-                }
-            }
-        }
-        else
-        {
-            Uint bx0         = pDstBox->left  / layout.BlockSize;
-            Uint by0         = pDstBox->top   / layout.BlockSize;
-            Uint bz0         = pDstBox->front;
-            Uint copyBlocksX = (pDstBox->right  - pDstBox->left)  / layout.BlockSize;
-            Uint copyBlocksY = (pDstBox->bottom - pDstBox->top)   / layout.BlockSize;
-            Uint copySlices  =  pDstBox->back   - pDstBox->front;
-            Uint copyBytes   = copyBlocksX * layout.PixelStride;
-            for (Uint z = 0; z < copySlices; ++z)
-            {
-                for (Uint y = 0; y < copyBlocksY; ++y)
-                {
-                    std::memcpy(
-                        dstBase + (Uint64)(bz0 + z) * layout.DepthPitch + (Uint64)(by0 + y) * layout.RowPitch + bx0 * layout.PixelStride,
-                        src     + (Uint64)z          * SrcDepthPitch     + (Uint64)y          * SrcRowPitch,
-                        copyBytes);
-                }
-            }
-        }
+        CopySubresourceData(dstBase, layout.RowPitch, layout.DepthPitch,
+                            src, SrcRowPitch, SrcDepthPitch,
+                            layout, pDstBox);
     });
 }
 
