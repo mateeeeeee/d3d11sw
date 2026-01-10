@@ -189,7 +189,7 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
     {
         if (state.csCBs[i])
         {
-            res.cb[i] = static_cast<const SW_float4*>(state.csCBs[i]->GetDataPtr());
+            res.cb[i] = static_cast<const SW_float4*>(state.csCBs[i]->GetDataPtr()) + state.csCBOffsets[i];
         }
     }
 

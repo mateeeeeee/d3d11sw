@@ -200,7 +200,7 @@ VertexState InitVS(const D3D11SW_PIPELINE_STATE& state)
     vs.instanceID = 0;
     if (state.vs)
     {
-        BuildStageResources(vs.vsRes, state.vsCBs, state.vsSRVs, state.vsSamplers);
+        BuildStageResources(vs.vsRes, state.vsCBs, state.vsCBOffsets, state.vsSRVs, state.vsSamplers);
     }
     return vs;
 }

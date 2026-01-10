@@ -83,6 +83,10 @@ D3D11DeviceContextSW::~D3D11DeviceContextSW()
 void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.vsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.vsCBOffsets[StartSlot + i] = 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
@@ -108,6 +112,10 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetShader(ID3D11VertexShader* pVe
 void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.psCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.psCBOffsets[StartSlot + i] = 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetInputLayout(ID3D11InputLayout* pInputLayout)
@@ -140,6 +148,10 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetPrimitiveTopology(D3D11_PRIMIT
 void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.gsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.gsCBOffsets[StartSlot + i] = 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetShader(ID3D11GeometryShader* pShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
@@ -280,6 +292,10 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetSamplers(UINT StartSlot, UINT 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.hsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.hsCBOffsets[StartSlot + i] = 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
@@ -300,6 +316,10 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetSamplers(UINT StartSlot, UINT 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.dsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.dsCBOffsets[StartSlot + i] = 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
@@ -325,6 +345,10 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetSamplers(UINT StartSlot, UINT 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.csCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.csCBOffsets[StartSlot + i] = 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::SetResourceMinLOD(ID3D11Resource* pResource, FLOAT MinLOD)
@@ -1157,38 +1181,56 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DiscardView(ID3D11View* pResourceVi
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
-    D3D11SW_TODO("store pFirstConstant/pNumConstants per slot for partial CB binding");
     SetSlots(_state.vsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.vsCBOffsets[StartSlot + i] = pFirstConstant ? pFirstConstant[i] : 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
-    D3D11SW_TODO("store pFirstConstant/pNumConstants per slot for partial CB binding");
     SetSlots(_state.hsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.hsCBOffsets[StartSlot + i] = pFirstConstant ? pFirstConstant[i] : 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
-    D3D11SW_TODO("store pFirstConstant/pNumConstants per slot for partial CB binding");
     SetSlots(_state.dsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.dsCBOffsets[StartSlot + i] = pFirstConstant ? pFirstConstant[i] : 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
-    D3D11SW_TODO("store pFirstConstant/pNumConstants per slot for partial CB binding");
     SetSlots(_state.gsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.gsCBOffsets[StartSlot + i] = pFirstConstant ? pFirstConstant[i] : 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
-    D3D11SW_TODO("store pFirstConstant/pNumConstants per slot for partial CB binding");
     SetSlots(_state.psCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.psCBOffsets[StartSlot + i] = pFirstConstant ? pFirstConstant[i] : 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
-    D3D11SW_TODO("store pFirstConstant/pNumConstants per slot for partial CB binding");
     SetSlots(_state.csCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        _state.csCBOffsets[StartSlot + i] = pFirstConstant ? pFirstConstant[i] : 0;
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)

@@ -1275,7 +1275,7 @@ void SWRasterizer::DrawInternal(
     const D3D11SW_ParsedShader& psRefl = state.ps->GetReflection();
 
     SW_Resources psRes{};
-    BuildStageResources(psRes, state.psCBs, state.psSRVs, state.psSamplers);
+    BuildStageResources(psRes, state.psCBs, state.psCBOffsets, state.psSRVs, state.psSamplers);
     ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
         [&](const SW_VSOutput tri[3])
         {

@@ -52,6 +52,7 @@ void D3D11SW_PIPELINE_STATE::ReleaseAll()
 void BuildStageResources(
     SW_Resources& res,
     D3D11BufferSW* const* cbs,
+    const Uint* cbOffsets,
     D3D11ShaderResourceViewSW* const* srvs,
     D3D11SamplerStateSW* const* samplers)
 {
@@ -59,7 +60,7 @@ void BuildStageResources(
     {
         if (cbs[i])
         {
-            res.cb[i] = static_cast<const SW_float4*>(cbs[i]->GetDataPtr());
+            res.cb[i] = static_cast<const SW_float4*>(cbs[i]->GetDataPtr()) + cbOffsets[i];
         }
     }
 
