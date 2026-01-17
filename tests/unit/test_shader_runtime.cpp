@@ -283,6 +283,310 @@ TEST_F(ShaderRuntimeTests, ResinfoUint)
     EXPECT_EQ(sw_bits_uint(r.w), 10u);
 }
 
+TEST_F(ShaderRuntimeTests, FetchTexelMip)
+{
+    // 2x2 mip0 (red), 1x1 mip1 (green)
+    unsigned char mip0[2][2][4] = {
+        {{255,0,0,255}, {255,0,0,255}},
+        {{255,0,0,255}, {255,0,0,255}},
+    };
+    unsigned char mip1[1][1][4] = {
+        {{0,255,0,255}},
+    };
+
+    unsigned char data[sizeof(mip0) + sizeof(mip1)];
+    std::memcpy(data, mip0, sizeof(mip0));
+    std::memcpy(data + sizeof(mip0), mip1, sizeof(mip1));
+
+    SW_SRV t{};
+    t.data = data;
+    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.mipLevels = 2;
+    t.mips[0] = {2, 2, 1, 2*4, 2*2*4};
+    t.mips[1] = {1, 1, 1, 1*4, 1*4};
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = sizeof(mip0);
+
+    SW_float4 r0 = sw_fetch_texel_mip(t, 0, 0, 0);
+    EXPECT_NEAR(r0.x, 1.f, 1e-3f);
+    EXPECT_NEAR(r0.y, 0.f, 1e-3f);
+
+    SW_float4 r1 = sw_fetch_texel_mip(t, 0, 0, 1);
+    EXPECT_NEAR(r1.x, 0.f, 1e-3f);
+    EXPECT_NEAR(r1.y, 1.f, 1e-3f);
+}
+
+TEST_F(ShaderRuntimeTests, FetchTexelMipClamps)
+{
+    unsigned char mip0[4] = {255, 0, 0, 255};
+    SW_SRV t{};
+    t.data = mip0;
+    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.mipLevels = 1;
+    t.mips[0] = {1, 1, 1, 4, 4};
+    t.mipOffsets[0] = 0;
+
+    SW_float4 r = sw_fetch_texel_mip(t, 0, 0, 99);
+    EXPECT_NEAR(r.x, 1.f, 1e-3f);
+}
+
+TEST_F(ShaderRuntimeTests, MipData)
+{
+    unsigned char data[32] = {};
+    data[0] = 0xAA;
+    data[16] = 0xBB;
+
+    SW_SRV t{};
+    t.data = data;
+    t.mipLevels = 2;
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = 16;
+
+    EXPECT_EQ(sw_mip_data(t, 0)[0], 0xAA);
+    EXPECT_EQ(sw_mip_data(t, 1)[0], 0xBB);
+    EXPECT_EQ(sw_mip_data(t, 99)[0], 0xBB);
+}
+
+TEST_F(ShaderRuntimeTests, SampleLodPoint)
+{
+    unsigned char mip0[2][2][4] = {
+        {{255,0,0,255}, {255,0,0,255}},
+        {{255,0,0,255}, {255,0,0,255}},
+    };
+    unsigned char mip1[1][1][4] = {
+        {{0,255,0,255}},
+    };
+
+    unsigned char data[sizeof(mip0) + sizeof(mip1)];
+    std::memcpy(data, mip0, sizeof(mip0));
+    std::memcpy(data + sizeof(mip0), mip1, sizeof(mip1));
+
+    SW_SRV t{};
+    t.data = data;
+    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.mipLevels = 2;
+    t.mips[0] = {2, 2, 1, 2*4, 2*2*4};
+    t.mips[1] = {1, 1, 1, 1*4, 1*4};
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = sizeof(mip0);
+
+    SW_Sampler s{};
+    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.maxLOD = 1.f;
+
+    SW_float4 r0 = sw_sample_2d_lod(t, s, 0.5f, 0.5f, 0.f);
+    EXPECT_NEAR(r0.x, 1.f, 1e-3f);
+    EXPECT_NEAR(r0.y, 0.f, 1e-3f);
+
+    SW_float4 r1 = sw_sample_2d_lod(t, s, 0.5f, 0.5f, 1.f);
+    EXPECT_NEAR(r1.x, 0.f, 1e-3f);
+    EXPECT_NEAR(r1.y, 1.f, 1e-3f);
+}
+
+TEST_F(ShaderRuntimeTests, SampleLodTrilinear)
+{
+    unsigned char mip0[1][1][4] = {{{255,0,0,255}}};
+    unsigned char mip1[1][1][4] = {{{0,255,0,255}}};
+
+    unsigned char data[sizeof(mip0) + sizeof(mip1)];
+    std::memcpy(data, mip0, sizeof(mip0));
+    std::memcpy(data + sizeof(mip0), mip1, sizeof(mip1));
+
+    SW_SRV t{};
+    t.data = data;
+    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.mipLevels = 2;
+    t.mips[0] = {1, 1, 1, 4, 4};
+    t.mips[1] = {1, 1, 1, 4, 4};
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = sizeof(mip0);
+
+    SW_Sampler s{};
+    s.filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.maxLOD = 1.f;
+
+    SW_float4 r = sw_sample_2d_lod(t, s, 0.5f, 0.5f, 0.5f);
+    EXPECT_NEAR(r.x, 0.5f, 0.02f);
+    EXPECT_NEAR(r.y, 0.5f, 0.02f);
+}
+
+TEST_F(ShaderRuntimeTests, SampleLodClampsToMinMax)
+{
+    unsigned char mip0[1][1][4] = {{{255,0,0,255}}};
+    unsigned char mip1[1][1][4] = {{{0,255,0,255}}};
+
+    unsigned char data[sizeof(mip0) + sizeof(mip1)];
+    std::memcpy(data, mip0, sizeof(mip0));
+    std::memcpy(data + sizeof(mip0), mip1, sizeof(mip1));
+
+    SW_SRV t{};
+    t.data = data;
+    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.mipLevels = 2;
+    t.mips[0] = {1, 1, 1, 4, 4};
+    t.mips[1] = {1, 1, 1, 4, 4};
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = sizeof(mip0);
+
+    SW_Sampler s{};
+    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.minLOD = 0.f;
+    s.maxLOD = 0.f;
+
+    SW_float4 r = sw_sample_2d_lod(t, s, 0.5f, 0.5f, 5.f);
+    EXPECT_NEAR(r.x, 1.f, 1e-3f);
+    EXPECT_NEAR(r.y, 0.f, 1e-3f);
+}
+
+TEST_F(ShaderRuntimeTests, ComputeLod)
+{
+    SW_SRV t{};
+    t.mips[0] = {256, 256, 1, 0, 0};
+    t.mipLevels = 9;
+
+    float lod = sw_compute_lod(t, 1.f/256.f, 0.f, 0.f, 1.f/256.f);
+    EXPECT_NEAR(lod, 0.f, 0.1f);
+
+    lod = sw_compute_lod(t, 2.f/256.f, 0.f, 0.f, 2.f/256.f);
+    EXPECT_NEAR(lod, 1.f, 0.1f);
+
+    lod = sw_compute_lod(t, 4.f/256.f, 0.f, 0.f, 4.f/256.f);
+    EXPECT_NEAR(lod, 2.f, 0.1f);
+}
+
+TEST_F(ShaderRuntimeTests, SampleGrad)
+{
+    unsigned char mip0[2][2][4] = {
+        {{255,0,0,255}, {255,0,0,255}},
+        {{255,0,0,255}, {255,0,0,255}},
+    };
+    unsigned char mip1[1][1][4] = {{{0,255,0,255}}};
+
+    unsigned char data[sizeof(mip0) + sizeof(mip1)];
+    std::memcpy(data, mip0, sizeof(mip0));
+    std::memcpy(data + sizeof(mip0), mip1, sizeof(mip1));
+
+    SW_SRV t{};
+    t.data = data;
+    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.mipLevels = 2;
+    t.mips[0] = {2, 2, 1, 2*4, 2*2*4};
+    t.mips[1] = {1, 1, 1, 1*4, 1*4};
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = sizeof(mip0);
+
+    SW_Sampler s{};
+    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.maxLOD = 1.f;
+
+    SW_float4 r0 = sw_sample_2d_grad(t, s, 0.5f, 0.5f, 0.5f, 0.f, 0.f, 0.5f);
+    EXPECT_NEAR(r0.x, 1.f, 1e-3f);
+
+    SW_float4 r1 = sw_sample_2d_grad(t, s, 0.5f, 0.5f, 1.f, 0.f, 0.f, 1.f);
+    EXPECT_NEAR(r1.x, 0.f, 1e-3f);
+    EXPECT_NEAR(r1.y, 1.f, 1e-3f);
+}
+
+TEST_F(ShaderRuntimeTests, ResinfoFloatMip)
+{
+    SW_SRV t{};
+    t.mipLevels = 3;
+    t.mips[0] = {256, 128, 1, 0, 0};
+    t.mips[1] = {128, 64, 1, 0, 0};
+    t.mips[2] = {64, 32, 1, 0, 0};
+
+    SW_float4 r0 = sw_resinfo_float_mip(t, 0);
+    EXPECT_FLOAT_EQ(r0.x, 256.f);
+    EXPECT_FLOAT_EQ(r0.y, 128.f);
+    EXPECT_FLOAT_EQ(r0.w, 3.f);
+
+    SW_float4 r2 = sw_resinfo_float_mip(t, 2);
+    EXPECT_FLOAT_EQ(r2.x, 64.f);
+    EXPECT_FLOAT_EQ(r2.y, 32.f);
+
+    SW_float4 rClamp = sw_resinfo_float_mip(t, 99);
+    EXPECT_FLOAT_EQ(rClamp.x, 64.f);
+}
+
+TEST_F(ShaderRuntimeTests, ResinfoUintMip)
+{
+    SW_SRV t{};
+    t.mipLevels = 2;
+    t.mips[0] = {512, 256, 1, 0, 0};
+    t.mips[1] = {256, 128, 1, 0, 0};
+
+    SW_float4 r1 = sw_resinfo_uint_mip(t, 1);
+    EXPECT_EQ(sw_bits_uint(r1.x), 256u);
+    EXPECT_EQ(sw_bits_uint(r1.y), 128u);
+    EXPECT_EQ(sw_bits_uint(r1.w), 2u);
+}
+
+TEST_F(ShaderRuntimeTests, FetchTexel3dMip)
+{
+    float mip0[2][2][2] = {{{1,2},{3,4}},{{5,6},{7,8}}};
+    float mip1[1][1][1] = {{{99}}};
+
+    unsigned char data[sizeof(mip0) + sizeof(mip1)];
+    std::memcpy(data, mip0, sizeof(mip0));
+    std::memcpy(data + sizeof(mip0), mip1, sizeof(mip1));
+
+    SW_SRV t{};
+    t.data = data;
+    t.format = DXGI_FORMAT_R32_FLOAT;
+    t.mipLevels = 2;
+    t.mips[0] = {2, 2, 2, 2*4, 2*2*4};
+    t.mips[1] = {1, 1, 1, 1*4, 1*4};
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = sizeof(mip0);
+
+    SW_float4 r0 = sw_fetch_texel_3d_mip(t, 0, 0, 0, 0);
+    EXPECT_FLOAT_EQ(r0.x, 1.f);
+
+    SW_float4 r0b = sw_fetch_texel_3d_mip(t, 1, 1, 1, 0);
+    EXPECT_FLOAT_EQ(r0b.x, 8.f);
+
+    SW_float4 r1 = sw_fetch_texel_3d_mip(t, 0, 0, 0, 1);
+    EXPECT_FLOAT_EQ(r1.x, 99.f);
+}
+
+TEST_F(ShaderRuntimeTests, SampleLodBias)
+{
+    unsigned char mip0[1][1][4] = {{{255,0,0,255}}};
+    unsigned char mip1[1][1][4] = {{{0,255,0,255}}};
+
+    unsigned char data[sizeof(mip0) + sizeof(mip1)];
+    std::memcpy(data, mip0, sizeof(mip0));
+    std::memcpy(data + sizeof(mip0), mip1, sizeof(mip1));
+
+    SW_SRV t{};
+    t.data = data;
+    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.mipLevels = 2;
+    t.mips[0] = {1, 1, 1, 4, 4};
+    t.mips[1] = {1, 1, 1, 4, 4};
+    t.mipOffsets[0] = 0;
+    t.mipOffsets[1] = sizeof(mip0);
+
+    SW_Sampler s{};
+    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.mipLODBias = 1.f;
+    s.maxLOD = 1.f;
+
+    SW_float4 r = sw_sample_2d_lod(t, s, 0.5f, 0.5f, 0.f);
+    EXPECT_NEAR(r.x, 0.f, 1e-3f);
+    EXPECT_NEAR(r.y, 1.f, 1e-3f);
+}
+
 TEST_F(ShaderRuntimeTests, Bufinfo)
 {
     SW_UAV u{};
