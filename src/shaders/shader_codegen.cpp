@@ -790,14 +790,36 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         break;
 
     case D3D10_SB_OPCODE_SAMPLE_L:
+        if (dst && src0 && src1 && src2 && src3)
+        {
+            auto uv  = EmitSrc(*src0);
+            auto lod = EmitSrc(*src3);
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_sample_2d_lod(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
+                            src1->indices[0], src2->indices[0], uv, uv, lod), sat);
+        }
+        break;
+
     case D3D10_SB_OPCODE_SAMPLE_B:
-    case D3D10_SB_OPCODE_SAMPLE_D:
         if (dst && src0 && src1 && src2)
         {
             auto uv = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
                             src1->indices[0], src2->indices[0], uv, uv), sat);
+        }
+        break;
+
+    case D3D10_SB_OPCODE_SAMPLE_D:
+        if (dst && src0 && src1 && src2 && src3 && instr.operands.size() > 5)
+        {
+            auto uv  = EmitSrc(*src0);
+            auto ddx = EmitSrc(*src3);
+            SM4Operand op5 = fixOp(&instr.operands[5]);
+            auto ddy = EmitSrc(op5);
+            EmitWrite(w, dstBase, mask,
+                std::format("sw_sample_2d_grad(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x,({}).y,({}).x,({}).y)",
+                            src1->indices[0], src2->indices[0], uv, uv, ddx, ddx, ddy, ddy), sat);
         }
         break;
 
@@ -816,7 +838,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_1_SB_OPCODE_GATHER4:
         if (dst && src0 && src1 && src2)
         {
-            auto uv   = EmitSrc(*src0);
+            std::string uv   = EmitSrc(*src0);
             int  comp = src1->swizzle[0];
             EmitWrite(w, dstBase, mask,
                 std::format("sw_gather_2d(res->srv[{}],res->smp[{}],({}).x,({}).y,{})",
@@ -827,8 +849,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_GATHER4_C:
         if (dst && src0 && src1 && src2 && src3)
         {
-            auto uv   = EmitSrc(*src0);
-            auto ref  = EmitSrc(*src3);
+            std::string uv   = EmitSrc(*src0);
+            std::string ref  = EmitSrc(*src3);
             int  comp = src1->swizzle[0];
             EmitWrite(w, dstBase, mask,
                 std::format("sw_gather_2d_cmp(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x,{})",
@@ -839,17 +861,17 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_LD:
         if (dst && src0 && src1)
         {
-            auto coord = EmitSrc(*src0);
+            std::string coord = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("sw_fetch_texel_3d(res->srv[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),sw_bits_uint(({}).z))",
-                            src1->indices[0], coord, coord, coord), sat);
+                std::format("sw_fetch_texel_3d_mip(res->srv[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),sw_bits_uint(({}).z),sw_bits_uint(({}).w))",
+                            src1->indices[0], coord, coord, coord, coord), sat);
         }
         break;
 
     case D3D11_SB_OPCODE_LD_UAV_TYPED:
         if (dst && src0 && src1)
         {
-            auto addr = EmitSrc(*src0);
+            std::string addr = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_uav_load_typed(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y))",
                             src1->indices[0], addr, addr), sat);
@@ -859,7 +881,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_STORE_UAV_TYPED:
         if (dst && src0 && src1)
         {
-            auto addr = EmitSrc(*src0);
+            std::string addr = EmitSrc(*src0);
             w.Line("sw_uav_store_typed(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),{});",
                    dst->indices[0], addr, addr, EmitSrc(*src1));
         }
@@ -1103,17 +1125,18 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_RESINFO:
         if (dst && src0 && src1)
         {
-            const Char* fn = "sw_resinfo_float";
+            const Char* fn = "sw_resinfo_float_mip";
             if (instr.resInfoReturn == D3D10_SB_RESINFO_INSTRUCTION_RETURN_RCPFLOAT)
             {
-                fn = "sw_resinfo_rcpfloat";
+                fn = "sw_resinfo_rcpfloat_mip";
             }
             else if (instr.resInfoReturn == D3D10_SB_RESINFO_INSTRUCTION_RETURN_UINT)
             {
-                fn = "sw_resinfo_uint";
+                fn = "sw_resinfo_uint_mip";
             }
+            std::string mip = EmitSrc(*src0);
             EmitWrite(w, dstBase, mask,
-                std::format("{}(res->srv[{}])", fn, src1->indices[0]), sat);
+                std::format("{}(res->srv[{}],sw_bits_uint(({}).x))", fn, src1->indices[0], mip), sat);
         }
         break;
 
