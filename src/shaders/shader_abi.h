@@ -11,6 +11,7 @@ static constexpr unsigned SW_MAX_TEXTURES   = D3D11_COMMONSHADER_INPUT_RESOURCE_
 static constexpr unsigned SW_MAX_SAMPLERS   = D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT;
 static constexpr unsigned SW_MAX_UAVS       = D3D11_1_UAV_SLOT_COUNT;
 static constexpr unsigned SW_MAX_TGSM       = 8;
+static constexpr unsigned SW_MAX_MIP_LEVELS = 15;
 
 struct SW_float4
 {
@@ -22,17 +23,23 @@ struct SW_uint3
     unsigned x, y, z;
 };
 
+struct SW_MipInfo
+{
+    unsigned width;
+    unsigned height;
+    unsigned depth;
+    unsigned rowPitch;
+    unsigned slicePitch;
+};
+
 struct SW_SRV
 {
     const void* data;
-    unsigned    width;
-    unsigned    height;
-    unsigned    depth;
-    unsigned    rowPitch;
-    unsigned    slicePitch;
     unsigned    mipLevels;
     unsigned    stride;
     DXGI_FORMAT format;
+    SW_MipInfo  mips[SW_MAX_MIP_LEVELS];
+    unsigned    mipOffsets[SW_MAX_MIP_LEVELS];
 };
 
 struct SW_Sampler
@@ -86,6 +93,19 @@ struct SW_CSInput
 
 using SW_VSFn = void(*)(const SW_VSInput*, SW_VSOutput*, const SW_Resources*);
 using SW_PSFn = void(*)(const SW_PSInput*, SW_PSOutput*, const SW_Resources*);
+
+struct SW_PSQuadInput
+{
+    SW_PSInput pixels[4];
+    unsigned   activeMask;
+};
+
+struct SW_PSQuadOutput
+{
+    SW_PSOutput pixels[4];
+};
+
+using SW_PSQuadFn = void(*)(const SW_PSQuadInput*, SW_PSQuadOutput*, const SW_Resources*);
 
 struct SW_TGSM
 {

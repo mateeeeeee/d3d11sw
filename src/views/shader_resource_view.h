@@ -2,6 +2,7 @@
 
 #include "common/device_child_impl.h"
 #include "resources/subresource_layout.h"
+#include "shaders/shader_abi.h"
 
 namespace d3d11sw {
 
@@ -23,12 +24,18 @@ public:
     UINT8*                     GetDataPtr() const { return _dataPtr; }
     D3D11SW_SUBRESOURCE_LAYOUT GetLayout()  const { return _layout; }
     DXGI_FORMAT                GetFormat()  const { return _desc.Format; }
+    Uint                       GetViewMipCount() const { return _viewMipLevels; }
+    D3D11SW_SUBRESOURCE_LAYOUT GetMipLayout(Uint mip) const { return mip < _viewMipLevels ? _mipLayouts[mip] : D3D11SW_SUBRESOURCE_LAYOUT{}; }
+    Uint                       GetStride() const { return _stride; }
 
 private:
     ID3D11Resource*                  _resource = nullptr;
     D3D11_SHADER_RESOURCE_VIEW_DESC1 _desc{};
     UINT8*                           _dataPtr  = nullptr;
     D3D11SW_SUBRESOURCE_LAYOUT       _layout{};
+    Uint                             _viewMipLevels = 1;
+    Uint                             _stride = 0;
+    D3D11SW_SUBRESOURCE_LAYOUT       _mipLayouts[SW_MAX_MIP_LEVELS]{};
 };
 
 }

@@ -10,8 +10,8 @@ struct D3D11SW_RESOURCE_INFO
 {
     DXGI_FORMAT              Format;
     D3D11_RESOURCE_DIMENSION Dimension;
-    UINT                     MipLevels;
-    UINT                     ArraySize;
+    Uint                     MipLevels;
+    Uint                     ArraySize;
 };
 
 inline D3D11SW_RESOURCE_INFO GetSWResourceInfo(ID3D11Resource* pResource)
@@ -45,7 +45,7 @@ inline D3D11SW_RESOURCE_INFO GetSWResourceInfo(ID3D11Resource* pResource)
     }
 }
 
-inline UINT8* GetSwDataPtr(ID3D11Resource* pResource, UINT subresource)
+inline Uint8* GetSwDataPtr(ID3D11Resource* pResource, Uint subresource)
 {
     D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
     pResource->GetType(&dim);
@@ -54,29 +54,29 @@ inline UINT8* GetSwDataPtr(ID3D11Resource* pResource, UINT subresource)
         case D3D11_RESOURCE_DIMENSION_BUFFER:
         {
             D3D11BufferSW* r = static_cast<D3D11BufferSW*>(pResource);
-            return static_cast<UINT8*>(r->GetDataPtr()) + r->GetSubresourceLayout(0).Offset;
+            return static_cast<Uint8*>(r->GetDataPtr()) + r->GetSubresourceLayout(0).Offset;
         }
         case D3D11_RESOURCE_DIMENSION_TEXTURE1D:
         {
             D3D11Texture1DSW* r = static_cast<D3D11Texture1DSW*>(pResource);
-            return static_cast<UINT8*>(r->GetDataPtr()) + r->GetSubresourceLayout(subresource).Offset;
+            return static_cast<Uint8*>(r->GetDataPtr()) + r->GetSubresourceLayout(subresource).Offset;
         }
         case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
         {
             D3D11Texture2DSW* r = static_cast<D3D11Texture2DSW*>(pResource);
-            return static_cast<UINT8*>(r->GetDataPtr()) + r->GetSubresourceLayout(subresource).Offset;
+            return static_cast<Uint8*>(r->GetDataPtr()) + r->GetSubresourceLayout(subresource).Offset;
         }
         case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
         {
             D3D11Texture3DSW* r = static_cast<D3D11Texture3DSW*>(pResource);
-            return static_cast<UINT8*>(r->GetDataPtr()) + r->GetSubresourceLayout(subresource).Offset;
+            return static_cast<Uint8*>(r->GetDataPtr()) + r->GetSubresourceLayout(subresource).Offset;
         }
         default:
             return nullptr;
     }
 }
 
-inline D3D11SW_SUBRESOURCE_LAYOUT GetSwSubresourceLayout(ID3D11Resource* pResource, UINT subresource)
+inline D3D11SW_SUBRESOURCE_LAYOUT GetSwSubresourceLayout(ID3D11Resource* pResource, Uint subresource)
 {
     D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
     pResource->GetType(&dim);
@@ -95,7 +95,7 @@ inline D3D11SW_SUBRESOURCE_LAYOUT GetSwSubresourceLayout(ID3D11Resource* pResour
     }
 }
 
-inline UINT CalcRTVSubresource(const D3D11_RENDER_TARGET_VIEW_DESC1& desc, UINT mipLevels)
+inline Uint CalcRTVSubresource(const D3D11_RENDER_TARGET_VIEW_DESC1& desc, Uint mipLevels)
 {
     switch (desc.ViewDimension)
     {
@@ -111,7 +111,7 @@ inline UINT CalcRTVSubresource(const D3D11_RENDER_TARGET_VIEW_DESC1& desc, UINT 
     }
 }
 
-inline UINT CalcDSVSubresource(const D3D11_DEPTH_STENCIL_VIEW_DESC& desc, UINT mipLevels)
+inline Uint CalcDSVSubresource(const D3D11_DEPTH_STENCIL_VIEW_DESC& desc, Uint mipLevels)
 {
     switch (desc.ViewDimension)
     {
@@ -125,7 +125,7 @@ inline UINT CalcDSVSubresource(const D3D11_DEPTH_STENCIL_VIEW_DESC& desc, UINT m
     }
 }
 
-inline UINT CalcSRVSubresource(const D3D11_SHADER_RESOURCE_VIEW_DESC1& desc, UINT mipLevels)
+inline Uint CalcSRVSubresource(const D3D11_SHADER_RESOURCE_VIEW_DESC1& desc, Uint mipLevels)
 {
     switch (desc.ViewDimension)
     {
@@ -143,7 +143,7 @@ inline UINT CalcSRVSubresource(const D3D11_SHADER_RESOURCE_VIEW_DESC1& desc, UIN
     }
 }
 
-inline UINT CalcUAVSubresource(const D3D11_UNORDERED_ACCESS_VIEW_DESC1& desc, UINT mipLevels)
+inline Uint CalcUAVSubresource(const D3D11_UNORDERED_ACCESS_VIEW_DESC1& desc, Uint mipLevels)
 {
     switch (desc.ViewDimension)
     {
@@ -256,29 +256,29 @@ inline D3D11_SHADER_RESOURCE_VIEW_DESC1 MakeDefaultSRVDesc(const D3D11SW_RESOURC
             if (info.ArraySize > 1) 
             {
                 desc.ViewDimension  = D3D11_SRV_DIMENSION_TEXTURE1DARRAY;
-                desc.Texture1DArray = { 0, (UINT)-1, 0, info.ArraySize };
+                desc.Texture1DArray = { 0, (Uint)-1, 0, info.ArraySize };
             }
             else
             {
                 desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE1D;
-                desc.Texture1D     = { 0, (UINT)-1 };
+                desc.Texture1D     = { 0, (Uint)-1 };
             }
             break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE2D:
             if (info.ArraySize > 1) 
             {
                 desc.ViewDimension  = D3D11_SRV_DIMENSION_TEXTURE2DARRAY;
-                desc.Texture2DArray = { 0, (UINT)-1, 0, info.ArraySize, 0 };
+                desc.Texture2DArray = { 0, (Uint)-1, 0, info.ArraySize, 0 };
             }
             else 
             {
                 desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-                desc.Texture2D     = { 0, (UINT)-1, 0 };
+                desc.Texture2D     = { 0, (Uint)-1, 0 };
             }
             break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
             desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
-            desc.Texture3D     = { 0, (UINT)-1 };
+            desc.Texture3D     = { 0, (Uint)-1 };
             break;
         default:
             desc.ViewDimension = D3D11_SRV_DIMENSION_UNKNOWN;
@@ -324,7 +324,7 @@ inline D3D11_UNORDERED_ACCESS_VIEW_DESC1 MakeDefaultUAVDesc(const D3D11SW_RESOUR
             break;
         case D3D11_RESOURCE_DIMENSION_TEXTURE3D:
             desc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE3D;
-            desc.Texture3D     = { 0, 0, (UINT)-1 };
+            desc.Texture3D     = { 0, 0, (Uint)-1 };
             break;
         default:
             desc.ViewDimension = D3D11_UAV_DIMENSION_UNKNOWN;

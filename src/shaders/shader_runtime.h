@@ -173,6 +173,12 @@ inline SW_float4 sw_swizzle(SW_float4 v, int x, int y, int z, int w)
 }
 
 // Texture sampling
+static inline const unsigned char* sw_mip_data(const SW_SRV& t, unsigned mip)
+{
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    return static_cast<const unsigned char*>(t.data) + t.mipOffsets[mip];
+}
+
 static inline float sw_addr(float u, D3D11_TEXTURE_ADDRESS_MODE mode)
 {
     switch (mode)
@@ -194,13 +200,14 @@ static inline float sw_addr(float u, D3D11_TEXTURE_ADDRESS_MODE mode)
     }
 }
 
-static inline SW_float4 sw_fetch_texel(const SW_SRV& t, unsigned x, unsigned y)
+static inline SW_float4 sw_fetch_texel_at(const unsigned char* data, DXGI_FORMAT fmt,
+                                           unsigned w, unsigned h, unsigned rowPitch,
+                                           unsigned x, unsigned y)
 {
-    x = std::min(x, t.width  ? t.width  - 1 : 0u);
-    y = std::min(y, t.height ? t.height - 1 : 0u);
-    const unsigned char* base = static_cast<const unsigned char*>(t.data)
-                               + (unsigned long long)y * t.rowPitch;
-    switch (t.format)
+    x = std::min(x, w ? w - 1 : 0u);
+    y = std::min(y, h ? h - 1 : 0u);
+    const unsigned char* base = data + (unsigned long long)y * rowPitch;
+    switch (fmt)
     {
         case DXGI_FORMAT_R8G8B8A8_UNORM:
         case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
@@ -231,26 +238,42 @@ static inline SW_float4 sw_fetch_texel(const SW_SRV& t, unsigned x, unsigned y)
     }
 }
 
-static inline SW_float4 sw_fetch_border(const SW_SRV& t, int x, int y,
-                                         bool borderU, bool borderV, const float bc[4])
+static inline SW_float4 sw_fetch_texel(const SW_SRV& t, unsigned x, unsigned y)
 {
-    if ((borderU && (x < 0 || x >= (int)t.width)) ||
-        (borderV && (y < 0 || y >= (int)t.height)))
+    return sw_fetch_texel_at(static_cast<const unsigned char*>(t.data), t.format,
+                             t.mips[0].width, t.mips[0].height, t.mips[0].rowPitch, x, y);
+}
+
+static inline SW_float4 sw_fetch_border_at(const unsigned char* data, DXGI_FORMAT fmt,
+                                            unsigned w, unsigned h, unsigned rowPitch,
+                                            int x, int y, bool borderU, bool borderV, const float bc[4])
+{
+    if ((borderU && (x < 0 || x >= (int)w)) ||
+        (borderV && (y < 0 || y >= (int)h)))
     {
         return { bc[0], bc[1], bc[2], bc[3] };
     }
-    return sw_fetch_texel(t, (unsigned)std::clamp(x, 0, std::max((int)t.width  - 1, 0)),
-                             (unsigned)std::clamp(y, 0, std::max((int)t.height - 1, 0)));
+    return sw_fetch_texel_at(data, fmt, w, h, rowPitch,
+                             (unsigned)std::clamp(x, 0, std::max((int)w - 1, 0)),
+                             (unsigned)std::clamp(y, 0, std::max((int)h - 1, 0)));
+}
+
+static inline SW_float4 sw_fetch_border(const SW_SRV& t, int x, int y,
+                                         bool borderU, bool borderV, const float bc[4])
+{
+    return sw_fetch_border_at(static_cast<const unsigned char*>(t.data), t.format,
+                              t.mips[0].width, t.mips[0].height, t.mips[0].rowPitch,
+                              x, y, borderU, borderV, bc);
 }
 
 static inline SW_float4 sw_fetch_texel_3d(const SW_SRV& t, unsigned x, unsigned y, unsigned z)
 {
-    z = std::min(z, t.depth ? t.depth - 1 : 0u);
-    y = std::min(y, t.height ? t.height - 1 : 0u);
-    x = std::min(x, t.width ? t.width - 1 : 0u);
+    z = std::min(z, t.mips[0].depth  ? t.mips[0].depth  - 1 : 0u);
+    y = std::min(y, t.mips[0].height ? t.mips[0].height - 1 : 0u);
+    x = std::min(x, t.mips[0].width  ? t.mips[0].width  - 1 : 0u);
     const unsigned char* base = static_cast<const unsigned char*>(t.data)
-                               + (unsigned long long)z * t.slicePitch
-                               + (unsigned long long)y * t.rowPitch;
+                               + (unsigned long long)z * t.mips[0].slicePitch
+                               + (unsigned long long)y * t.mips[0].rowPitch;
     switch (t.format)
     {
         case DXGI_FORMAT_R8G8B8A8_UNORM:
@@ -284,22 +307,22 @@ static inline SW_float4 sw_fetch_texel_3d(const SW_SRV& t, unsigned x, unsigned 
 
 static inline SW_float4 sw_resinfo_float(const SW_SRV& t)
 {
-    return { (float)t.width, (float)t.height, (float)t.depth, (float)t.mipLevels };
+    return { (float)t.mips[0].width, (float)t.mips[0].height, (float)t.mips[0].depth, (float)t.mipLevels };
 }
 
 static inline SW_float4 sw_resinfo_rcpfloat(const SW_SRV& t)
 {
     return {
-        t.width  ? 1.f / (float)t.width  : 0.f,
-        t.height ? 1.f / (float)t.height : 0.f,
-        t.depth  ? 1.f / (float)t.depth  : 0.f,
+        t.mips[0].width  ? 1.f / (float)t.mips[0].width  : 0.f,
+        t.mips[0].height ? 1.f / (float)t.mips[0].height : 0.f,
+        t.mips[0].depth  ? 1.f / (float)t.mips[0].depth  : 0.f,
         (float)t.mipLevels
     };
 }
 
 static inline SW_float4 sw_resinfo_uint(const SW_SRV& t)
 {
-    return { sw_uint_bits(t.width), sw_uint_bits(t.height), sw_uint_bits(t.depth), sw_uint_bits(t.mipLevels) };
+    return { sw_uint_bits(t.mips[0].width), sw_uint_bits(t.mips[0].height), sw_uint_bits(t.mips[0].depth), sw_uint_bits(t.mipLevels) };
 }
 
 static inline SW_float4 sw_bufinfo(const SW_UAV& u)
@@ -307,23 +330,24 @@ static inline SW_float4 sw_bufinfo(const SW_UAV& u)
     return { sw_uint_bits(u.elementCount), 0.f, 0.f, 0.f };
 }
 
-static inline SW_float4 sw_sample_2d(const SW_SRV& t, const SW_Sampler& s,
-                                      float u, float v)
+static inline SW_float4 sw_sample_2d_at(const unsigned char* data, DXGI_FORMAT fmt,
+                                         unsigned w, unsigned h, unsigned rowPitch,
+                                         const SW_Sampler& s, float u, float v)
 {
     float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
     float sv = sw_addr(v, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressV));
     bool bU = (s.addressU == D3D11_TEXTURE_ADDRESS_BORDER);
     bool bV = (s.addressV == D3D11_TEXTURE_ADDRESS_BORDER);
 
-    float fx = su * (float)t.width  - 0.5f;
-    float fy = sv * (float)t.height - 0.5f;
+    float fx = su * (float)w - 0.5f;
+    float fy = sv * (float)h - 0.5f;
 
     if ((s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_MIP_POINT ||
         (s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR)
     {
         int px = (int)(fx + 0.5f);
         int py = (int)(fy + 0.5f);
-        return sw_fetch_border(t, px, py, bU, bV, s.borderColor);
+        return sw_fetch_border_at(data, fmt, w, h, rowPitch, px, py, bU, bV, s.borderColor);
     }
 
     int   x0 = (int)std::floor(fx);
@@ -331,16 +355,23 @@ static inline SW_float4 sw_sample_2d(const SW_SRV& t, const SW_Sampler& s,
     float tx  = fx - (float)x0;
     float ty  = fy - (float)y0;
 
-    SW_float4 s00 = sw_fetch_border(t, x0,   y0,   bU, bV, s.borderColor);
-    SW_float4 s10 = sw_fetch_border(t, x0+1, y0,   bU, bV, s.borderColor);
-    SW_float4 s01 = sw_fetch_border(t, x0,   y0+1, bU, bV, s.borderColor);
-    SW_float4 s11 = sw_fetch_border(t, x0+1, y0+1, bU, bV, s.borderColor);
+    SW_float4 s00 = sw_fetch_border_at(data, fmt, w, h, rowPitch, x0,   y0,   bU, bV, s.borderColor);
+    SW_float4 s10 = sw_fetch_border_at(data, fmt, w, h, rowPitch, x0+1, y0,   bU, bV, s.borderColor);
+    SW_float4 s01 = sw_fetch_border_at(data, fmt, w, h, rowPitch, x0,   y0+1, bU, bV, s.borderColor);
+    SW_float4 s11 = sw_fetch_border_at(data, fmt, w, h, rowPitch, x0+1, y0+1, bU, bV, s.borderColor);
 
     auto lerp4 = [](SW_float4 a, SW_float4 b, float t) -> SW_float4 {
         return { a.x+(b.x-a.x)*t, a.y+(b.y-a.y)*t, a.z+(b.z-a.z)*t, a.w+(b.w-a.w)*t };
     };
 
     return lerp4(lerp4(s00, s10, tx), lerp4(s01, s11, tx), ty);
+}
+
+static inline SW_float4 sw_sample_2d(const SW_SRV& t, const SW_Sampler& s,
+                                      float u, float v)
+{
+    return sw_sample_2d_at(static_cast<const unsigned char*>(t.data), t.format,
+                           t.mips[0].width, t.mips[0].height, t.mips[0].rowPitch, s, u, v);
 }
 
 static inline float sw_apply_cmp(D3D11_COMPARISON_FUNC fn, float val, float ref)
@@ -367,6 +398,144 @@ static inline SW_float4 sw_sample_2d_cmp(const SW_SRV& t, const SW_Sampler& s,
     return { r, r, r, r };
 }
 
+static inline SW_float4 sw_sample_2d_at_mip(const SW_SRV& t, const SW_Sampler& s,
+                                              float u, float v, unsigned mip)
+{
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    const unsigned char* data = sw_mip_data(t, mip);
+    return sw_sample_2d_at(data, t.format,
+                           t.mips[mip].width, t.mips[mip].height, t.mips[mip].rowPitch,
+                           s, u, v);
+}
+
+static inline SW_float4 sw_sample_2d_lod(const SW_SRV& t, const SW_Sampler& s,
+                                           float u, float v, float lod)
+{
+    lod += s.mipLODBias;
+    lod = std::fmax(lod, s.minLOD);
+    lod = std::fmin(lod, s.maxLOD);
+    lod = std::fmax(lod, 0.f);
+    float maxMip = t.mipLevels > 0 ? (float)(t.mipLevels - 1) : 0.f;
+    lod = std::fmin(lod, maxMip);
+
+    unsigned mipFilter = (s.filter >> 0) & 0x3;
+    if (mipFilter == 0)
+    {
+        unsigned m = (unsigned)(lod + 0.5f);
+        return sw_sample_2d_at_mip(t, s, u, v, m);
+    }
+
+    unsigned m0 = (unsigned)std::floor(lod);
+    unsigned m1 = m0 + 1;
+    float frac = lod - (float)m0;
+    if (m1 >= t.mipLevels)
+    {
+        return sw_sample_2d_at_mip(t, s, u, v, m0);
+    }
+
+    SW_float4 c0 = sw_sample_2d_at_mip(t, s, u, v, m0);
+    SW_float4 c1 = sw_sample_2d_at_mip(t, s, u, v, m1);
+    return {
+        c0.x + (c1.x - c0.x) * frac,
+        c0.y + (c1.y - c0.y) * frac,
+        c0.z + (c1.z - c0.z) * frac,
+        c0.w + (c1.w - c0.w) * frac
+    };
+}
+
+static inline float sw_compute_lod(const SW_SRV& t,
+                                    float ddx_u, float ddx_v,
+                                    float ddy_u, float ddy_v)
+{
+    float w = (float)t.mips[0].width;
+    float h = (float)t.mips[0].height;
+    float rho_x = std::sqrt(ddx_u * ddx_u * w * w + ddx_v * ddx_v * h * h);
+    float rho_y = std::sqrt(ddy_u * ddy_u * w * w + ddy_v * ddy_v * h * h);
+    float rho = std::fmax(rho_x, rho_y);
+    return rho > 0.f ? std::log2(rho) : 0.f;
+}
+
+static inline SW_float4 sw_sample_2d_grad(const SW_SRV& t, const SW_Sampler& s,
+                                            float u, float v,
+                                            float ddx_u, float ddx_v,
+                                            float ddy_u, float ddy_v)
+{
+    float lod = sw_compute_lod(t, ddx_u, ddx_v, ddy_u, ddy_v);
+    return sw_sample_2d_lod(t, s, u, v, lod);
+}
+
+static inline SW_float4 sw_fetch_texel_mip(const SW_SRV& t, unsigned x, unsigned y, unsigned mip)
+{
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    const unsigned char* data = sw_mip_data(t, mip);
+    return sw_fetch_texel_at(data, t.format,
+                             t.mips[mip].width, t.mips[mip].height, t.mips[mip].rowPitch, x, y);
+}
+
+static inline SW_float4 sw_resinfo_float_mip(const SW_SRV& t, unsigned mip)
+{
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    return { (float)t.mips[mip].width, (float)t.mips[mip].height, (float)t.mips[mip].depth, (float)t.mipLevels };
+}
+
+static inline SW_float4 sw_resinfo_rcpfloat_mip(const SW_SRV& t, unsigned mip)
+{
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    return {
+        t.mips[mip].width  ? 1.f / (float)t.mips[mip].width  : 0.f,
+        t.mips[mip].height ? 1.f / (float)t.mips[mip].height : 0.f,
+        t.mips[mip].depth  ? 1.f / (float)t.mips[mip].depth  : 0.f,
+        (float)t.mipLevels
+    };
+}
+
+static inline SW_float4 sw_resinfo_uint_mip(const SW_SRV& t, unsigned mip)
+{
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    return { sw_uint_bits(t.mips[mip].width), sw_uint_bits(t.mips[mip].height), sw_uint_bits(t.mips[mip].depth), sw_uint_bits(t.mipLevels) };
+}
+
+static inline SW_float4 sw_fetch_texel_3d_mip(const SW_SRV& t, unsigned x, unsigned y, unsigned z, unsigned mip)
+{
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    const SW_MipInfo& mi = t.mips[mip];
+    z = std::min(z, mi.depth  ? mi.depth  - 1 : 0u);
+    y = std::min(y, mi.height ? mi.height - 1 : 0u);
+    x = std::min(x, mi.width  ? mi.width  - 1 : 0u);
+    const unsigned char* base = sw_mip_data(t, mip)
+                               + (unsigned long long)z * mi.slicePitch
+                               + (unsigned long long)y * mi.rowPitch;
+    switch (t.format)
+    {
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
+            return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
+        }
+        case DXGI_FORMAT_R32_FLOAT:
+        {
+            float fv;
+            std::memcpy(&fv, base + x * 4u, 4);
+            return { fv, fv, fv, fv };
+        }
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        {
+            float fv[4];
+            std::memcpy(fv, base + x * 16u, 16);
+            return { fv[0], fv[1], fv[2], fv[3] };
+        }
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
+            return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
+        }
+        default:
+            return { 0.f, 0.f, 0.f, 0.f };
+    }
+}
+
 static inline SW_float4 sw_gather_2d(const SW_SRV& t, const SW_Sampler& s,
                                       float u, float v, int comp)
 {
@@ -375,8 +544,8 @@ static inline SW_float4 sw_gather_2d(const SW_SRV& t, const SW_Sampler& s,
     bool bU = (s.addressU == D3D11_TEXTURE_ADDRESS_BORDER);
     bool bV = (s.addressV == D3D11_TEXTURE_ADDRESS_BORDER);
 
-    float fx = su * (float)t.width  - 0.5f;
-    float fy = sv * (float)t.height - 0.5f;
+    float fx = su * (float)t.mips[0].width  - 0.5f;
+    float fy = sv * (float)t.mips[0].height - 0.5f;
 
     int x0 = (int)std::floor(fx);
     int y0 = (int)std::floor(fy);
@@ -402,8 +571,8 @@ static inline SW_float4 sw_gather_2d_cmp(const SW_SRV& t, const SW_Sampler& s,
     bool bU = (s.addressU == D3D11_TEXTURE_ADDRESS_BORDER);
     bool bV = (s.addressV == D3D11_TEXTURE_ADDRESS_BORDER);
 
-    float fx = su * (float)t.width  - 0.5f;
-    float fy = sv * (float)t.height - 0.5f;
+    float fx = su * (float)t.mips[0].width  - 0.5f;
+    float fy = sv * (float)t.mips[0].height - 0.5f;
 
     int x0 = (int)std::floor(fx);
     int y0 = (int)std::floor(fy);

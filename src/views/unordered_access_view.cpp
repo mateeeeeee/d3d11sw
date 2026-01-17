@@ -62,7 +62,7 @@ HRESULT D3D11UnorderedAccessViewSW::Init(ID3D11Resource* pResource, const D3D11_
     D3D11SW_RESOURCE_INFO info = GetSWResourceInfo(pResource);
     _desc    = pDesc ? *pDesc : MakeDefaultUAVDesc(info);
 
-    UINT subresource = CalcUAVSubresource(_desc, info.MipLevels);
+    Uint subresource = CalcUAVSubresource(_desc, info.MipLevels);
     _dataPtr = GetSwDataPtr(pResource, subresource);
     _layout  = GetSwSubresourceLayout(pResource, subresource);
     if (_desc.Format != DXGI_FORMAT_UNKNOWN)

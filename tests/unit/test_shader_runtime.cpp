@@ -145,11 +145,12 @@ TEST_F(ShaderRuntimeTests, FetchTexel1D)
     SW_SRV t{};
     t.data     = data;
     t.format   = DXGI_FORMAT_R32_FLOAT;
-    t.width    = 4;
-    t.height   = 1;
-    t.depth    = 1;
-    t.rowPitch = 4 * 4;
-    t.slicePitch = t.rowPitch;
+    t.mips[0].width    = 4;
+    t.mips[0].height   = 1;
+    t.mips[0].depth    = 1;
+    t.mips[0].rowPitch = 4 * 4;
+    t.mips[0].slicePitch = t.mips[0].rowPitch;
+    t.mipLevels = 1;
 
     SW_float4 r0 = sw_fetch_texel(t, 0, 0);
     SW_float4 r2 = sw_fetch_texel(t, 2, 0);
@@ -177,11 +178,12 @@ TEST_F(ShaderRuntimeTests, FetchTexel3d)
     SW_SRV t{};
     t.data       = data;
     t.format     = DXGI_FORMAT_R8G8B8A8_UNORM;
-    t.width      = 2;
-    t.height     = 2;
-    t.depth      = 2;
-    t.rowPitch   = 2 * 4;
-    t.slicePitch = 2 * 2 * 4;
+    t.mips[0].width      = 2;
+    t.mips[0].height     = 2;
+    t.mips[0].depth      = 2;
+    t.mips[0].rowPitch   = 2 * 4;
+    t.mips[0].slicePitch = 2 * 2 * 4;
+    t.mipLevels = 1;
 
     SW_float4 r000 = sw_fetch_texel_3d(t, 0, 0, 0);
     SW_float4 r100 = sw_fetch_texel_3d(t, 1, 0, 0);
@@ -202,11 +204,12 @@ TEST_F(ShaderRuntimeTests, FetchTexel3dClamps)
     SW_SRV t{};
     t.data       = data;
     t.format     = DXGI_FORMAT_R32_FLOAT;
-    t.width      = 2;
-    t.height     = 1;
-    t.depth      = 1;
-    t.rowPitch   = 2 * 4;
-    t.slicePitch = 2 * 4;
+    t.mips[0].width      = 2;
+    t.mips[0].height     = 1;
+    t.mips[0].depth      = 1;
+    t.mips[0].rowPitch   = 2 * 4;
+    t.mips[0].slicePitch = 2 * 4;
+    t.mipLevels = 1;
 
     SW_float4 r = sw_fetch_texel_3d(t, 99, 99, 99);
     EXPECT_FLOAT_EQ(r.x, 2.f);
@@ -218,11 +221,12 @@ TEST_F(ShaderRuntimeTests, FetchTexel2dVia3d)
     SW_SRV t{};
     t.data       = data;
     t.format     = DXGI_FORMAT_R32_FLOAT;
-    t.width      = 2;
-    t.height     = 2;
-    t.depth      = 1;
-    t.rowPitch   = 2 * 4;
-    t.slicePitch = 2 * 2 * 4;
+    t.mips[0].width      = 2;
+    t.mips[0].height     = 2;
+    t.mips[0].depth      = 1;
+    t.mips[0].rowPitch   = 2 * 4;
+    t.mips[0].slicePitch = 2 * 2 * 4;
+    t.mipLevels = 1;
 
     SW_float4 r00 = sw_fetch_texel_3d(t, 0, 0, 0);
     SW_float4 r10 = sw_fetch_texel_3d(t, 1, 0, 0);
@@ -237,9 +241,9 @@ TEST_F(ShaderRuntimeTests, FetchTexel2dVia3d)
 TEST_F(ShaderRuntimeTests, ResinfoFloat)
 {
     SW_SRV t{};
-    t.width    = 256;
-    t.height   = 128;
-    t.depth    = 1;
+    t.mips[0].width    = 256;
+    t.mips[0].height   = 128;
+    t.mips[0].depth    = 1;
     t.mipLevels = 9;
 
     SW_float4 r = sw_resinfo_float(t);
@@ -252,9 +256,9 @@ TEST_F(ShaderRuntimeTests, ResinfoFloat)
 TEST_F(ShaderRuntimeTests, ResinfoRcpFloat)
 {
     SW_SRV t{};
-    t.width    = 4;
-    t.height   = 2;
-    t.depth    = 1;
+    t.mips[0].width    = 4;
+    t.mips[0].height   = 2;
+    t.mips[0].depth    = 1;
     t.mipLevels = 3;
 
     SW_float4 r = sw_resinfo_rcpfloat(t);
@@ -267,9 +271,9 @@ TEST_F(ShaderRuntimeTests, ResinfoRcpFloat)
 TEST_F(ShaderRuntimeTests, ResinfoUint)
 {
     SW_SRV t{};
-    t.width    = 512;
-    t.height   = 256;
-    t.depth    = 64;
+    t.mips[0].width    = 512;
+    t.mips[0].height   = 256;
+    t.mips[0].depth    = 64;
     t.mipLevels = 10;
 
     SW_float4 r = sw_resinfo_uint(t);

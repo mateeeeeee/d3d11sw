@@ -205,12 +205,20 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
         SW_SRV& srv = res.srv[i];
         srv.data        = srvSW->GetDataPtr();
         srv.format      = srvSW->GetFormat();
-        srv.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
-        srv.height      = layout.NumRows;
-        srv.depth       = layout.NumSlices;
-        srv.rowPitch    = layout.RowPitch;
-        srv.slicePitch  = layout.DepthPitch;
-        srv.mipLevels   = 1;
+        srv.mipLevels   = srvSW->GetViewMipCount();
+        srv.stride      = srvSW->GetStride();
+
+        for (Uint m = 0; m < srv.mipLevels && m < SW_MAX_MIP_LEVELS; ++m)
+        {
+            D3D11SW_SUBRESOURCE_LAYOUT ml = srvSW->GetMipLayout(m);
+            srv.mips[m].width     = ml.PixelStride > 0 ? ml.RowPitch / ml.PixelStride : 0;
+            srv.mips[m].height    = ml.NumRows;
+            srv.mips[m].depth     = ml.NumSlices;
+            srv.mips[m].rowPitch  = ml.RowPitch;
+            srv.mips[m].slicePitch = ml.DepthPitch;
+            D3D11SW_SUBRESOURCE_LAYOUT m0 = srvSW->GetMipLayout(0);
+            srv.mipOffsets[m] = static_cast<unsigned>(ml.Offset - m0.Offset);
+        }
     }
 
     for (Uint i = 0; i < SW_MAX_SAMPLERS; ++i)

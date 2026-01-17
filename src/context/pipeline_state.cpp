@@ -76,13 +76,20 @@ void BuildStageResources(
         SW_SRV& tex = res.srv[i];
         tex.data        = srv->GetDataPtr();
         tex.format      = srv->GetFormat();
-        tex.width       = layout.PixelStride > 0 ? layout.RowPitch / layout.PixelStride : 0;
-        tex.height      = layout.NumRows;
-        tex.depth       = layout.NumSlices;
-        tex.rowPitch    = layout.RowPitch;
-        tex.slicePitch  = layout.DepthPitch;
-        tex.mipLevels   = 1;
-        tex.stride      = layout.PixelStride;
+        tex.mipLevels   = srv->GetViewMipCount();
+        tex.stride      = srv->GetStride();
+
+        for (Uint m = 0; m < tex.mipLevels && m < SW_MAX_MIP_LEVELS; ++m)
+        {
+            D3D11SW_SUBRESOURCE_LAYOUT ml = srv->GetMipLayout(m);
+            tex.mips[m].width     = ml.PixelStride > 0 ? ml.RowPitch / ml.PixelStride : 0;
+            tex.mips[m].height    = ml.NumRows;
+            tex.mips[m].depth     = ml.NumSlices;
+            tex.mips[m].rowPitch  = ml.RowPitch;
+            tex.mips[m].slicePitch = ml.DepthPitch;
+            D3D11SW_SUBRESOURCE_LAYOUT m0 = srv->GetMipLayout(0);
+            tex.mipOffsets[m] = static_cast<unsigned>(ml.Offset - m0.Offset);
+        }
     }
 
     for (Uint i = 0; i < SW_MAX_SAMPLERS; ++i)
