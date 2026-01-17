@@ -86,6 +86,7 @@ add_golden_test(golden_cs_gather        golden/test_cs_gather.cpp)
 add_golden_test(golden_cs_bitwise       golden/test_cs_bitwise.cpp)
 add_golden_test(golden_cs_integer_math  golden/test_cs_integer_math.cpp)
 add_golden_test(golden_cs_control_flow  golden/test_cs_control_flow.cpp)
+add_golden_test(golden_cs_sample_level golden/test_cs_sample_level.cpp)
 
 add_golden_test(golden_draw_solid_triangle  golden/test_draw_solid_triangle.cpp)
 add_golden_test(golden_draw_depth           golden/test_draw_depth.cpp)
