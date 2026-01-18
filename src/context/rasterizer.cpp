@@ -1080,9 +1080,9 @@ void SWRasterizer::RasterizeTriangle(
         v2pw[vi] = { v2.o[vsR].x * iw2, v2.o[vsR].y * iw2, v2.o[vsR].z * iw2, v2.o[vsR].w * iw2 };
     }
 
-    if (om.activeRTCount == 0) 
-    { 
-        return; 
+    if (om.activeRTCount == 0)
+    {
+        return;
     }
 
     Float diw0 = iw0 - iw2;
