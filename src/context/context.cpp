@@ -19,6 +19,8 @@
 #include "views/depth_stencil_view.h"
 #include "views/shader_resource_view.h"
 #include "views/unordered_access_view.h"
+#include "views/view_util.h"
+#include "util/format.h"
 #include "context/context_util.h"
 #include "context/dispatcher.h"
 #include "misc/query.h"
@@ -536,7 +538,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearRenderTargetView(ID3D11RenderT
     D3D11SW_SUBRESOURCE_LAYOUT layout = rtv->GetLayout();
 
     Uint8 pixel[16] = {};
-    PackRTVColor(rtv->GetFormat(), ColorRGBA, pixel);
+    PackColor(rtv->GetFormat(), ColorRGBA, pixel);
     ForEachPixel(rtv->GetDataPtr(), layout, [&pixel, &layout](Uint8* px)
     {
         std::memcpy(px, pixel, layout.PixelStride);
@@ -572,7 +574,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewFloat(ID3D1
     D3D11SW_SUBRESOURCE_LAYOUT layout = uav->GetLayout();
 
     Uint8 pixel[16] = {};
-    PackRTVColor(uav->GetFormat(), Values, pixel);
+    PackColor(uav->GetFormat(), Values, pixel);
     ForEachPixel(uav->GetDataPtr(), layout, [&pixel, &layout](Uint8* px)
     {
         std::memcpy(px, pixel, layout.PixelStride);
@@ -677,6 +679,99 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::GenerateMips(ID3D11ShaderResourceView* pShaderResourceView)
 {
+    if (!pShaderResourceView)
+    {
+        return;
+    }
+
+    auto* srv = static_cast<D3D11ShaderResourceViewSW*>(pShaderResourceView);
+    ID3D11Resource* resource = nullptr;
+    srv->GetResource(&resource);
+    if (!resource)
+    {
+        return;
+    }
+
+    D3D11SW_RESOURCE_INFO info = GetSWResourceInfo(resource);
+    DXGI_FORMAT fmt = srv->GetFormat();
+    if (fmt == DXGI_FORMAT_UNKNOWN)
+    {
+        fmt = info.Format;
+    }
+    Uint pixStride = GetFormatStride(fmt);
+    Uint arraySize = info.ArraySize;
+    Bool is3D = (info.Dimension == D3D11_RESOURCE_DIMENSION_TEXTURE3D);
+
+    for (Uint slice = 0; slice < arraySize; ++slice)
+    {
+        for (Uint mip = 1; mip < info.MipLevels; ++mip)
+        {
+            Uint srcSub = D3D11CalcSubresource(mip - 1, slice, info.MipLevels);
+            Uint dstSub = D3D11CalcSubresource(mip, slice, info.MipLevels);
+
+            D3D11SW_SUBRESOURCE_LAYOUT srcLayout = GetSwSubresourceLayout(resource, srcSub);
+            D3D11SW_SUBRESOURCE_LAYOUT dstLayout = GetSwSubresourceLayout(resource, dstSub);
+
+            Uint8* srcBase = static_cast<Uint8*>(GetSwDataPtr(resource, srcSub));
+            Uint8* dstBase = static_cast<Uint8*>(GetSwDataPtr(resource, dstSub));
+
+            Uint srcW = pixStride > 0 ? srcLayout.RowPitch / pixStride : 0;
+            Uint srcH = srcLayout.NumRows;
+            Uint srcD = srcLayout.NumSlices;
+            Uint dstW = pixStride > 0 ? dstLayout.RowPitch / pixStride : 0;
+            Uint dstH = dstLayout.NumRows;
+            Uint dstD = dstLayout.NumSlices;
+
+            for (Uint z = 0; z < dstD; ++z)
+            {
+                Uint sz0 = std::min(z * 2, srcD - 1);
+                Uint sz1 = std::min(z * 2 + 1, srcD - 1);
+                Uint numZ = (is3D && srcD > 1) ? 2u : 1u;
+
+                for (Uint y = 0; y < dstH; ++y)
+                {
+                    Uint sy0 = std::min(y * 2, srcH - 1);
+                    Uint sy1 = std::min(y * 2 + 1, srcH - 1);
+
+                    for (Uint x = 0; x < dstW; ++x)
+                    {
+                        Uint sx0 = std::min(x * 2, srcW - 1);
+                        Uint sx1 = std::min(x * 2 + 1, srcW - 1);
+
+                        Float sum[4] = {0, 0, 0, 0};
+                        Uint count = 0;
+
+                        Uint zSlices[2] = {sz0, sz1};
+                        for (Uint zi = 0; zi < numZ; ++zi)
+                        {
+                            Uint8* sliceBase = srcBase + (Uint64)zSlices[zi] * srcLayout.DepthPitch;
+                            Float c[4];
+                            UnpackColor(fmt, sliceBase + (Uint64)sy0 * srcLayout.RowPitch + (Uint64)sx0 * pixStride, c);
+                            sum[0] += c[0]; sum[1] += c[1]; sum[2] += c[2]; sum[3] += c[3]; ++count;
+                            UnpackColor(fmt, sliceBase + (Uint64)sy0 * srcLayout.RowPitch + (Uint64)sx1 * pixStride, c);
+                            sum[0] += c[0]; sum[1] += c[1]; sum[2] += c[2]; sum[3] += c[3]; ++count;
+                            UnpackColor(fmt, sliceBase + (Uint64)sy1 * srcLayout.RowPitch + (Uint64)sx0 * pixStride, c);
+                            sum[0] += c[0]; sum[1] += c[1]; sum[2] += c[2]; sum[3] += c[3]; ++count;
+                            UnpackColor(fmt, sliceBase + (Uint64)sy1 * srcLayout.RowPitch + (Uint64)sx1 * pixStride, c);
+                            sum[0] += c[0]; sum[1] += c[1]; sum[2] += c[2]; sum[3] += c[3]; ++count;
+                        }
+
+                        Float inv = 1.f / (Float)count;
+                        Float avg[4] = {sum[0] * inv, sum[1] * inv, sum[2] * inv, sum[3] * inv};
+                        Uint8 packed[16];
+                        PackColor(fmt, avg, packed);
+
+                        Uint8* dst = dstBase + (Uint64)z * dstLayout.DepthPitch
+                                             + (Uint64)y * dstLayout.RowPitch
+                                             + (Uint64)x * pixStride;
+                        std::memcpy(dst, packed, pixStride);
+                    }
+                }
+            }
+        }
+    }
+
+    resource->Release();
 }
 
 FLOAT STDMETHODCALLTYPE D3D11DeviceContextSW::GetResourceMinLOD(ID3D11Resource* pResource)

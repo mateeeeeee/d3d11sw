@@ -5,43 +5,43 @@
 
 using namespace d3d11sw;
 
-TEST(FormatPacking, PackRTVColor_R8G8B8A8_UNORM)
+TEST(FormatPacking, PackColor_R8G8B8A8_UNORM)
 {
     FLOAT rgba[4] = {1.f, 0.5f, 0.f, 1.f};
     UINT8 out[16] = {};
-    PackRTVColor(DXGI_FORMAT_R8G8B8A8_UNORM, rgba, out);
+    PackColor(DXGI_FORMAT_R8G8B8A8_UNORM, rgba, out);
     EXPECT_EQ(out[0], 255);
     EXPECT_EQ(out[1], 128);
     EXPECT_EQ(out[2], 0);
     EXPECT_EQ(out[3], 255);
 }
 
-TEST(FormatPacking, PackRTVColor_B8G8R8A8_UNORM)
+TEST(FormatPacking, PackColor_B8G8R8A8_UNORM)
 {
     FLOAT rgba[4] = {1.f, 0.f, 0.5f, 1.f};
     UINT8 out[16] = {};
-    PackRTVColor(DXGI_FORMAT_B8G8R8A8_UNORM, rgba, out);
+    PackColor(DXGI_FORMAT_B8G8R8A8_UNORM, rgba, out);
     EXPECT_EQ(out[0], 128);
     EXPECT_EQ(out[1], 0);
     EXPECT_EQ(out[2], 255);
     EXPECT_EQ(out[3], 255);
 }
 
-TEST(FormatPacking, PackRTVColor_R32_FLOAT)
+TEST(FormatPacking, PackColor_R32_FLOAT)
 {
     FLOAT rgba[4] = {3.14f, 0.f, 0.f, 0.f};
     UINT8 out[16] = {};
-    PackRTVColor(DXGI_FORMAT_R32_FLOAT, rgba, out);
+    PackColor(DXGI_FORMAT_R32_FLOAT, rgba, out);
     float val;
     std::memcpy(&val, out, 4);
     EXPECT_FLOAT_EQ(val, 3.14f);
 }
 
-TEST(FormatPacking, PackRTVColor_R32G32B32A32_FLOAT)
+TEST(FormatPacking, PackColor_R32G32B32A32_FLOAT)
 {
     FLOAT rgba[4] = {1.f, 2.f, 3.f, 4.f};
     UINT8 out[16] = {};
-    PackRTVColor(DXGI_FORMAT_R32G32B32A32_FLOAT, rgba, out);
+    PackColor(DXGI_FORMAT_R32G32B32A32_FLOAT, rgba, out);
     float vals[4];
     std::memcpy(vals, out, 16);
     EXPECT_FLOAT_EQ(vals[0], 1.f);
@@ -50,11 +50,11 @@ TEST(FormatPacking, PackRTVColor_R32G32B32A32_FLOAT)
     EXPECT_FLOAT_EQ(vals[3], 4.f);
 }
 
-TEST(FormatPacking, PackRTVColor_R16G16B16A16_UNORM)
+TEST(FormatPacking, PackColor_R16G16B16A16_UNORM)
 {
     FLOAT rgba[4] = {1.f, 0.5f, 0.f, 1.f};
     UINT8 out[16] = {};
-    PackRTVColor(DXGI_FORMAT_R16G16B16A16_UNORM, rgba, out);
+    PackColor(DXGI_FORMAT_R16G16B16A16_UNORM, rgba, out);
     UINT16 vals[4];
     std::memcpy(vals, out, 8);
     EXPECT_EQ(vals[0], 65535);
@@ -63,11 +63,11 @@ TEST(FormatPacking, PackRTVColor_R16G16B16A16_UNORM)
     EXPECT_EQ(vals[3], 65535);
 }
 
-TEST(FormatPacking, PackRTVColor_R32_UINT)
+TEST(FormatPacking, PackColor_R32_UINT)
 {
     FLOAT rgba[4] = {42.f, 0.f, 0.f, 0.f};
     UINT8 out[16] = {};
-    PackRTVColor(DXGI_FORMAT_R32_UINT, rgba, out);
+    PackColor(DXGI_FORMAT_R32_UINT, rgba, out);
     UINT val;
     std::memcpy(&val, out, 4);
     EXPECT_EQ(val, 42u);
@@ -124,7 +124,7 @@ TEST(FormatPacking, Roundtrip_R16G16B16A16_FLOAT)
 {
     FLOAT rgba[4] = {1.0f, 0.5f, -0.25f, 100.0f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R16G16B16A16_FLOAT, rgba, packed);
+    PackColor(DXGI_FORMAT_R16G16B16A16_FLOAT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R16G16B16A16_FLOAT, packed, out);
     EXPECT_NEAR(out[0], 1.0f, 0.001f);
@@ -137,7 +137,7 @@ TEST(FormatPacking, Roundtrip_R16G16_FLOAT)
 {
     FLOAT rgba[4] = {2.5f, -1.0f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R16G16_FLOAT, rgba, packed);
+    PackColor(DXGI_FORMAT_R16G16_FLOAT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R16G16_FLOAT, packed, out);
     EXPECT_NEAR(out[0], 2.5f, 0.001f);
@@ -150,7 +150,7 @@ TEST(FormatPacking, Roundtrip_R16_FLOAT)
 {
     FLOAT rgba[4] = {0.75f, 0.f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R16_FLOAT, rgba, packed);
+    PackColor(DXGI_FORMAT_R16_FLOAT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R16_FLOAT, packed, out);
     EXPECT_NEAR(out[0], 0.75f, 0.001f);
@@ -160,7 +160,7 @@ TEST(FormatPacking, Roundtrip_R11G11B10_FLOAT)
 {
     FLOAT rgba[4] = {1.0f, 0.5f, 2.0f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R11G11B10_FLOAT, rgba, packed);
+    PackColor(DXGI_FORMAT_R11G11B10_FLOAT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R11G11B10_FLOAT, packed, out);
     EXPECT_NEAR(out[0], 1.0f, 0.02f);
@@ -173,7 +173,7 @@ TEST(FormatPacking, Roundtrip_R10G10B10A2_UNORM)
 {
     FLOAT rgba[4] = {1.0f, 0.5f, 0.25f, 1.0f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R10G10B10A2_UNORM, rgba, packed);
+    PackColor(DXGI_FORMAT_R10G10B10A2_UNORM, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R10G10B10A2_UNORM, packed, out);
     EXPECT_NEAR(out[0], 1.0f, 1.f / 1023.f + 0.001f);
@@ -186,7 +186,7 @@ TEST(FormatPacking, Roundtrip_R10G10B10A2_UINT)
 {
     FLOAT rgba[4] = {512.f, 100.f, 1023.f, 3.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R10G10B10A2_UINT, rgba, packed);
+    PackColor(DXGI_FORMAT_R10G10B10A2_UINT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R10G10B10A2_UINT, packed, out);
     EXPECT_FLOAT_EQ(out[0], 512.f);
@@ -199,7 +199,7 @@ TEST(FormatPacking, Roundtrip_R8G8B8A8_SNORM)
 {
     FLOAT rgba[4] = {1.0f, -1.0f, 0.5f, -0.5f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R8G8B8A8_SNORM, rgba, packed);
+    PackColor(DXGI_FORMAT_R8G8B8A8_SNORM, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R8G8B8A8_SNORM, packed, out);
     EXPECT_NEAR(out[0], 1.0f, 1.f / 127.f + 0.01f);
@@ -212,7 +212,7 @@ TEST(FormatPacking, Roundtrip_R8G8B8A8_UINT)
 {
     FLOAT rgba[4] = {10.f, 20.f, 200.f, 255.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R8G8B8A8_UINT, rgba, packed);
+    PackColor(DXGI_FORMAT_R8G8B8A8_UINT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R8G8B8A8_UINT, packed, out);
     EXPECT_FLOAT_EQ(out[0], 10.f);
@@ -225,7 +225,7 @@ TEST(FormatPacking, Roundtrip_R8G8B8A8_SINT)
 {
     FLOAT rgba[4] = {-10.f, 20.f, -100.f, 127.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R8G8B8A8_SINT, rgba, packed);
+    PackColor(DXGI_FORMAT_R8G8B8A8_SINT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R8G8B8A8_SINT, packed, out);
     EXPECT_FLOAT_EQ(out[0], -10.f);
@@ -238,7 +238,7 @@ TEST(FormatPacking, Roundtrip_R8G8_UNORM)
 {
     FLOAT rgba[4] = {0.75f, 0.25f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R8G8_UNORM, rgba, packed);
+    PackColor(DXGI_FORMAT_R8G8_UNORM, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R8G8_UNORM, packed, out);
     EXPECT_NEAR(out[0], 0.75f, 1.f / 255.f + 0.001f);
@@ -249,7 +249,7 @@ TEST(FormatPacking, Roundtrip_R8_UNORM)
 {
     FLOAT rgba[4] = {0.5f, 0.f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R8_UNORM, rgba, packed);
+    PackColor(DXGI_FORMAT_R8_UNORM, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R8_UNORM, packed, out);
     EXPECT_NEAR(out[0], 0.5f, 1.f / 255.f + 0.001f);
@@ -259,7 +259,7 @@ TEST(FormatPacking, Roundtrip_R32G32B32_FLOAT)
 {
     FLOAT rgba[4] = {1.5f, 2.5f, 3.5f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R32G32B32_FLOAT, rgba, packed);
+    PackColor(DXGI_FORMAT_R32G32B32_FLOAT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R32G32B32_FLOAT, packed, out);
     EXPECT_FLOAT_EQ(out[0], 1.5f);
@@ -271,7 +271,7 @@ TEST(FormatPacking, Roundtrip_R32G32B32A32_UINT)
 {
     FLOAT rgba[4] = {1.f, 200.f, 50000.f, 4000000.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R32G32B32A32_UINT, rgba, packed);
+    PackColor(DXGI_FORMAT_R32G32B32A32_UINT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R32G32B32A32_UINT, packed, out);
     EXPECT_FLOAT_EQ(out[0], 1.f);
@@ -284,7 +284,7 @@ TEST(FormatPacking, Roundtrip_R16G16_UNORM)
 {
     FLOAT rgba[4] = {0.75f, 0.25f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R16G16_UNORM, rgba, packed);
+    PackColor(DXGI_FORMAT_R16G16_UNORM, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R16G16_UNORM, packed, out);
     EXPECT_NEAR(out[0], 0.75f, 1.f / 65535.f + 0.0001f);
@@ -295,7 +295,7 @@ TEST(FormatPacking, Roundtrip_R16_UNORM)
 {
     FLOAT rgba[4] = {0.5f, 0.f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R16_UNORM, rgba, packed);
+    PackColor(DXGI_FORMAT_R16_UNORM, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R16_UNORM, packed, out);
     EXPECT_NEAR(out[0], 0.5f, 1.f / 65535.f + 0.0001f);
@@ -305,7 +305,7 @@ TEST(FormatPacking, Roundtrip_R32_UINT)
 {
     FLOAT rgba[4] = {42.f, 0.f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R32_UINT, rgba, packed);
+    PackColor(DXGI_FORMAT_R32_UINT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R32_UINT, packed, out);
     EXPECT_FLOAT_EQ(out[0], 42.f);
@@ -315,7 +315,7 @@ TEST(FormatPacking, Roundtrip_R32G32_UINT)
 {
     FLOAT rgba[4] = {100.f, 200.f, 0.f, 0.f};
     UINT8 packed[16] = {};
-    PackRTVColor(DXGI_FORMAT_R32G32_UINT, rgba, packed);
+    PackColor(DXGI_FORMAT_R32G32_UINT, rgba, packed);
     FLOAT out[4] = {};
     UnpackColor(DXGI_FORMAT_R32G32_UINT, packed, out);
     EXPECT_FLOAT_EQ(out[0], 100.f);

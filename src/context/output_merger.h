@@ -76,7 +76,7 @@ D3D11SW_FORCEINLINE void BlendAndWrite(const OMState& om, Int px, Int py, Uint r
     {
         Float srcColorF[4] = { color.x, color.y, color.z, color.w };
         Uint8 srcPacked[16];
-        PackRTVColor(info.fmt, srcColorF, srcPacked);
+        PackColor(info.fmt, srcColorF, srcPacked);
 
         Uint8 result[16];
         for (Uint b = 0; b < info.pixStride; ++b)
@@ -143,7 +143,7 @@ D3D11SW_FORCEINLINE void BlendAndWrite(const OMState& om, Int px, Int py, Uint r
     }
 
     Uint8 packed[16];
-    PackRTVColor(info.fmt, finalColor, packed);
+    PackColor(info.fmt, finalColor, packed);
     std::memcpy(rtvPx, packed, info.pixStride);
 }
 

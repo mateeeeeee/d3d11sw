@@ -108,7 +108,7 @@ inline void ForEachPixel(Uint8* data, const D3D11SW_SUBRESOURCE_LAYOUT& layout, 
     }
 }
 
-inline void PackRTVColor(DXGI_FORMAT fmt, const Float rgba[4], Uint8 out[16])
+inline void PackColor(DXGI_FORMAT fmt, const Float rgba[4], Uint8 out[16])
 {
     std::memset(out, 0, 16);
     auto u8  = [](Float f) -> Uint8  { return (Uint8) (std::clamp(f, 0.f, 1.f) * 255.f   + 0.5f); };
