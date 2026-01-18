@@ -374,6 +374,90 @@ static inline SW_float4 sw_sample_2d(const SW_SRV& t, const SW_Sampler& s,
                            t.mips[0].width, t.mips[0].height, t.mips[0].rowPitch, s, u, v);
 }
 
+static inline SW_float4 sw_sample_1d(const SW_SRV& t, const SW_Sampler& s, float u)
+{
+    return sw_sample_2d(t, s, u, 0.5f);
+}
+
+static inline SW_float4 sw_sample_3d(const SW_SRV& t, const SW_Sampler& s,
+                                      float u, float v, float w)
+{
+    float su = sw_addr(u, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressU));
+    float sv = sw_addr(v, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressV));
+    float sw_ = sw_addr(w, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressW));
+
+    unsigned tw = t.mips[0].width;
+    unsigned th = t.mips[0].height;
+    unsigned td = t.mips[0].depth;
+
+    float fz = sw_ * (float)td - 0.5f;
+    int z0 = (int)std::floor(fz);
+    int z1 = z0 + 1;
+    float tz = fz - (float)z0;
+
+    z0 = std::clamp(z0, 0, std::max((int)td - 1, 0));
+    z1 = std::clamp(z1, 0, std::max((int)td - 1, 0));
+
+    const unsigned char* base = static_cast<const unsigned char*>(t.data);
+    unsigned rp = t.mips[0].rowPitch;
+    unsigned sp = t.mips[0].slicePitch;
+
+    if ((s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_MIP_POINT ||
+        (s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR)
+    {
+        int pz = (int)(fz + 0.5f);
+        pz = std::clamp(pz, 0, std::max((int)td - 1, 0));
+        return sw_sample_2d_at(base + (unsigned long long)pz * sp, t.format, tw, th, rp, s, u, v);
+    }
+
+    SW_float4 c0 = sw_sample_2d_at(base + (unsigned long long)z0 * sp, t.format, tw, th, rp, s, u, v);
+    SW_float4 c1 = sw_sample_2d_at(base + (unsigned long long)z1 * sp, t.format, tw, th, rp, s, u, v);
+    return {
+        c0.x + (c1.x - c0.x) * tz,
+        c0.y + (c1.y - c0.y) * tz,
+        c0.z + (c1.z - c0.z) * tz,
+        c0.w + (c1.w - c0.w) * tz
+    };
+}
+
+static inline SW_float4 sw_sample_cube(const SW_SRV& t, const SW_Sampler& s,
+                                        float x, float y, float z)
+{
+    float ax = std::fabs(x), ay = std::fabs(y), az = std::fabs(z);
+    int face;
+    float sc, tc, ma;
+    if (ax >= ay && ax >= az)
+    {
+        face = x > 0.f ? 0 : 1;
+        ma = ax;
+        sc = x > 0.f ? -z : z;
+        tc = -y;
+    }
+    else if (ay >= ax && ay >= az)
+    {
+        face = y > 0.f ? 2 : 3;
+        ma = ay;
+        sc = x;
+        tc = y > 0.f ? z : -z;
+    }
+    else
+    {
+        face = z > 0.f ? 4 : 5;
+        ma = az;
+        sc = z > 0.f ? x : -x;
+        tc = -y;
+    }
+    float fu = 0.5f * (sc / ma + 1.f);
+    float fv = 0.5f * (tc / ma + 1.f);
+
+    unsigned faceH = t.mips[0].height;
+    unsigned rp = t.mips[0].rowPitch;
+    unsigned sp = t.mips[0].slicePitch;
+    const unsigned char* faceData = static_cast<const unsigned char*>(t.data)
+                                    + (unsigned long long)face * sp;
+    return sw_sample_2d_at(faceData, t.format, t.mips[0].width, faceH, rp, s, fu, fv);
+}
+
 static inline float sw_apply_cmp(D3D11_COMPARISON_FUNC fn, float val, float ref)
 {
     switch (fn)
@@ -481,6 +565,64 @@ static inline SW_float4 sw_sample_2d_cmp_grad(const SW_SRV& t, const SW_Sampler&
     SW_float4 c = sw_sample_2d_lod(t, s, u, v, lod);
     float r = sw_apply_cmp(s.comparisonFunc, c.x, ref);
     return { r, r, r, r };
+}
+
+static inline SW_float4 sw_sample_1d_lod(const SW_SRV& t, const SW_Sampler& s,
+                                           float u, float lod)
+{
+    return sw_sample_2d_lod(t, s, u, 0.5f, lod);
+}
+
+static inline SW_float4 sw_sample_3d_lod(const SW_SRV& t, const SW_Sampler& s,
+                                           float u, float v, float w, float lod)
+{
+    lod += s.mipLODBias;
+    lod = std::fmax(lod, s.minLOD);
+    lod = std::fmin(lod, s.maxLOD);
+    lod = std::fmax(lod, 0.f);
+    float maxMip = t.mipLevels > 0 ? (float)(t.mipLevels - 1) : 0.f;
+    lod = std::fmin(lod, maxMip);
+
+    unsigned mipFilter = (s.filter >> 0) & 0x3;
+    bool pointZ = (s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_MIP_POINT ||
+                  (s.filter & 0x7F) == D3D11_FILTER_MIN_MAG_POINT_MIP_LINEAR;
+    auto sampleMip = [&](unsigned mip) -> SW_float4
+    {
+        mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+        const unsigned char* data = sw_mip_data(t, mip);
+        const SW_MipInfo& mi = t.mips[mip];
+        float sw_ = sw_addr(w, static_cast<D3D11_TEXTURE_ADDRESS_MODE>(s.addressW));
+        float fz = sw_ * (float)mi.depth - 0.5f;
+        if (pointZ)
+        {
+            int pz = std::clamp((int)(fz + 0.5f), 0, std::max((int)mi.depth - 1, 0));
+            return sw_sample_2d_at(data + (unsigned long long)pz * mi.slicePitch,
+                                    t.format, mi.width, mi.height, mi.rowPitch, s, u, v);
+        }
+        int z0 = std::clamp((int)std::floor(fz), 0, std::max((int)mi.depth - 1, 0));
+        int z1 = std::clamp(z0 + 1, 0, std::max((int)mi.depth - 1, 0));
+        float tz = fz - std::floor(fz);
+        SW_float4 c0 = sw_sample_2d_at(data + (unsigned long long)z0 * mi.slicePitch,
+                                         t.format, mi.width, mi.height, mi.rowPitch, s, u, v);
+        SW_float4 c1 = sw_sample_2d_at(data + (unsigned long long)z1 * mi.slicePitch,
+                                         t.format, mi.width, mi.height, mi.rowPitch, s, u, v);
+        return { c0.x+(c1.x-c0.x)*tz, c0.y+(c1.y-c0.y)*tz, c0.z+(c1.z-c0.z)*tz, c0.w+(c1.w-c0.w)*tz };
+    };
+
+    if (mipFilter == 0)
+    {
+        return sampleMip((unsigned)(lod + 0.5f));
+    }
+    unsigned m0 = (unsigned)std::floor(lod);
+    unsigned m1 = m0 + 1;
+    float frac = lod - (float)m0;
+    if (m1 >= t.mipLevels)
+    {
+        return sampleMip(m0);
+    }
+    SW_float4 c0 = sampleMip(m0);
+    SW_float4 c1 = sampleMip(m1);
+    return { c0.x+(c1.x-c0.x)*frac, c0.y+(c1.y-c0.y)*frac, c0.z+(c1.z-c0.z)*frac, c0.w+(c1.w-c0.w)*frac };
 }
 
 static inline SW_float4 sw_fetch_texel_mip(const SW_SRV& t, unsigned x, unsigned y, unsigned mip)

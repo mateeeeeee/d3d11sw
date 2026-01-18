@@ -46,6 +46,18 @@ Uint8 FindSVPositionReg(const D3D11SW_ParsedShader& shader)
     return 0xFF;
 }
 
+Uint32 FindTexDimension(const D3D11SW_ParsedShader& shader, Uint32 slot)
+{
+    for (const auto& t : shader.textures)
+    {
+        if (t.slot == slot)
+        {
+            return t.dimension;
+        }
+    }
+    return D3D_SRV_DIMENSION_TEXTURE2D;
+}
+
 std::string EmitDstBase(const SM4Operand& op, Bool quad = false)
 {
     switch (op.type)
@@ -834,9 +846,31 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             else
             {
-                EmitWrite(w, dstBase, mask,
-                    std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
-                                src1->indices[0], src2->indices[0], uv, uv), sat);
+                Uint32 dim = FindTexDimension(shader, src1->indices[0]);
+                if (dim == D3D_SRV_DIMENSION_TEXTURE3D)
+                {
+                    EmitWrite(w, dstBase, mask,
+                        std::format("sw_sample_3d(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).z)",
+                                    src1->indices[0], src2->indices[0], uv, uv, uv), sat);
+                }
+                else if (dim == D3D_SRV_DIMENSION_TEXTURECUBE || dim == D3D_SRV_DIMENSION_TEXTURECUBEARRAY)
+                {
+                    EmitWrite(w, dstBase, mask,
+                        std::format("sw_sample_cube(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).z)",
+                                    src1->indices[0], src2->indices[0], uv, uv, uv), sat);
+                }
+                else if (dim == D3D_SRV_DIMENSION_TEXTURE1D || dim == D3D_SRV_DIMENSION_TEXTURE1DARRAY)
+                {
+                    EmitWrite(w, dstBase, mask,
+                        std::format("sw_sample_1d(res->srv[{}],res->smp[{}],({}).x)",
+                                    src1->indices[0], src2->indices[0], uv), sat);
+                }
+                else
+                {
+                    EmitWrite(w, dstBase, mask,
+                        std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
+                                    src1->indices[0], src2->indices[0], uv, uv), sat);
+                }
             }
         }
         break;
@@ -846,9 +880,25 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         {
             auto uv  = S(*src0);
             auto lod = S(*src3);
-            EmitWrite(w, dstBase, mask,
-                std::format("sw_sample_2d_lod(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
-                            src1->indices[0], src2->indices[0], uv, uv, lod), sat);
+            Uint32 dim = FindTexDimension(shader, src1->indices[0]);
+            if (dim == D3D_SRV_DIMENSION_TEXTURE3D)
+            {
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_3d_lod(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).z,({}).x)",
+                                src1->indices[0], src2->indices[0], uv, uv, uv, lod), sat);
+            }
+            else if (dim == D3D_SRV_DIMENSION_TEXTURE1D || dim == D3D_SRV_DIMENSION_TEXTURE1DARRAY)
+            {
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_1d_lod(res->srv[{}],res->smp[{}],({}).x,({}).x)",
+                                src1->indices[0], src2->indices[0], uv, lod), sat);
+            }
+            else
+            {
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_2d_lod(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
+                                src1->indices[0], src2->indices[0], uv, uv, lod), sat);
+            }
         }
         break;
 
@@ -898,9 +948,25 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             else
             {
-                EmitWrite(w, dstBase, mask,
-                    std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
-                                src1->indices[0], src2->indices[0], uv, uv), sat);
+                Uint32 dim = FindTexDimension(shader, src1->indices[0]);
+                if (dim == D3D_SRV_DIMENSION_TEXTURE3D)
+                {
+                    EmitWrite(w, dstBase, mask,
+                        std::format("sw_sample_3d(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).z)",
+                                    src1->indices[0], src2->indices[0], uv, uv, uv), sat);
+                }
+                else if (dim == D3D_SRV_DIMENSION_TEXTURE1D || dim == D3D_SRV_DIMENSION_TEXTURE1DARRAY)
+                {
+                    EmitWrite(w, dstBase, mask,
+                        std::format("sw_sample_1d(res->srv[{}],res->smp[{}],({}).x)",
+                                    src1->indices[0], src2->indices[0], uv), sat);
+                }
+                else
+                {
+                    EmitWrite(w, dstBase, mask,
+                        std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
+                                    src1->indices[0], src2->indices[0], uv, uv), sat);
+                }
             }
         }
         break;
@@ -977,6 +1043,56 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d_cmp(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
                             src1->indices[0], src2->indices[0], uv, uv, ref), sat);
+        }
+        break;
+
+    case D3D10_1_SB_OPCODE_LOD:
+        if (dst && src0 && src1 && src2)
+        {
+            if (quad)
+            {
+                std::string uvBase;
+                Bool isInput = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT);
+                if (!isInput)
+                {
+                    uvBase = std::format("r[{}]", src0->indices[0]);
+                }
+                Int su = src0->swizzle[0];
+                Int sv = src0->swizzle[1];
+                if (isInput)
+                {
+                    w.Line("{{ float _ddx_u = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddx_v = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                    w.Line("  float _ddy_u = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddy_v = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                }
+                else
+                {
+                    w.Line("{{ float _ddx_u = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddx_v = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                    w.Line("  float _ddy_u = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddy_v = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                }
+                w.Line("  float _unclamped = sw_compute_lod(res->srv[{}],_ddx_u,_ddx_v,_ddy_u,_ddy_v);",
+                       src1->indices[0]);
+                w.Line("  float _clamped = sw_max(sw_min(_unclamped + res->smp[{}].mipLODBias, res->smp[{}].maxLOD), res->smp[{}].minLOD);",
+                       src2->indices[0], src2->indices[0], src2->indices[0]);
+                EmitWrite(w, dstBase, mask,
+                    "SW_float4{_unclamped, _clamped, 0.f, 0.f}", sat, quad);
+                w.Line("}}");
+            }
+            else
+            {
+                EmitWrite(w, dstBase, mask, "SW_float4{0.f, 0.f, 0.f, 0.f}", sat);
+            }
         }
         break;
 

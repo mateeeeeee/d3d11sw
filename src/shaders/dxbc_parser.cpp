@@ -152,7 +152,8 @@ static Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader
              instr.op == D3D11_SB_OPCODE_DERIV_RTX_COARSE ||
              instr.op == D3D11_SB_OPCODE_DERIV_RTY_COARSE ||
              instr.op == D3D11_SB_OPCODE_DERIV_RTX_FINE ||
-             instr.op == D3D11_SB_OPCODE_DERIV_RTY_FINE))
+             instr.op == D3D11_SB_OPCODE_DERIV_RTY_FINE ||
+             instr.op == D3D10_1_SB_OPCODE_LOD))
         {
             out.needsQuad = true;
         }
