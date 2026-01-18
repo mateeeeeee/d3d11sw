@@ -464,6 +464,25 @@ static inline SW_float4 sw_sample_2d_grad(const SW_SRV& t, const SW_Sampler& s,
     return sw_sample_2d_lod(t, s, u, v, lod);
 }
 
+static inline SW_float4 sw_sample_2d_cmp_lod(const SW_SRV& t, const SW_Sampler& s,
+                                               float u, float v, float ref, float lod)
+{
+    SW_float4 c = sw_sample_2d_lod(t, s, u, v, lod);
+    float r = sw_apply_cmp(s.comparisonFunc, c.x, ref);
+    return { r, r, r, r };
+}
+
+static inline SW_float4 sw_sample_2d_cmp_grad(const SW_SRV& t, const SW_Sampler& s,
+                                                float u, float v, float ref,
+                                                float ddx_u, float ddx_v,
+                                                float ddy_u, float ddy_v)
+{
+    float lod = sw_compute_lod(t, ddx_u, ddx_v, ddy_u, ddy_v);
+    SW_float4 c = sw_sample_2d_lod(t, s, u, v, lod);
+    float r = sw_apply_cmp(s.comparisonFunc, c.x, ref);
+    return { r, r, r, r };
+}
+
 static inline SW_float4 sw_fetch_texel_mip(const SW_SRV& t, unsigned x, unsigned y, unsigned mip)
 {
     mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);

@@ -788,9 +788,56 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (dst && src0 && src1 && src2)
         {
             auto uv = S(*src0);
-            EmitWrite(w, dstBase, mask,
-                std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
-                            src1->indices[0], src2->indices[0], uv, uv), sat);
+            if (quad)
+            {
+                std::string uvBase;
+                if (src0->type == D3D10_SB_OPERAND_TYPE_TEMP)
+                {
+                    uvBase = std::format("r[{}]", src0->indices[0]);
+                }
+                else if (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                {
+                    uvBase = "";
+                }
+                else
+                {
+                    uvBase = std::format("r[{}]", src0->indices[0]);
+                }
+                Int su = src0->swizzle[0];
+                Int sv = src0->swizzle[1];
+                if (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                {
+                    w.Line("{{ float _ddx_u = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddx_v = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                    w.Line("  float _ddy_u = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddy_v = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                }
+                else
+                {
+                    w.Line("{{ float _ddx_u = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddx_v = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                    w.Line("  float _ddy_u = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddy_v = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                }
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_2d_grad(res->srv[{}],res->smp[{}],({}).x,({}).y,_ddx_u,_ddx_v,_ddy_u,_ddy_v)",
+                                src1->indices[0], src2->indices[0], uv, uv), sat, quad);
+                w.Line("}}");
+            }
+            else
+            {
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
+                                src1->indices[0], src2->indices[0], uv, uv), sat);
+            }
         }
         break;
 
@@ -806,12 +853,55 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         break;
 
     case D3D10_SB_OPCODE_SAMPLE_B:
-        if (dst && src0 && src1 && src2)
+        if (dst && src0 && src1 && src2 && src3)
         {
             auto uv = S(*src0);
-            EmitWrite(w, dstBase, mask,
-                std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
-                            src1->indices[0], src2->indices[0], uv, uv), sat);
+            auto bias = S(*src3);
+            if (quad)
+            {
+                std::string uvBase;
+                Bool isInput = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT);
+                if (!isInput)
+                {
+                    uvBase = std::format("r[{}]", src0->indices[0]);
+                }
+                Int su = src0->swizzle[0];
+                Int sv = src0->swizzle[1];
+                if (isInput)
+                {
+                    w.Line("{{ float _ddx_u = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddx_v = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                    w.Line("  float _ddy_u = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddy_v = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                }
+                else
+                {
+                    w.Line("{{ float _ddx_u = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddx_v = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                    w.Line("  float _ddy_u = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddy_v = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                }
+                w.Line("  float _lod = sw_compute_lod(res->srv[{}],_ddx_u,_ddx_v,_ddy_u,_ddy_v) + ({}).x;",
+                       src1->indices[0], bias);
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_2d_lod(res->srv[{}],res->smp[{}],({}).x,({}).y,_lod)",
+                                src1->indices[0], src2->indices[0], uv, uv), sat, quad);
+                w.Line("}}");
+            }
+            else
+            {
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
+                                src1->indices[0], src2->indices[0], uv, uv), sat);
+            }
         }
         break;
 
@@ -829,6 +919,56 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         break;
 
     case D3D10_SB_OPCODE_SAMPLE_C:
+        if (dst && src0 && src1 && src2 && src3)
+        {
+            auto uv  = S(*src0);
+            auto ref = S(*src3);
+            if (quad)
+            {
+                std::string uvBase;
+                Bool isInput = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT);
+                if (!isInput)
+                {
+                    uvBase = std::format("r[{}]", src0->indices[0]);
+                }
+                Int su = src0->swizzle[0];
+                Int sv = src0->swizzle[1];
+                if (isInput)
+                {
+                    w.Line("{{ float _ddx_u = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddx_v = (&qin->pixels[_q|1].v[{}].x)[{}] - (&qin->pixels[_q&~1].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                    w.Line("  float _ddy_u = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], su, src0->indices[0], su);
+                    w.Line("  float _ddy_v = (&qin->pixels[_q|2].v[{}].x)[{}] - (&qin->pixels[_q&~2].v[{}].x)[{}];",
+                           src0->indices[0], sv, src0->indices[0], sv);
+                }
+                else
+                {
+                    w.Line("{{ float _ddx_u = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddx_v = {}[_q|1].{} - {}[_q&~1].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                    w.Line("  float _ddy_u = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(su), uvBase, Comp(su));
+                    w.Line("  float _ddy_v = {}[_q|2].{} - {}[_q&~2].{};",
+                           uvBase, Comp(sv), uvBase, Comp(sv));
+                }
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_2d_cmp_grad(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x,_ddx_u,_ddx_v,_ddy_u,_ddy_v)",
+                                src1->indices[0], src2->indices[0], uv, uv, ref), sat, quad);
+                w.Line("}}");
+            }
+            else
+            {
+                EmitWrite(w, dstBase, mask,
+                    std::format("sw_sample_2d_cmp(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
+                                src1->indices[0], src2->indices[0], uv, uv, ref), sat);
+            }
+        }
+        break;
+
     case D3D10_SB_OPCODE_SAMPLE_C_LZ:
         if (dst && src0 && src1 && src2 && src3)
         {

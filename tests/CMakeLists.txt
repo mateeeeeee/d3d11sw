@@ -117,6 +117,7 @@ add_golden_test(golden_cs_address_modes    golden/test_cs_address_modes.cpp)
 add_golden_test(golden_draw_sv_depth       golden/test_draw_sv_depth.cpp)
 add_golden_test(golden_draw_depth_clip     golden/test_draw_depth_clip.cpp)
 add_golden_test(golden_draw_derivatives   golden/test_draw_derivatives.cpp)
+add_golden_test(golden_draw_sample_auto_lod golden/test_draw_sample_auto_lod.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
 add_gtest(test_draw_pipeline   unit/test_draw_pipeline.cpp)
