@@ -143,6 +143,19 @@ static Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader
         {
             out.usesDiscard = true;
         }
+        if (out.type == D3D11SW_ShaderType::Pixel &&
+            (instr.op == D3D10_SB_OPCODE_SAMPLE ||
+             instr.op == D3D10_SB_OPCODE_SAMPLE_B ||
+             instr.op == D3D10_SB_OPCODE_SAMPLE_C ||
+             instr.op == D3D10_SB_OPCODE_DERIV_RTX ||
+             instr.op == D3D10_SB_OPCODE_DERIV_RTY ||
+             instr.op == D3D11_SB_OPCODE_DERIV_RTX_COARSE ||
+             instr.op == D3D11_SB_OPCODE_DERIV_RTY_COARSE ||
+             instr.op == D3D11_SB_OPCODE_DERIV_RTX_FINE ||
+             instr.op == D3D11_SB_OPCODE_DERIV_RTY_FINE))
+        {
+            out.needsQuad = true;
+        }
         for (const auto& operand : instr.operands)
         {
             if (operand.type == D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH)

@@ -46,38 +46,40 @@ Uint8 FindSVPositionReg(const D3D11SW_ParsedShader& shader)
     return 0xFF;
 }
 
-std::string EmitDstBase(const SM4Operand& op)
+std::string EmitDstBase(const SM4Operand& op, Bool quad = false)
 {
     switch (op.type)
     {
-    case D3D10_SB_OPERAND_TYPE_TEMP:                        return std::format("r[{}]", op.indices[0]);
-    case D3D10_SB_OPERAND_TYPE_OUTPUT:                      return std::format("out_v[{}]", op.indices[0]);
-    case D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH:                return "out_ptr->oDepth";
+    case D3D10_SB_OPERAND_TYPE_TEMP:                        return quad ? std::format("r[{}][_q]", op.indices[0]) : std::format("r[{}]", op.indices[0]);
+    case D3D10_SB_OPERAND_TYPE_OUTPUT:                      return quad ? std::format("out_v[{}][_q]", op.indices[0]) : std::format("out_v[{}]", op.indices[0]);
+    case D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH:                return quad ? "qout->pixels[_q].oDepth" : "out_ptr->oDepth";
     case D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW:       return std::format("res->uav[{}]", op.indices[0]);
     case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:  return std::format("tgsm[{}]", op.indices[0]);
-    default:                                                return "r[0]";
+    default:                                                return quad ? "r[0][_q]" : "r[0]";
     }
 }
 
-std::string EmitSrc(const SM4Operand& op)
+std::string EmitSrc(const SM4Operand& op, Bool quad = false)
 {
     std::string base;
     switch (op.type)
     {
     case D3D10_SB_OPERAND_TYPE_TEMP:
-        base = std::format("r[{}]", op.indices[0]);
+        base = quad ? std::format("r[{}][_q]", op.indices[0]) : std::format("r[{}]", op.indices[0]);
         break;
     case D3D10_SB_OPERAND_TYPE_INPUT:
-        base = std::format("in_ptr->v[{}]", op.indices[0]);
+        base = quad ? std::format("qin->pixels[_q].v[{}]", op.indices[0]) : std::format("in_ptr->v[{}]", op.indices[0]);
         break;
     case D3D10_SB_OPERAND_TYPE_OUTPUT:
-        base = std::format("out_v[{}]", op.indices[0]);
+        base = quad ? std::format("out_v[{}][_q]", op.indices[0]) : std::format("out_v[{}]", op.indices[0]);
         break;
     case D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER:
         if (op.relativeReg >= 0)
         {
             static const Char* compName[] = {"x","y","z","w"};
-            base = std::format("res->cb[{}][{} + sw_bits_uint(r[{}].{})]",
+            base = quad ? std::format("res->cb[{}][{} + sw_bits_uint(r[{}][_q].{})]",
+                op.indices[0], op.indices[1], op.relativeReg, compName[op.relativeComp])
+                        : std::format("res->cb[{}][{} + sw_bits_uint(r[{}].{})]",
                 op.indices[0], op.indices[1], op.relativeReg, compName[op.relativeComp]);
         }
         else
@@ -141,20 +143,21 @@ std::string EmitSrc(const SM4Operand& op)
 }
 
 void EmitWrite(CodeWriter& w, std::string_view dst, Uint8 mask,
-               std::string_view expr, Bool sat)
+               std::string_view expr, Bool sat, Bool quad = false)
 {
-    if (dst == "out_ptr->oDepth")
+    if (dst.find("oDepth") != std::string_view::npos)
     {
         w.Line("{{ SW_float4 _t = {};", expr);
+        const Char* depthW = quad ? "qout->pixels[_q].depthWritten" : "out_ptr->depthWritten";
         if (sat)
         {
-            w.Line("  out_ptr->oDepth = sw_saturate(_t.x);");
+            w.Line("  {} = sw_saturate(_t.x);", dst);
         }
         else
         {
-            w.Line("  out_ptr->oDepth = _t.x;");
+            w.Line("  {} = _t.x;", dst);
         }
-        w.Line("  out_ptr->depthWritten = true;");
+        w.Line("  {} = true;", depthW);
         w.Line("}}");
         return;
     }
@@ -178,9 +181,9 @@ void EmitWrite(CodeWriter& w, std::string_view dst, Uint8 mask,
 }
 
 void EmitPerComp1(CodeWriter& w, const Char* fn,
-                  std::string_view dst, Uint8 mask, const SM4Operand& src)
+                  std::string_view dst, Uint8 mask, const SM4Operand& src, Bool quad = false)
 {
-    w.Line("{{ SW_float4 _a = {};", EmitSrc(src));
+    w.Line("{{ SW_float4 _a = {};", EmitSrc(src, quad));
     for (Int i = 0; i < 4; ++i)
     {
         if (!(mask & (1 << i)))
@@ -194,9 +197,9 @@ void EmitPerComp1(CodeWriter& w, const Char* fn,
 
 void EmitPerComp2(CodeWriter& w, const Char* fn,
                   std::string_view dst, Uint8 mask,
-                  const SM4Operand& a, const SM4Operand& b)
+                  const SM4Operand& a, const SM4Operand& b, Bool quad = false)
 {
-    w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(a), EmitSrc(b));
+    w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(a, quad), EmitSrc(b, quad));
     for (Int i = 0; i < 4; ++i)
     {
         if (!(mask & (1 << i)))
@@ -210,9 +213,9 @@ void EmitPerComp2(CodeWriter& w, const Char* fn,
 
 void EmitPerComp3(CodeWriter& w, const Char* fn,
                   std::string_view dst, Uint8 mask,
-                  const SM4Operand& a, const SM4Operand& b, const SM4Operand& c)
+                  const SM4Operand& a, const SM4Operand& b, const SM4Operand& c, Bool quad = false)
 {
-    w.Line("{{ SW_float4 _a = {}, _b = {}, _c = {};", EmitSrc(a), EmitSrc(b), EmitSrc(c));
+    w.Line("{{ SW_float4 _a = {}, _b = {}, _c = {};", EmitSrc(a, quad), EmitSrc(b, quad), EmitSrc(c, quad));
     for (Int i = 0; i < 4; ++i)
     {
         if (!(mask & (1 << i)))
@@ -227,9 +230,9 @@ void EmitPerComp3(CodeWriter& w, const Char* fn,
 void EmitPerComp4(CodeWriter& w, const Char* fn,
                   std::string_view dst, Uint8 mask,
                   const SM4Operand& a, const SM4Operand& b,
-                  const SM4Operand& c, const SM4Operand& d)
+                  const SM4Operand& c, const SM4Operand& d, Bool quad = false)
 {
-    w.Line("{{ SW_float4 _a = {}, _b = {}, _c = {}, _d = {};", EmitSrc(a), EmitSrc(b), EmitSrc(c), EmitSrc(d));
+    w.Line("{{ SW_float4 _a = {}, _b = {}, _c = {}, _d = {};", EmitSrc(a, quad), EmitSrc(b, quad), EmitSrc(c, quad), EmitSrc(d, quad));
     for (Int i = 0; i < 4; ++i)
     {
         if (!(mask & (1 << i)))
@@ -262,7 +265,7 @@ void EmitScalarBroadcast(CodeWriter& w, std::string_view dst, Uint8 mask,
 }
 
 void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
-               const D3D11SW_ParsedShader& shader)
+               const D3D11SW_ParsedShader& shader, Bool quad = false)
 {
     Bool isIntOp = false;
     switch (instr.op)
@@ -311,30 +314,32 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     const SM4Operand* src2 = instr.operands.size() > 3 ? &op3 : nullptr;
     const SM4Operand* src3 = instr.operands.size() > 4 ? &op4 : nullptr;
 
-    std::string dstBase = dst ? EmitDstBase(*dst) : "r[0]";
+    std::string dstBase = dst ? EmitDstBase(*dst, quad) : (quad ? "r[0][_q]" : "r[0]");
     Uint8 mask = dst ? (dst->writeMask ? dst->writeMask : 0xF) : 0xF;
     Bool sat = instr.saturate;
+
+    auto S = [&](const SM4Operand& op) { return EmitSrc(op, quad); };
 
     switch (instr.op)
     {
     case D3D10_SB_OPCODE_MOV:
         if (src0)
         {
-            EmitWrite(w, dstBase, mask, EmitSrc(*src0), sat);
+            EmitWrite(w, dstBase, mask, S(*src0), sat, quad);
         }
         break;
 
     case D3D10_SB_OPCODE_ADD:
         if (src0 && src1)
         {
-            EmitWrite(w, dstBase, mask, std::format("{} + {}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+            EmitWrite(w, dstBase, mask, std::format("{} + {}", S(*src0), S(*src1)), sat);
         }
         break;
 
     case D3D10_SB_OPCODE_MUL:
         if (src0 && src1)
         {
-            EmitWrite(w, dstBase, mask, std::format("{} * {}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+            EmitWrite(w, dstBase, mask, std::format("{} * {}", S(*src0), S(*src1)), sat);
         }
         break;
 
@@ -342,14 +347,14 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (src0 && src1 && src2)
         {
             EmitWrite(w, dstBase, mask,
-                std::format("{} * {} + {}", EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2)), sat);
+                std::format("{} * {} + {}", S(*src0), S(*src1), S(*src2)), sat);
         }
         break;
 
     case D3D10_SB_OPCODE_DIV:
         if (src0 && src1)
         {
-            EmitWrite(w, dstBase, mask, std::format("{} / {}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+            EmitWrite(w, dstBase, mask, std::format("{} / {}", S(*src0), S(*src1)), sat);
         }
         break;
 
@@ -357,7 +362,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (src0 && src1)
         {
             EmitWrite(w, dstBase, mask,
-                std::format("SW_float4{{sw_dot2({},{})}}", EmitSrc(*src0), EmitSrc(*src1)), sat);
+                std::format("SW_float4{{sw_dot2({},{})}}", S(*src0), S(*src1)), sat);
         }
         break;
 
@@ -365,7 +370,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (src0 && src1)
         {
             EmitScalarBroadcast(w, dstBase, mask,
-                std::format("sw_dot3({},{})", EmitSrc(*src0), EmitSrc(*src1)), sat);
+                std::format("sw_dot3({},{})", S(*src0), S(*src1)), sat);
         }
         break;
 
@@ -373,70 +378,70 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (src0 && src1)
         {
             EmitScalarBroadcast(w, dstBase, mask,
-                std::format("sw_dot4({},{})", EmitSrc(*src0), EmitSrc(*src1)), sat);
+                std::format("sw_dot4({},{})", S(*src0), S(*src1)), sat);
         }
         break;
 
-    case D3D10_SB_OPCODE_SQRT:     if (src0) { EmitPerComp1(w, "sw_sqrt",     dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_RSQ:      if (src0) { EmitPerComp1(w, "sw_rsq",      dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_LOG:      if (src0) { EmitPerComp1(w, "sw_log2",     dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_EXP:      if (src0) { EmitPerComp1(w, "sw_exp2",     dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_FRC:      if (src0) { EmitPerComp1(w, "sw_frc",      dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_ROUND_NE: if (src0) { EmitPerComp1(w, "sw_round_ne", dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_ROUND_Z:  if (src0) { EmitPerComp1(w, "sw_round_z",  dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_ROUND_NI: if (src0) { EmitPerComp1(w, "sw_round_ni", dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_ROUND_PI: if (src0) { EmitPerComp1(w, "sw_round_pi", dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_FTOI:     if (src0) { EmitPerComp1(w, "sw_ftoi",     dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_ITOF:     if (src0) { EmitPerComp1(w, "sw_itof",     dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_UTOF:     if (src0) { EmitPerComp1(w, "sw_utof",     dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_FTOU:     if (src0) { EmitPerComp1(w, "sw_ftou",     dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_RCP:      if (src0) { EmitPerComp1(w, "sw_rcp",      dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_F32TOF16: if (src0) { EmitPerComp1(w, "sw_f32tof16", dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_F16TOF32: if (src0) { EmitPerComp1(w, "sw_f16tof32", dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_NOT:      if (src0) { EmitPerComp1(w, "sw_not",      dstBase, mask, *src0); } break;
-    case D3D10_SB_OPCODE_INEG:     if (src0) { EmitPerComp1(w, "sw_ineg",     dstBase, mask, *src0); } break;
+    case D3D10_SB_OPCODE_SQRT:     if (src0) { EmitPerComp1(w, "sw_sqrt",     dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_RSQ:      if (src0) { EmitPerComp1(w, "sw_rsq",      dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_LOG:      if (src0) { EmitPerComp1(w, "sw_log2",     dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_EXP:      if (src0) { EmitPerComp1(w, "sw_exp2",     dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_FRC:      if (src0) { EmitPerComp1(w, "sw_frc",      dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_ROUND_NE: if (src0) { EmitPerComp1(w, "sw_round_ne", dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_ROUND_Z:  if (src0) { EmitPerComp1(w, "sw_round_z",  dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_ROUND_NI: if (src0) { EmitPerComp1(w, "sw_round_ni", dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_ROUND_PI: if (src0) { EmitPerComp1(w, "sw_round_pi", dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_FTOI:     if (src0) { EmitPerComp1(w, "sw_ftoi",     dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_ITOF:     if (src0) { EmitPerComp1(w, "sw_itof",     dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_UTOF:     if (src0) { EmitPerComp1(w, "sw_utof",     dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_FTOU:     if (src0) { EmitPerComp1(w, "sw_ftou",     dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_RCP:      if (src0) { EmitPerComp1(w, "sw_rcp",      dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_F32TOF16: if (src0) { EmitPerComp1(w, "sw_f32tof16", dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_F16TOF32: if (src0) { EmitPerComp1(w, "sw_f16tof32", dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_NOT:      if (src0) { EmitPerComp1(w, "sw_not",      dstBase, mask, *src0, quad); } break;
+    case D3D10_SB_OPCODE_INEG:     if (src0) { EmitPerComp1(w, "sw_ineg",     dstBase, mask, *src0, quad); } break;
 
-    case D3D10_SB_OPCODE_MIN:  if (src0 && src1) { EmitPerComp2(w, "sw_min",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_MAX:  if (src0 && src1) { EmitPerComp2(w, "sw_max",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_IADD: if (src0 && src1) { EmitPerComp2(w, "sw_iadd", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_ISHL: if (src0 && src1) { EmitPerComp2(w, "sw_ishl", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_ISHR: if (src0 && src1) { EmitPerComp2(w, "sw_ishr", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_USHR: if (src0 && src1) { EmitPerComp2(w, "sw_ushr", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_AND:  if (src0 && src1) { EmitPerComp2(w, "sw_and",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_OR:   if (src0 && src1) { EmitPerComp2(w, "sw_or",   dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_XOR:  if (src0 && src1) { EmitPerComp2(w, "sw_xor",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_IMAX: if (src0 && src1) { EmitPerComp2(w, "sw_imax", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_IMIN: if (src0 && src1) { EmitPerComp2(w, "sw_imin", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_UMAX: if (src0 && src1) { EmitPerComp2(w, "sw_umax", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_UMIN: if (src0 && src1) { EmitPerComp2(w, "sw_umin", dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_IEQ:  if (src0 && src1) { EmitPerComp2(w, "sw_ieq",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_INE:  if (src0 && src1) { EmitPerComp2(w, "sw_ine",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_IGE:  if (src0 && src1) { EmitPerComp2(w, "sw_ige",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_ILT:  if (src0 && src1) { EmitPerComp2(w, "sw_ilt",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_UGE:  if (src0 && src1) { EmitPerComp2(w, "sw_uge",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_ULT:  if (src0 && src1) { EmitPerComp2(w, "sw_ult",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_MIN:  if (src0 && src1) { EmitPerComp2(w, "sw_min",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_MAX:  if (src0 && src1) { EmitPerComp2(w, "sw_max",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_IADD: if (src0 && src1) { EmitPerComp2(w, "sw_iadd", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_ISHL: if (src0 && src1) { EmitPerComp2(w, "sw_ishl", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_ISHR: if (src0 && src1) { EmitPerComp2(w, "sw_ishr", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_USHR: if (src0 && src1) { EmitPerComp2(w, "sw_ushr", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_AND:  if (src0 && src1) { EmitPerComp2(w, "sw_and",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_OR:   if (src0 && src1) { EmitPerComp2(w, "sw_or",   dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_XOR:  if (src0 && src1) { EmitPerComp2(w, "sw_xor",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_IMAX: if (src0 && src1) { EmitPerComp2(w, "sw_imax", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_IMIN: if (src0 && src1) { EmitPerComp2(w, "sw_imin", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_UMAX: if (src0 && src1) { EmitPerComp2(w, "sw_umax", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_UMIN: if (src0 && src1) { EmitPerComp2(w, "sw_umin", dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_IEQ:  if (src0 && src1) { EmitPerComp2(w, "sw_ieq",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_INE:  if (src0 && src1) { EmitPerComp2(w, "sw_ine",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_IGE:  if (src0 && src1) { EmitPerComp2(w, "sw_ige",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_ILT:  if (src0 && src1) { EmitPerComp2(w, "sw_ilt",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_UGE:  if (src0 && src1) { EmitPerComp2(w, "sw_uge",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_ULT:  if (src0 && src1) { EmitPerComp2(w, "sw_ult",  dstBase, mask, *src0, *src1, quad); } break;
 
-    case D3D10_SB_OPCODE_EQ:   if (src0 && src1) { EmitPerComp2(w, "sw_feq",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_NE:   if (src0 && src1) { EmitPerComp2(w, "sw_fne",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_GE:   if (src0 && src1) { EmitPerComp2(w, "sw_fge",  dstBase, mask, *src0, *src1); } break;
-    case D3D10_SB_OPCODE_LT:   if (src0 && src1) { EmitPerComp2(w, "sw_flt",  dstBase, mask, *src0, *src1); } break;
+    case D3D10_SB_OPCODE_EQ:   if (src0 && src1) { EmitPerComp2(w, "sw_feq",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_NE:   if (src0 && src1) { EmitPerComp2(w, "sw_fne",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_GE:   if (src0 && src1) { EmitPerComp2(w, "sw_fge",  dstBase, mask, *src0, *src1, quad); } break;
+    case D3D10_SB_OPCODE_LT:   if (src0 && src1) { EmitPerComp2(w, "sw_flt",  dstBase, mask, *src0, *src1, quad); } break;
 
-    case D3D10_SB_OPCODE_IMAD:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_imad", dstBase, mask, *src0, *src1, *src2); } break;
-    case D3D10_SB_OPCODE_UMAD:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_umad", dstBase, mask, *src0, *src1, *src2); } break;
-    case D3D11_SB_OPCODE_COUNTBITS:   if (src0) { EmitPerComp1(w, "sw_countbits",   dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_FIRSTBIT_HI: if (src0) { EmitPerComp1(w, "sw_firstbit_hi", dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_FIRSTBIT_LO: if (src0) { EmitPerComp1(w, "sw_firstbit_lo", dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_FIRSTBIT_SHI:if (src0) { EmitPerComp1(w, "sw_firstbit_shi",dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_BFREV:       if (src0) { EmitPerComp1(w, "sw_bfrev",       dstBase, mask, *src0); } break;
-    case D3D11_SB_OPCODE_UBFE:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_ubfe", dstBase, mask, *src0, *src1, *src2); } break;
-    case D3D11_SB_OPCODE_IBFE:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_ibfe", dstBase, mask, *src0, *src1, *src2); } break;
-    case D3D11_SB_OPCODE_BFI:         if (src0 && src1 && src2 && src3) { EmitPerComp4(w, "sw_bfi", dstBase, mask, *src0, *src1, *src2, *src3); } break;
+    case D3D10_SB_OPCODE_IMAD:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_imad", dstBase, mask, *src0, *src1, *src2, quad); } break;
+    case D3D10_SB_OPCODE_UMAD:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_umad", dstBase, mask, *src0, *src1, *src2, quad); } break;
+    case D3D11_SB_OPCODE_COUNTBITS:   if (src0) { EmitPerComp1(w, "sw_countbits",   dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_FIRSTBIT_HI: if (src0) { EmitPerComp1(w, "sw_firstbit_hi", dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_FIRSTBIT_LO: if (src0) { EmitPerComp1(w, "sw_firstbit_lo", dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_FIRSTBIT_SHI:if (src0) { EmitPerComp1(w, "sw_firstbit_shi",dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_BFREV:       if (src0) { EmitPerComp1(w, "sw_bfrev",       dstBase, mask, *src0, quad); } break;
+    case D3D11_SB_OPCODE_UBFE:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_ubfe", dstBase, mask, *src0, *src1, *src2, quad); } break;
+    case D3D11_SB_OPCODE_IBFE:        if (src0 && src1 && src2) { EmitPerComp3(w, "sw_ibfe", dstBase, mask, *src0, *src1, *src2, quad); } break;
+    case D3D11_SB_OPCODE_BFI:         if (src0 && src1 && src2 && src3) { EmitPerComp4(w, "sw_bfi", dstBase, mask, *src0, *src1, *src2, *src3, quad); } break;
 
     case D3D10_SB_OPCODE_MOVC:
         if (src0 && src1 && src2)
         {
             w.Line("{{ SW_float4 _c = {}, _t = {}, _f = {};",
-                   EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
+                   S(*src0), S(*src1), S(*src2));
             for (Int i = 0; i < 4; ++i)
             {
                 if (!(mask & (1 << i)))
@@ -458,10 +463,10 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         const SM4Operand* srcB = src2;
         if (srcA && srcB)
         {
-            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            w.Line("{{ SW_float4 _a = {}, _b = {};", S(*srcA), S(*srcB));
             if (dstQ && dstQ->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string qBase = EmitDstBase(*dstQ);
+                std::string qBase = EmitDstBase(*dstQ, quad);
                 Uint8 qMask = dstQ->writeMask ? dstQ->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -474,7 +479,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             if (dstR && dstR->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string rBase = EmitDstBase(*dstR);
+                std::string rBase = EmitDstBase(*dstR, quad);
                 Uint8 rMask = dstR->writeMask ? dstR->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -499,10 +504,10 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         const SM4Operand* srcB  = src2;
         if (srcA && srcB)
         {
-            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            w.Line("{{ SW_float4 _a = {}, _b = {};", S(*srcA), S(*srcB));
             if (dstHi && dstHi->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string hBase = EmitDstBase(*dstHi);
+                std::string hBase = EmitDstBase(*dstHi, quad);
                 Uint8 hMask = dstHi->writeMask ? dstHi->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -515,7 +520,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             if (dstLo && dstLo->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string lBase = EmitDstBase(*dstLo);
+                std::string lBase = EmitDstBase(*dstLo, quad);
                 Uint8 lMask = dstLo->writeMask ? dstLo->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -539,10 +544,10 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         const SM4Operand* srcB  = src2;
         if (srcA && srcB)
         {
-            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            w.Line("{{ SW_float4 _a = {}, _b = {};", S(*srcA), S(*srcB));
             if (dstHi && dstHi->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string hBase = EmitDstBase(*dstHi);
+                std::string hBase = EmitDstBase(*dstHi, quad);
                 Uint8 hMask = dstHi->writeMask ? dstHi->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -555,7 +560,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             if (dstLo && dstLo->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string lBase = EmitDstBase(*dstLo);
+                std::string lBase = EmitDstBase(*dstLo, quad);
                 Uint8 lMask = dstLo->writeMask ? dstLo->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -579,11 +584,11 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         const SM4Operand* srcB     = src2;
         if (srcA && srcB)
         {
-            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            w.Line("{{ SW_float4 _a = {}, _b = {};", S(*srcA), S(*srcB));
             Uint8 vMask = dstVal  ? (dstVal->writeMask  ? dstVal->writeMask  : 0xF) : 0xF;
             Uint8 cMask = dstCarry ? (dstCarry->writeMask ? dstCarry->writeMask : 0xF) : 0xF;
-            std::string vBase = dstVal   ? EmitDstBase(*dstVal)   : "r[0]";
-            std::string cBase = dstCarry ? EmitDstBase(*dstCarry) : "r[0]";
+            std::string vBase = dstVal   ? EmitDstBase(*dstVal, quad)   : "r[0]";
+            std::string cBase = dstCarry ? EmitDstBase(*dstCarry, quad) : "r[0]";
             for (Int i = 0; i < 4; ++i)
             {
                 if (!(vMask & (1 << i)) && !(cMask & (1 << i)))
@@ -615,11 +620,11 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         const SM4Operand* srcB      = src2;
         if (srcA && srcB)
         {
-            w.Line("{{ SW_float4 _a = {}, _b = {};", EmitSrc(*srcA), EmitSrc(*srcB));
+            w.Line("{{ SW_float4 _a = {}, _b = {};", S(*srcA), S(*srcB));
             Uint8 vMask = dstVal    ? (dstVal->writeMask    ? dstVal->writeMask    : 0xF) : 0xF;
             Uint8 bMask = dstBorrow ? (dstBorrow->writeMask ? dstBorrow->writeMask : 0xF) : 0xF;
-            std::string vBase = dstVal    ? EmitDstBase(*dstVal)    : "r[0]";
-            std::string bBase = dstBorrow ? EmitDstBase(*dstBorrow) : "r[0]";
+            std::string vBase = dstVal    ? EmitDstBase(*dstVal, quad)    : "r[0]";
+            std::string bBase = dstBorrow ? EmitDstBase(*dstBorrow, quad) : "r[0]";
             for (Int i = 0; i < 4; ++i)
             {
                 if (!(vMask & (1 << i)) && !(bMask & (1 << i)))
@@ -651,10 +656,10 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         const SM4Operand* srcVal = src1;
         if (srcVal)
         {
-            w.Line("{{ SW_float4 _a = {};", EmitSrc(*srcVal));
+            w.Line("{{ SW_float4 _a = {};", S(*srcVal));
             if (dstSin && dstSin->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string sBase = EmitDstBase(*dstSin);
+                std::string sBase = EmitDstBase(*dstSin, quad);
                 Uint8 sMask = dstSin->writeMask ? dstSin->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -667,7 +672,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             }
             if (dstCos && dstCos->type != D3D10_SB_OPERAND_TYPE_NULL)
             {
-                std::string cBase = EmitDstBase(*dstCos);
+                std::string cBase = EmitDstBase(*dstCos, quad);
                 Uint8 cMask = dstCos->writeMask ? dstCos->writeMask : 0xF;
                 for (Int i = 0; i < 4; ++i)
                 {
@@ -686,7 +691,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_IF:
         if (dst)
         {
-            w.Line("if (sw_bits_uint({}.x) {} 0u)", EmitSrc(*dst), instr.testNonZero ? "!=" : "==");
+            w.Line("if (sw_bits_uint({}.x) {} 0u)", S(*dst), instr.testNonZero ? "!=" : "==");
             w.Line("{{");
             w.Indent();
         }
@@ -723,7 +728,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_BREAKC:
         if (dst)
         {
-            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ break; }}", EmitSrc(*dst),
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ break; }}", S(*dst),
                    instr.testNonZero ? "!=" : "==");
         }
         break;
@@ -735,7 +740,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_CONTINUEC:
         if (dst)
         {
-            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ continue; }}", EmitSrc(*dst),
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ continue; }}", S(*dst),
                    instr.testNonZero ? "!=" : "==");
         }
         break;
@@ -743,7 +748,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_RETC:
         if (dst)
         {
-            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ goto _sw_end; }}", EmitSrc(*dst),
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ goto _sw_end; }}", S(*dst),
                    instr.testNonZero ? "!=" : "==");
         }
         break;
@@ -751,7 +756,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_SWITCH:
         if (dst)
         {
-            w.Line("switch (sw_bits_uint({}.x))", EmitSrc(*dst));
+            w.Line("switch (sw_bits_uint({}.x))", S(*dst));
             w.Line("{{");
             w.Indent();
         }
@@ -782,7 +787,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_SAMPLE:
         if (dst && src0 && src1 && src2)
         {
-            auto uv = EmitSrc(*src0);
+            auto uv = S(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
                             src1->indices[0], src2->indices[0], uv, uv), sat);
@@ -792,8 +797,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_SAMPLE_L:
         if (dst && src0 && src1 && src2 && src3)
         {
-            auto uv  = EmitSrc(*src0);
-            auto lod = EmitSrc(*src3);
+            auto uv  = S(*src0);
+            auto lod = S(*src3);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d_lod(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
                             src1->indices[0], src2->indices[0], uv, uv, lod), sat);
@@ -803,7 +808,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_SAMPLE_B:
         if (dst && src0 && src1 && src2)
         {
-            auto uv = EmitSrc(*src0);
+            auto uv = S(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d(res->srv[{}],res->smp[{}],({}).x,({}).y)",
                             src1->indices[0], src2->indices[0], uv, uv), sat);
@@ -813,10 +818,10 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_SAMPLE_D:
         if (dst && src0 && src1 && src2 && src3 && instr.operands.size() > 5)
         {
-            auto uv  = EmitSrc(*src0);
-            auto ddx = EmitSrc(*src3);
+            auto uv  = S(*src0);
+            auto ddx = S(*src3);
             SM4Operand op5 = fixOp(&instr.operands[5]);
-            auto ddy = EmitSrc(op5);
+            auto ddy = EmitSrc(op5, quad);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d_grad(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x,({}).y,({}).x,({}).y)",
                             src1->indices[0], src2->indices[0], uv, uv, ddx, ddx, ddy, ddy), sat);
@@ -827,8 +832,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_SAMPLE_C_LZ:
         if (dst && src0 && src1 && src2 && src3)
         {
-            auto uv  = EmitSrc(*src0);
-            auto ref = EmitSrc(*src3);
+            auto uv  = S(*src0);
+            auto ref = S(*src3);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_sample_2d_cmp(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x)",
                             src1->indices[0], src2->indices[0], uv, uv, ref), sat);
@@ -838,7 +843,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_1_SB_OPCODE_GATHER4:
         if (dst && src0 && src1 && src2)
         {
-            std::string uv   = EmitSrc(*src0);
+            std::string uv   = S(*src0);
             int  comp = src1->swizzle[0];
             EmitWrite(w, dstBase, mask,
                 std::format("sw_gather_2d(res->srv[{}],res->smp[{}],({}).x,({}).y,{})",
@@ -849,8 +854,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_GATHER4_C:
         if (dst && src0 && src1 && src2 && src3)
         {
-            std::string uv   = EmitSrc(*src0);
-            std::string ref  = EmitSrc(*src3);
+            std::string uv   = S(*src0);
+            std::string ref  = S(*src3);
             int  comp = src1->swizzle[0];
             EmitWrite(w, dstBase, mask,
                 std::format("sw_gather_2d_cmp(res->srv[{}],res->smp[{}],({}).x,({}).y,({}).x,{})",
@@ -861,7 +866,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D10_SB_OPCODE_LD:
         if (dst && src0 && src1)
         {
-            std::string coord = EmitSrc(*src0);
+            std::string coord = S(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_fetch_texel_3d_mip(res->srv[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),sw_bits_uint(({}).z),sw_bits_uint(({}).w))",
                             src1->indices[0], coord, coord, coord, coord), sat);
@@ -871,7 +876,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_LD_UAV_TYPED:
         if (dst && src0 && src1)
         {
-            std::string addr = EmitSrc(*src0);
+            std::string addr = S(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("sw_uav_load_typed(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y))",
                             src1->indices[0], addr, addr), sat);
@@ -881,16 +886,16 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_STORE_UAV_TYPED:
         if (dst && src0 && src1)
         {
-            std::string addr = EmitSrc(*src0);
+            std::string addr = S(*src0);
             w.Line("sw_uav_store_typed(res->uav[{}],sw_bits_uint(({}).x),sw_bits_uint(({}).y),{});",
-                   dst->indices[0], addr, addr, EmitSrc(*src1));
+                   dst->indices[0], addr, addr, S(*src1));
         }
         break;
 
     case D3D11_SB_OPCODE_LD_RAW:
         if (dst && src0 && src1)
         {
-            auto addr = EmitSrc(*src0);
+            auto addr = S(*src0);
             std::string ref, fn;
             if (src1->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
@@ -925,8 +930,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_STORE_RAW:
         if (dst && src0 && src1)
         {
-            auto addr = EmitSrc(*src0);
-            auto val = EmitSrc(*src1);
+            auto addr = S(*src0);
+            auto val = S(*src1);
             Bool isTgsm = dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
             std::string ref = isTgsm
                 ? std::format("tgsm[{}]", dst->indices[0])
@@ -950,8 +955,8 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_LD_STRUCTURED:
         if (dst && src0 && src1 && src2)
         {
-            auto idx = EmitSrc(*src0);
-            auto offset = EmitSrc(*src1);
+            auto idx = S(*src0);
+            auto offset = S(*src1);
             std::string ref, fn;
             if (src2->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
@@ -986,9 +991,9 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_STORE_STRUCTURED:
         if (dst && src0 && src1 && src2)
         {
-            auto idx = EmitSrc(*src0);
-            auto offset = EmitSrc(*src1);
-            auto val = EmitSrc(*src2);
+            auto idx = S(*src0);
+            auto offset = S(*src1);
+            auto val = S(*src2);
             Bool isTgsm = dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY;
             std::string ref = isTgsm
                 ? std::format("tgsm[{}]", dst->indices[0])
@@ -1036,12 +1041,12 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
                 w.Line("sw_tgsm_{}(tgsm[{}],sw_bits_uint(({}).x),({}).x);",
-                       fn, dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
+                       fn, dst->indices[0], S(*src0), S(*src1));
             }
             else
             {
                 w.Line("sw_uav_{}(res->uav[{}],sw_bits_uint(({}).x),({}).x);",
-                       fn, dst->indices[0], EmitSrc(*src0), EmitSrc(*src1));
+                       fn, dst->indices[0], S(*src0), S(*src1));
             }
         }
         break;
@@ -1052,12 +1057,12 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             if (dst->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
                 w.Line("sw_tgsm_atomic_cmp_store(tgsm[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
-                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
+                       dst->indices[0], S(*src0), S(*src1), S(*src2));
             }
             else
             {
                 w.Line("sw_uav_atomic_cmp_store(res->uav[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
-                       dst->indices[0], EmitSrc(*src0), EmitSrc(*src1), EmitSrc(*src2));
+                       dst->indices[0], S(*src0), S(*src1), S(*src2));
             }
         }
         break;
@@ -1087,16 +1092,16 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             case D3D11_SB_OPCODE_IMM_ATOMIC_UMIN: fn = "imm_atomic_umin"; break;
             default: break;
             }
-            std::string retBase = EmitDstBase(*dst);
+            std::string retBase = EmitDstBase(*dst, quad);
             if (src0->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
                 w.Line("{}.x = sw_tgsm_{}(tgsm[{}],sw_bits_uint(({}).x),({}).x);",
-                       retBase, fn, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2));
+                       retBase, fn, src0->indices[0], S(*src1), S(*src2));
             }
             else
             {
                 w.Line("{}.x = sw_uav_{}(res->uav[{}],sw_bits_uint(({}).x),({}).x);",
-                       retBase, fn, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2));
+                       retBase, fn, src0->indices[0], S(*src1), S(*src2));
             }
         }
         break;
@@ -1104,16 +1109,16 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
     case D3D11_SB_OPCODE_IMM_ATOMIC_CMP_EXCH:
         if (dst && src0 && src1 && src2 && src3)
         {
-            std::string retBase = EmitDstBase(*dst);
+            std::string retBase = EmitDstBase(*dst, quad);
             if (src0->type == D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY)
             {
                 w.Line("{}.x = sw_tgsm_imm_atomic_cmp_exch(tgsm[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
-                       retBase, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2), EmitSrc(*src3));
+                       retBase, src0->indices[0], S(*src1), S(*src2), S(*src3));
             }
             else
             {
                 w.Line("{}.x = sw_uav_imm_atomic_cmp_exch(res->uav[{}],sw_bits_uint(({}).x),({}).x,({}).x);",
-                       retBase, src0->indices[0], EmitSrc(*src1), EmitSrc(*src2), EmitSrc(*src3));
+                       retBase, src0->indices[0], S(*src1), S(*src2), S(*src3));
             }
         }
         break;
@@ -1134,7 +1139,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
             {
                 fn = "sw_resinfo_uint_mip";
             }
-            std::string mip = EmitSrc(*src0);
+            std::string mip = S(*src0);
             EmitWrite(w, dstBase, mask,
                 std::format("{}(res->srv[{}],sw_bits_uint(({}).x))", fn, src1->indices[0], mip), sat);
         }
@@ -1158,7 +1163,7 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         if (dst)
         {
             w.Line("if (sw_bits_uint({}.x) {} 0u) {{ out_ptr->discarded = true; goto _sw_end; }}",
-                   EmitSrc(*dst), instr.testNonZero ? "!=" : "==");
+                   S(*dst), instr.testNonZero ? "!=" : "==");
         }
         break;
 
@@ -1178,6 +1183,303 @@ void EmitInstructions(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     {
         EmitInstr(w, instr, shader);
     }
+}
+
+Bool IsControlFlow(D3D10_SB_OPCODE_TYPE op)
+{
+    switch (op)
+    {
+    case D3D10_SB_OPCODE_IF: case D3D10_SB_OPCODE_ELSE: case D3D10_SB_OPCODE_ENDIF:
+    case D3D10_SB_OPCODE_LOOP: case D3D10_SB_OPCODE_ENDLOOP:
+    case D3D10_SB_OPCODE_BREAK: case D3D10_SB_OPCODE_BREAKC:
+    case D3D10_SB_OPCODE_CONTINUE: case D3D10_SB_OPCODE_CONTINUEC:
+    case D3D10_SB_OPCODE_RET: case D3D10_SB_OPCODE_RETC:
+    case D3D10_SB_OPCODE_DISCARD:
+    case D3D10_SB_OPCODE_SWITCH: case D3D10_SB_OPCODE_CASE:
+    case D3D10_SB_OPCODE_DEFAULT: case D3D10_SB_OPCODE_ENDSWITCH:
+        return true;
+    default:
+        return false;
+    }
+}
+
+Bool IsDeriv(D3D10_SB_OPCODE_TYPE op)
+{
+    switch (op)
+    {
+    case D3D10_SB_OPCODE_DERIV_RTX: case D3D10_SB_OPCODE_DERIV_RTY:
+    case D3D11_SB_OPCODE_DERIV_RTX_COARSE: case D3D11_SB_OPCODE_DERIV_RTY_COARSE:
+    case D3D11_SB_OPCODE_DERIV_RTX_FINE: case D3D11_SB_OPCODE_DERIV_RTY_FINE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+Bool IsDerivX(D3D10_SB_OPCODE_TYPE op)
+{
+    return op == D3D10_SB_OPCODE_DERIV_RTX ||
+           op == D3D11_SB_OPCODE_DERIV_RTX_COARSE ||
+           op == D3D11_SB_OPCODE_DERIV_RTX_FINE;
+}
+
+void EmitInstructionsQuad(CodeWriter& w, const D3D11SW_ParsedShader& shader)
+{
+    for (const auto& instr : shader.instrs)
+    {
+        if (IsDeriv(instr.op))
+        {
+            if (instr.operands.size() < 2)
+            {
+                continue;
+            }
+            const SM4Operand& dst = instr.operands[0];
+            const SM4Operand& src = instr.operands[1];
+            Uint8 mask = dst.writeMask ? dst.writeMask : 0xF;
+            std::string dstArr = EmitDstBase(dst, false);
+            Bool isX = IsDerivX(instr.op);
+            Int orBit = isX ? 1 : 2;
+            Int andMask = isX ? ~1 : ~2;
+            if (src.type == D3D10_SB_OPERAND_TYPE_INPUT)
+            {
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(mask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    Int sc = src.swizzle[i];
+                    w.Line("for (int _q = 0; _q < 4; ++_q) {{ {}[_q].{} = (&qin->pixels[_q|{}].v[{}].x)[{}] - (&qin->pixels[_q&{}].v[{}].x)[{}]; }}",
+                           dstArr, Comp(i), orBit, src.indices[0], sc, andMask, src.indices[0], sc);
+                }
+            }
+            else
+            {
+                std::string srcArr;
+                if (src.type == D3D10_SB_OPERAND_TYPE_TEMP)
+                {
+                    srcArr = std::format("r[{}]", src.indices[0]);
+                }
+                else
+                {
+                    srcArr = EmitDstBase(src, false);
+                }
+                for (Int i = 0; i < 4; ++i)
+                {
+                    if (!(mask & (1 << i)))
+                    {
+                        continue;
+                    }
+                    Int sc = src.swizzle[i];
+                    w.Line("for (int _q = 0; _q < 4; ++_q) {{ {}[_q].{} = {}[_q|{}].{} - {}[_q&{}].{}; }}",
+                           dstArr, Comp(i), srcArr, orBit, Comp(sc), srcArr, andMask, Comp(sc));
+                }
+            }
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_DISCARD)
+        {
+            if (instr.operands.empty())
+            {
+                continue;
+            }
+            w.Line("for (int _q = 0; _q < 4; ++_q) {{ if (_active & (1u << _q)) {{");
+            w.Indent();
+            w.Line("if (sw_bits_uint({}.x) {} 0u) {{ _discarded |= (1u << _q); }}",
+                   EmitSrc(instr.operands[0], true), instr.testNonZero ? "!=" : "==");
+            w.Dedent();
+            w.Line("}}}}");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_IF)
+        {
+            if (instr.operands.empty())
+            {
+                continue;
+            }
+            w.Line("_as[_ai++] = _active;");
+            w.Line("{{ unsigned _m = 0;");
+            w.Line("  for (int _q = 0; _q < 4; ++_q) {{ if ((_active & (1u << _q)) && (sw_bits_uint({}.x) {} 0u)) _m |= (1u << _q); }}",
+                   EmitSrc(instr.operands[0], true), instr.testNonZero ? "!=" : "==");
+            w.Line("  _active = _m;");
+            w.Line("}}");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_ELSE)
+        {
+            w.Line("_active = _as[_ai-1] & ~_active;");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_ENDIF)
+        {
+            w.Line("_active = _as[--_ai];");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_LOOP)
+        {
+            w.Line("_as[_ai++] = _active;");
+            w.Line("while (_active) {{");
+            w.Indent();
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_ENDLOOP)
+        {
+            w.Dedent();
+            w.Line("}}");
+            w.Line("_active = _as[--_ai];");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_BREAK)
+        {
+            w.Line("_active = 0;");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_BREAKC)
+        {
+            if (instr.operands.empty())
+            {
+                continue;
+            }
+            w.Line("for (int _q = 0; _q < 4; ++_q) {{ if ((_active & (1u << _q)) && (sw_bits_uint({}.x) {} 0u)) _active &= ~(1u << _q); }}",
+                   EmitSrc(instr.operands[0], true), instr.testNonZero ? "!=" : "==");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_CONTINUE)
+        {
+            w.Line("continue;");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_CONTINUEC)
+        {
+            if (instr.operands.empty())
+            {
+                continue;
+            }
+            w.Line("for (int _q = 0; _q < 4; ++_q) {{ if ((_active & (1u << _q)) && (sw_bits_uint({}.x) {} 0u)) _active &= ~(1u << _q); }}",
+                   EmitSrc(instr.operands[0], true), instr.testNonZero ? "!=" : "==");
+            w.Line("if (!_active) continue;");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_RET)
+        {
+            w.Line("goto _sw_end;");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_RETC)
+        {
+            if (instr.operands.empty())
+            {
+                continue;
+            }
+            w.Line("for (int _q = 0; _q < 4; ++_q) {{ if ((_active & (1u << _q)) && (sw_bits_uint({}.x) {} 0u)) _active &= ~(1u << _q); }}",
+                   EmitSrc(instr.operands[0], true), instr.testNonZero ? "!=" : "==");
+            w.Line("if (!_active) goto _sw_end;");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_SWITCH)
+        {
+            if (!instr.operands.empty())
+            {
+                w.Line("{{ unsigned _sw_val = sw_bits_uint({}.x);", EmitSrc(instr.operands[0], true));
+                w.Line("_as[_ai++] = _active;");
+            }
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_CASE)
+        {
+            if (!instr.operands.empty())
+            {
+                Uint32 bits;
+                std::memcpy(&bits, &instr.operands[0].imm[0], 4);
+                w.Line("{{ unsigned _cm = 0;");
+                w.Line("  for (int _q = 0; _q < 4; ++_q) {{ if ((_as[_ai-1] & (1u << _q)) && sw_bits_uint(r[0][_q].x) == 0x{:08x}u) _cm |= (1u << _q); }}", bits);
+                w.Line("  _active = _cm;");
+                w.Line("}}");
+            }
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_DEFAULT)
+        {
+            w.Line("_active = _as[_ai-1];");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_ENDSWITCH)
+        {
+            w.Line("_active = _as[--_ai];");
+            w.Line("}}");
+            continue;
+        }
+
+        if (instr.op == D3D10_SB_OPCODE_NOP || instr.op == D3D11_SB_OPCODE_SYNC)
+        {
+            continue;
+        }
+
+        w.Line("for (int _q = 0; _q < 4; ++_q) {{ if (_active & (1u << _q)) {{");
+        w.Indent();
+        EmitInstr(w, instr, shader, true);
+        w.Dedent();
+        w.Line("}}}}");
+    }
+}
+
+void EmitPSQuad(CodeWriter& w, const D3D11SW_ParsedShader& shader)
+{
+    Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
+
+    w.Newline();
+    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMainQuad(const SW_PSQuadInput* qin, SW_PSQuadOutput* qout,"
+           " const SW_Resources* res)");
+    w.Line("{{");
+    w.Indent();
+    w.Line("SW_float4 r[{}][4] = {{}};", numTemps);
+    w.Line("SW_float4 out_v[{}][4] = {{}};", (Int)D3D11_PS_OUTPUT_REGISTER_COUNT);
+    w.Line("unsigned _active = qin->activeMask;");
+    w.Line("unsigned _discarded = 0;");
+    w.Line("unsigned _as[32]; int _ai = 0;");
+    w.Line("for (int _q = 0; _q < 4; ++_q) {{ qout->pixels[_q].depthWritten = false; qout->pixels[_q].discarded = false; }}");
+    w.Newline();
+
+    for (const auto& e : shader.inputs)
+    {
+        if (e.svType == D3D_NAME_IS_FRONT_FACE)
+        {
+            w.Line("for (int _q = 0; _q < 4; ++_q) {{ qin->pixels[_q].v[{}] = {{ sw_uint_bits(qin->pixels[_q].isFrontFace ? 0xFFFFFFFFu : 0u), 0.f, 0.f, 0.f }}; }}", e.reg);
+        }
+    }
+
+    EmitInstructionsQuad(w, shader);
+
+    w.Newline();
+    w.Line("_sw_end:;");
+    w.Line("for (int _q = 0; _q < 4; ++_q) {{");
+    w.Indent();
+    for (Uint32 i = 0; i < D3D11_PS_OUTPUT_REGISTER_COUNT; ++i)
+    {
+        w.Line("qout->pixels[_q].oC[{}] = out_v[{}][_q];", i, i);
+    }
+    w.Line("if (_discarded & (1u << _q)) {{ qout->pixels[_q].discarded = true; }}");
+    w.Dedent();
+    w.Line("}}");
+
+    w.Dedent();
+    w.Line("}}");
 }
 
 void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
@@ -1317,7 +1619,13 @@ std::string EmitShader(const D3D11SW_ParsedShader& shader,
     switch (shader.type)
     {
     case D3D11SW_ShaderType::Vertex:  EmitVS(w, shader); break;
-    case D3D11SW_ShaderType::Pixel:   EmitPS(w, shader); break;
+    case D3D11SW_ShaderType::Pixel:
+        EmitPS(w, shader);
+        if (shader.needsQuad)
+        {
+            EmitPSQuad(w, shader);
+        }
+        break;
     case D3D11SW_ShaderType::Compute: EmitCS(w, shader); break;
     default:
         w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain() {{}}");

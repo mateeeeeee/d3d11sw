@@ -175,4 +175,23 @@ void* ShaderJIT::GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderTyp
     return fn;
 }
 
+void* ShaderJIT::FindSymbol(const void* bytecode, Usize len, const Char* name)
+{
+    const Uint64 hash = Hash(bytecode, len) ^ _runtimeHash;
+    std::ostringstream hashStr;
+    hashStr << std::hex << hash;
+    std::string stem    = CacheDir() + hashStr.str();
+    std::string libPath = DynamicLibrary::GetFilename(stem.c_str());
+
+    for (const auto& lib : _handles)
+    {
+        void* fn = lib->GetSymbolAddress(name);
+        if (fn)
+        {
+            return fn;
+        }
+    }
+    return nullptr;
+}
+
 }

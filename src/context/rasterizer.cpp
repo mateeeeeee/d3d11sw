@@ -175,6 +175,8 @@ struct TileContext
     Bool useTiling;
     Bool frontFace;
     Bool earlyZ;
+    Bool quadMode;
+    SW_PSQuadFn psQuadFn;
 };
 
 void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
@@ -233,6 +235,137 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     Int tMaxX = std::min(tileX + ctx.tileStepX, ctx.maxX);
     Int tMinY = std::max(tileY, ctx.minY);
     Int tMaxY = std::min(tileY + ctx.tileStepY, ctx.maxY);
+
+    if (ctx.quadMode)
+    {
+        Int qMinX = tMinX & ~1;
+        Int qMinY = tMinY & ~1;
+
+        Fixed28_4 w0_qRowStart = w0_tile + ctx.w0_dx * (qMinX - tileX) + ctx.w0_dy * (qMinY - tileY);
+        Fixed28_4 w1_qRowStart = w1_tile + ctx.w1_dx * (qMinX - tileX) + ctx.w1_dy * (qMinY - tileY);
+        Fixed28_4 w2_qRowStart = w2_tile + ctx.w2_dx * (qMinX - tileX) + ctx.w2_dy * (qMinY - tileY);
+
+        OMState& om = *ctx.om;
+        for (Int py = qMinY; py < tMaxY; py += 2)
+        {
+            Fixed28_4 w0_q = w0_qRowStart;
+            Fixed28_4 w1_q = w1_qRowStart;
+            Fixed28_4 w2_q = w2_qRowStart;
+
+            for (Int px = qMinX; px < tMaxX; px += 2)
+            {
+                Fixed28_4 qw0[4], qw1[4], qw2[4];
+                qw0[0] = w0_q;                         qw1[0] = w1_q;                         qw2[0] = w2_q;
+                qw0[1] = w0_q + ctx.w0_dx;             qw1[1] = w1_q + ctx.w1_dx;             qw2[1] = w2_q + ctx.w2_dx;
+                qw0[2] = w0_q + ctx.w0_dy;             qw1[2] = w1_q + ctx.w1_dy;             qw2[2] = w2_q + ctx.w2_dy;
+                qw0[3] = w0_q + ctx.w0_dx + ctx.w0_dy; qw1[3] = w1_q + ctx.w1_dx + ctx.w1_dy; qw2[3] = w2_q + ctx.w2_dx + ctx.w2_dy;
+
+                Int qx[4] = { px, px+1, px, px+1 };
+                Int qy[4] = { py, py, py+1, py+1 };
+
+                unsigned activeMask = 0;
+                for (Int q = 0; q < 4; ++q)
+                {
+                    if (qx[q] >= tMinX && qx[q] < tMaxX && qy[q] >= tMinY && qy[q] < tMaxY &&
+                        (fullyCovered || (qw0[q] >= 0 && qw1[q] >= 0 && qw2[q] >= 0)))
+                    {
+                        activeMask |= (1u << q);
+                    }
+                }
+                if (activeMask == 0)
+                {
+                    w0_q += ctx.w0_dx * 2;
+                    w1_q += ctx.w1_dx * 2;
+                    w2_q += ctx.w2_dx * 2;
+                    continue;
+                }
+
+                SW_PSQuadInput qin{};
+                qin.activeMask = activeMask;
+                for (Int q = 0; q < 4; ++q)
+                {
+                    Float b0 = static_cast<Float>(qw0[q]) * ctx.invArea2;
+                    Float b1 = static_cast<Float>(qw1[q]) * ctx.invArea2;
+                    Float b2 = 1.f - b0 - b1;
+                    Float perspW = ctx.iw2 + b0 * ctx.diw0 + b1 * ctx.diw1;
+                    Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
+                    Float depth = ctx.ndcZ2 + b0 * ctx.dz0 + b1 * ctx.dz1;
+                    depth += ctx.depthBias;
+                    depth = std::clamp(depth, ctx.vpMinDepth, ctx.vpMaxDepth);
+
+                    Float pxC = static_cast<Float>(qx[q]) + 0.5f;
+                    Float pyC = static_cast<Float>(qy[q]) + 0.5f;
+                    qin.pixels[q].pos = { pxC, pyC, depth, perspW };
+                    if (ctx.svPosRegPS >= 0)
+                    {
+                        qin.pixels[q].v[ctx.svPosRegPS] = qin.pixels[q].pos;
+                    }
+                    qin.pixels[q].isFrontFace = ctx.frontFace ? 1u : 0u;
+
+                    for (Int vi = 0; vi < ctx.numVaryings; ++vi)
+                    {
+                        Int psR = ctx.varyings[vi].psInReg;
+                        Float ax = (b0 * ctx.v0pw[vi].x + b1 * ctx.v1pw[vi].x + b2 * ctx.v2pw[vi].x) * invPerspW;
+                        Float ay = (b0 * ctx.v0pw[vi].y + b1 * ctx.v1pw[vi].y + b2 * ctx.v2pw[vi].y) * invPerspW;
+                        Float az = (b0 * ctx.v0pw[vi].z + b1 * ctx.v1pw[vi].z + b2 * ctx.v2pw[vi].z) * invPerspW;
+                        Float aw = (b0 * ctx.v0pw[vi].w + b1 * ctx.v1pw[vi].w + b2 * ctx.v2pw[vi].w) * invPerspW;
+                        qin.pixels[q].v[psR] = { ax, ay, az, aw };
+                    }
+                }
+
+                SW_PSQuadOutput qout{};
+                ctx.psQuadFn(&qin, &qout, ctx.psRes);
+
+                for (Int q = 0; q < 4; ++q)
+                {
+                    if (!(activeMask & (1u << q)))
+                    {
+                        continue;
+                    }
+                    if (qout.pixels[q].discarded)
+                    {
+                        continue;
+                    }
+
+                    Float depth = qin.pixels[q].pos.z;
+                    if (om.depthEnabled)
+                    {
+                        Float testDepth = qout.pixels[q].depthWritten ? qout.pixels[q].oDepth : depth;
+                        if (!TestDepth(om, qx[q], qy[q], testDepth))
+                        {
+                            continue;
+                        }
+                        depth = testDepth;
+                    }
+
+                    if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+                    {
+                        WriteDepth(om, qx[q], qy[q], depth);
+                    }
+
+                    if (om.stencilEnabled)
+                    {
+                        Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
+                        const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+                        Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
+                        Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                        WriteStencil(om, qx[q], qy[q], written);
+                    }
+
+                    WritePixel(om, qx[q], qy[q], qout.pixels[q]);
+                }
+
+                w0_q += ctx.w0_dx * 2;
+                w1_q += ctx.w1_dx * 2;
+                w2_q += ctx.w2_dx * 2;
+            }
+
+            w0_qRowStart += ctx.w0_dy * 2;
+            w1_qRowStart += ctx.w1_dy * 2;
+            w2_qRowStart += ctx.w2_dy * 2;
+        }
+        return;
+    }
 
     Fixed28_4 w0_pixRowStart = w0_tile + ctx.w0_dx * (tMinX - tileX) + ctx.w0_dy * (tMinY - tileY);
     Fixed28_4 w1_pixRowStart = w1_tile + ctx.w1_dx * (tMinX - tileX) + ctx.w1_dy * (tMinY - tileY);
@@ -1044,6 +1177,14 @@ void SWRasterizer::RasterizeTriangle(
     tctx.useTiling = useTiling;
     tctx.frontFace = frontFace;
     tctx.earlyZ    = !psReflection.usesDiscard && !psReflection.writesSVDepth && !psReflection.usesUAVs;
+
+    D3D11PixelShaderSW* psSW = state.ps;
+    tctx.quadMode  = psReflection.needsQuad && psSW && psSW->GetQuadFn();
+    tctx.psQuadFn  = tctx.quadMode ? psSW->GetQuadFn() : nullptr;
+    if (tctx.quadMode)
+    {
+        tctx.earlyZ = false;
+    }
 
     Bool useThreads = useTiling && _config.tileThreads > 0
                       && totalTiles > _config.tileThreads;

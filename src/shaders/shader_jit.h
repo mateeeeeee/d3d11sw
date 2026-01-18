@@ -16,6 +16,7 @@ public:
     D3D11SW_API ~ShaderJIT();
 
     D3D11SW_API void* GetOrCompile(const void* bytecode, Usize len, D3D11SW_ShaderType type);
+    D3D11SW_API void* FindSymbol(const void* bytecode, Usize len, const Char* name);
 
 private:
     std::unordered_map<Uint64, void*>              _cache;
