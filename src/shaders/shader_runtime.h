@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <algorithm>
+#include <limits>
 
 #ifdef _WIN32
 #define SW_JIT_EXPORT __declspec(dllexport)
@@ -200,38 +201,268 @@ static inline float sw_addr(float u, D3D11_TEXTURE_ADDRESS_MODE mode)
     }
 }
 
+static inline unsigned sw_format_stride(DXGI_FORMAT fmt)
+{
+    switch (fmt)
+    {
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+        case DXGI_FORMAT_R32G32B32A32_SINT:  return 16;
+        case DXGI_FORMAT_R32G32B32_FLOAT:    return 12;
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        case DXGI_FORMAT_R16G16B16A16_UNORM:
+        case DXGI_FORMAT_R16G16B16A16_SNORM:
+        case DXGI_FORMAT_R16G16B16A16_UINT:
+        case DXGI_FORMAT_R16G16B16A16_SINT:
+        case DXGI_FORMAT_R32G32_FLOAT:
+        case DXGI_FORMAT_R32G32_UINT:
+        case DXGI_FORMAT_R32G32_SINT:        return 8;
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        case DXGI_FORMAT_R8G8B8A8_SNORM:
+        case DXGI_FORMAT_R8G8B8A8_UINT:
+        case DXGI_FORMAT_R8G8B8A8_SINT:
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+        case DXGI_FORMAT_R10G10B10A2_UNORM:
+        case DXGI_FORMAT_R10G10B10A2_UINT:
+        case DXGI_FORMAT_R11G11B10_FLOAT:
+        case DXGI_FORMAT_R32_FLOAT:
+        case DXGI_FORMAT_R32_UINT:
+        case DXGI_FORMAT_R32_SINT:
+        case DXGI_FORMAT_R16G16_FLOAT:
+        case DXGI_FORMAT_R16G16_UNORM:
+        case DXGI_FORMAT_R16G16_SNORM:
+        case DXGI_FORMAT_R16G16_UINT:
+        case DXGI_FORMAT_R16G16_SINT:        return 4;
+        case DXGI_FORMAT_R8G8_UNORM:
+        case DXGI_FORMAT_R8G8_SNORM:
+        case DXGI_FORMAT_R8G8_UINT:
+        case DXGI_FORMAT_R8G8_SINT:
+        case DXGI_FORMAT_R16_FLOAT:
+        case DXGI_FORMAT_R16_UNORM:
+        case DXGI_FORMAT_R16_SNORM:
+        case DXGI_FORMAT_R16_UINT:
+        case DXGI_FORMAT_R16_SINT:           return 2;
+        case DXGI_FORMAT_R8_UNORM:
+        case DXGI_FORMAT_R8_SNORM:
+        case DXGI_FORMAT_R8_UINT:
+        case DXGI_FORMAT_R8_SINT:            return 1;
+        default:                             return 4;
+    }
+}
+
+static inline float sw_half_to_float(unsigned short h)
+{
+    unsigned sign = (h & 0x8000u) << 16;
+    unsigned exp  = (h >> 10) & 0x1F;
+    unsigned frac = h & 0x03FFu;
+    unsigned f;
+    if (exp == 0)      { f = sign; }
+    else if (exp == 31) { f = sign | 0x7F800000u | (frac << 13); }
+    else               { f = sign | ((exp + 112) << 23) | (frac << 13); }
+    float r;
+    std::memcpy(&r, &f, 4);
+    return r;
+}
+
+static inline float sw_r11_to_float(unsigned v)
+{
+    unsigned exp = (v >> 6) & 0x1F;
+    unsigned frac = v & 0x3Fu;
+    if (exp == 0) { return 0.f; }
+    if (exp == 31) { return frac ? std::numeric_limits<float>::quiet_NaN() : std::numeric_limits<float>::infinity(); }
+    unsigned f = ((exp + 112) << 23) | (frac << 17);
+    float r;
+    std::memcpy(&r, &f, 4);
+    return r;
+}
+
+static inline float sw_r10_to_float(unsigned v)
+{
+    unsigned exp = (v >> 5) & 0x1F;
+    unsigned frac = v & 0x1Fu;
+    if (exp == 0) { return 0.f; }
+    if (exp == 31) { return frac ? std::numeric_limits<float>::quiet_NaN() : std::numeric_limits<float>::infinity(); }
+    unsigned f = ((exp + 112) << 23) | (frac << 18);
+    float r;
+    std::memcpy(&r, &f, 4);
+    return r;
+}
+
 static inline SW_float4 sw_fetch_texel_at(const unsigned char* data, DXGI_FORMAT fmt,
                                            unsigned w, unsigned h, unsigned rowPitch,
                                            unsigned x, unsigned y)
 {
     x = std::min(x, w ? w - 1 : 0u);
     y = std::min(y, h ? h - 1 : 0u);
-    const unsigned char* base = data + (unsigned long long)y * rowPitch;
+    unsigned stride = sw_format_stride(fmt);
+    const unsigned char* p = data + (unsigned long long)y * rowPitch + (unsigned long long)x * stride;
     switch (fmt)
     {
         case DXGI_FORMAT_R8G8B8A8_UNORM:
         case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-        {
-            const unsigned char* p = base + x * 4u;
             return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+            return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
+        case DXGI_FORMAT_R8G8B8A8_SNORM:
+            return { std::fmax((signed char)p[0]/127.f,-1.f), std::fmax((signed char)p[1]/127.f,-1.f),
+                     std::fmax((signed char)p[2]/127.f,-1.f), std::fmax((signed char)p[3]/127.f,-1.f) };
+        case DXGI_FORMAT_R8G8B8A8_UINT:
+            return { (float)p[0], (float)p[1], (float)p[2], (float)p[3] };
+        case DXGI_FORMAT_R8G8B8A8_SINT:
+            return { (float)(signed char)p[0], (float)(signed char)p[1],
+                     (float)(signed char)p[2], (float)(signed char)p[3] };
+        case DXGI_FORMAT_R8G8_UNORM:
+            return { p[0]/255.f, p[1]/255.f, 0.f, 0.f };
+        case DXGI_FORMAT_R8G8_SNORM:
+            return { std::fmax((signed char)p[0]/127.f,-1.f), std::fmax((signed char)p[1]/127.f,-1.f), 0.f, 0.f };
+        case DXGI_FORMAT_R8G8_UINT:
+            return { (float)p[0], (float)p[1], 0.f, 0.f };
+        case DXGI_FORMAT_R8G8_SINT:
+            return { (float)(signed char)p[0], (float)(signed char)p[1], 0.f, 0.f };
+        case DXGI_FORMAT_R8_UNORM:
+            return { p[0]/255.f, 0.f, 0.f, 0.f };
+        case DXGI_FORMAT_R8_SNORM:
+            return { std::fmax((signed char)p[0]/127.f,-1.f), 0.f, 0.f, 0.f };
+        case DXGI_FORMAT_R8_UINT:
+            return { (float)p[0], 0.f, 0.f, 0.f };
+        case DXGI_FORMAT_R8_SINT:
+            return { (float)(signed char)p[0], 0.f, 0.f, 0.f };
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        {
+            float v[4]; std::memcpy(v, p, 16);
+            return { v[0], v[1], v[2], v[3] };
+        }
+        case DXGI_FORMAT_R32G32B32_FLOAT:
+        {
+            float v[3]; std::memcpy(v, p, 12);
+            return { v[0], v[1], v[2], 0.f };
+        }
+        case DXGI_FORMAT_R32G32_FLOAT:
+        {
+            float v[2]; std::memcpy(v, p, 8);
+            return { v[0], v[1], 0.f, 0.f };
         }
         case DXGI_FORMAT_R32_FLOAT:
         {
-            float v;
-            std::memcpy(&v, base + x * 4u, 4);
-            return { v, v, v, v };
+            float v; std::memcpy(&v, p, 4);
+            return { v, 0.f, 0.f, 1.f };
         }
-        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+        case DXGI_FORMAT_R32G32B32A32_SINT:
         {
-            float v[4];
-            std::memcpy(v, base + x * 16u, 16);
-            return { v[0], v[1], v[2], v[3] };
+            unsigned v[4]; std::memcpy(v, p, 16);
+            return { sw_uint_bits(v[0]), sw_uint_bits(v[1]), sw_uint_bits(v[2]), sw_uint_bits(v[3]) };
         }
-        case DXGI_FORMAT_B8G8R8A8_UNORM:
-        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+        case DXGI_FORMAT_R32G32_UINT:
+        case DXGI_FORMAT_R32G32_SINT:
         {
-            const unsigned char* p = base + x * 4u;
-            return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
+            unsigned v[2]; std::memcpy(v, p, 8);
+            return { sw_uint_bits(v[0]), sw_uint_bits(v[1]), 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R32_UINT:
+        case DXGI_FORMAT_R32_SINT:
+        {
+            unsigned v; std::memcpy(&v, p, 4);
+            return { sw_uint_bits(v), 0.f, 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        {
+            unsigned short v[4]; std::memcpy(v, p, 8);
+            return { sw_half_to_float(v[0]), sw_half_to_float(v[1]), sw_half_to_float(v[2]), sw_half_to_float(v[3]) };
+        }
+        case DXGI_FORMAT_R16G16_FLOAT:
+        {
+            unsigned short v[2]; std::memcpy(v, p, 4);
+            return { sw_half_to_float(v[0]), sw_half_to_float(v[1]), 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16_FLOAT:
+        {
+            unsigned short v; std::memcpy(&v, p, 2);
+            return { sw_half_to_float(v), 0.f, 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16G16B16A16_UNORM:
+        {
+            unsigned short v[4]; std::memcpy(v, p, 8);
+            return { v[0]/65535.f, v[1]/65535.f, v[2]/65535.f, v[3]/65535.f };
+        }
+        case DXGI_FORMAT_R16G16B16A16_SNORM:
+        {
+            short v[4]; std::memcpy(v, p, 8);
+            return { std::fmax(v[0]/32767.f,-1.f), std::fmax(v[1]/32767.f,-1.f),
+                     std::fmax(v[2]/32767.f,-1.f), std::fmax(v[3]/32767.f,-1.f) };
+        }
+        case DXGI_FORMAT_R16G16B16A16_UINT:
+        {
+            unsigned short v[4]; std::memcpy(v, p, 8);
+            return { sw_uint_bits((unsigned)v[0]), sw_uint_bits((unsigned)v[1]),
+                     sw_uint_bits((unsigned)v[2]), sw_uint_bits((unsigned)v[3]) };
+        }
+        case DXGI_FORMAT_R16G16B16A16_SINT:
+        {
+            short v[4]; std::memcpy(v, p, 8);
+            return { sw_int_bits((int)v[0]), sw_int_bits((int)v[1]),
+                     sw_int_bits((int)v[2]), sw_int_bits((int)v[3]) };
+        }
+        case DXGI_FORMAT_R16G16_UNORM:
+        {
+            unsigned short v[2]; std::memcpy(v, p, 4);
+            return { v[0]/65535.f, v[1]/65535.f, 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16G16_SNORM:
+        {
+            short v[2]; std::memcpy(v, p, 4);
+            return { std::fmax(v[0]/32767.f,-1.f), std::fmax(v[1]/32767.f,-1.f), 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16G16_UINT:
+        {
+            unsigned short v[2]; std::memcpy(v, p, 4);
+            return { sw_uint_bits((unsigned)v[0]), sw_uint_bits((unsigned)v[1]), 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16G16_SINT:
+        {
+            short v[2]; std::memcpy(v, p, 4);
+            return { sw_int_bits((int)v[0]), sw_int_bits((int)v[1]), 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16_UNORM:
+        {
+            unsigned short v; std::memcpy(&v, p, 2);
+            return { v/65535.f, 0.f, 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16_SNORM:
+        {
+            short v; std::memcpy(&v, p, 2);
+            return { std::fmax(v/32767.f,-1.f), 0.f, 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16_UINT:
+        {
+            unsigned short v; std::memcpy(&v, p, 2);
+            return { sw_uint_bits((unsigned)v), 0.f, 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R16_SINT:
+        {
+            short v; std::memcpy(&v, p, 2);
+            return { sw_int_bits((int)v), 0.f, 0.f, 0.f };
+        }
+        case DXGI_FORMAT_R10G10B10A2_UNORM:
+        {
+            unsigned packed; std::memcpy(&packed, p, 4);
+            return { (packed & 0x3FFu)/1023.f, ((packed>>10)&0x3FFu)/1023.f,
+                     ((packed>>20)&0x3FFu)/1023.f, ((packed>>30)&0x3u)/3.f };
+        }
+        case DXGI_FORMAT_R10G10B10A2_UINT:
+        {
+            unsigned packed; std::memcpy(&packed, p, 4);
+            return { sw_uint_bits(packed & 0x3FFu), sw_uint_bits((packed>>10)&0x3FFu),
+                     sw_uint_bits((packed>>20)&0x3FFu), sw_uint_bits((packed>>30)&0x3u) };
+        }
+        case DXGI_FORMAT_R11G11B10_FLOAT:
+        {
+            unsigned packed; std::memcpy(&packed, p, 4);
+            return { sw_r11_to_float(packed & 0x7FFu), sw_r11_to_float((packed>>11)&0x7FFu),
+                     sw_r10_to_float((packed>>22)&0x3FFu), 1.f };
         }
         default:
             return { 0.f, 0.f, 0.f, 0.f };
