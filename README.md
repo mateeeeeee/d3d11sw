@@ -22,9 +22,9 @@ A software implementation of the Direct3D 11 API.
 - [ ] Hull Shader
 - [ ] Domain Shader
 - [ ] BC compressed texture formats (BC1-BC7)
-- [ ] SRGB decode for texture reads
+- [ ] SRGB for RTVs and SRVs
 - [ ] Anisotropic filtering
-- [ ] Multisample anti-aliasing
+- [ ] MSAA
 - [ ] Adjacency topologies
 - [ ] Double-precision shader ops
 - [ ] Deferred contexts
