@@ -69,6 +69,23 @@ HRESULT D3D11UnorderedAccessViewSW::Init(ID3D11Resource* pResource, const D3D11_
     {
         _layout.PixelStride = GetFormatStride(_desc.Format);
     }
+    else if (_desc.ViewDimension == D3D11_UAV_DIMENSION_BUFFER)
+    {
+        D3D11_BUFFER_DESC bufDesc{};
+        static_cast<ID3D11Buffer*>(pResource)->GetDesc(&bufDesc);
+        if (bufDesc.StructureByteStride > 0)
+        {
+            _layout.PixelStride = bufDesc.StructureByteStride;
+        }
+    }
+    if (_desc.ViewDimension == D3D11_UAV_DIMENSION_BUFFER)
+    {
+        if ((_desc.Buffer.Flags & (D3D11_BUFFER_UAV_FLAG_APPEND | D3D11_BUFFER_UAV_FLAG_COUNTER)) &&
+            _desc.Format != DXGI_FORMAT_UNKNOWN)
+        {
+            return E_INVALIDARG;
+        }
+    }
     return S_OK;
 }
 

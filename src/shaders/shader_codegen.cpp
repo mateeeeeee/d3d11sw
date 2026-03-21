@@ -1379,6 +1379,24 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
         }
         break;
 
+    case D3D11_SB_OPCODE_IMM_ATOMIC_ALLOC:
+        if (dst && src0)
+        {
+            std::string retBase = EmitDstBase(*dst, quad);
+            w.Line("{}.x = sw_uav_imm_atomic_alloc(res->uav[{}]);",
+                   retBase, src0->indices[0]);
+        }
+        break;
+
+    case D3D11_SB_OPCODE_IMM_ATOMIC_CONSUME:
+        if (dst && src0)
+        {
+            std::string retBase = EmitDstBase(*dst, quad);
+            w.Line("{}.x = sw_uav_imm_atomic_consume(res->uav[{}]);",
+                   retBase, src0->indices[0]);
+        }
+        break;
+
     case D3D10_SB_OPCODE_RET:
         w.Line("goto _sw_end;");
         break;

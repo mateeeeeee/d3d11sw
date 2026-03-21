@@ -225,6 +225,20 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargetsAndUnorderedAcces
                 SetSlot(_state.psUAVs[slot], ppUnorderedAccessViews ? static_cast<D3D11UnorderedAccessViewSW*>(ppUnorderedAccessViews[i]) : nullptr);
             }
         }
+        if (pUAVInitialCounts)
+        {
+            for (Uint i = 0; i < NumUAVs; ++i)
+            {
+                if (pUAVInitialCounts[i] != 0xFFFFFFFF)
+                {
+                    Uint slot = UAVStartSlot + i;
+                    if (slot < D3D11_1_UAV_SLOT_COUNT && _state.psUAVs[slot])
+                    {
+                        *_state.psUAVs[slot]->GetCounter() = pUAVInitialCounts[i];
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -332,6 +346,20 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetShaderResources(UINT StartSlot
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetUnorderedAccessViews(UINT StartSlot, UINT NumUAVs, ID3D11UnorderedAccessView*const* ppUnorderedAccessViews, const UINT* pUAVInitialCounts)
 {
     SetSlots(_state.csUAVs, StartSlot, NumUAVs, reinterpret_cast<D3D11UnorderedAccessViewSW*const*>(ppUnorderedAccessViews));
+    if (pUAVInitialCounts)
+    {
+        for (Uint i = 0; i < NumUAVs; ++i)
+        {
+            if (pUAVInitialCounts[i] != 0xFFFFFFFF)
+            {
+                Uint slot = StartSlot + i;
+                if (slot < D3D11_1_UAV_SLOT_COUNT && _state.csUAVs[slot])
+                {
+                    *_state.csUAVs[slot]->GetCounter() = pUAVInitialCounts[i];
+                }
+            }
+        }
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetShader(ID3D11ComputeShader* pComputeShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
@@ -522,8 +550,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyStructureCount(ID3D11Buffer* pD
         return;
     }
     auto* buf = static_cast<D3D11BufferSW*>(pDstBuffer);
-    Uint count = 0;
-    D3D11SW_TODO("Handle structure count after implementing append/consume buffers");
+    auto* uav = static_cast<D3D11UnorderedAccessViewSW*>(pSrcView);
+    Uint count = *uav->GetCounter();
     std::memcpy(static_cast<Uint8*>(buf->GetDataPtr()) + DstAlignedByteOffset, &count, sizeof(Uint));
 }
 

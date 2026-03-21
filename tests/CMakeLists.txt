@@ -90,6 +90,7 @@ add_golden_test(golden_cs_sample_level golden/test_cs_sample_level.cpp)
 add_golden_test(golden_cs_sample_3d    golden/test_cs_sample_3d.cpp)
 add_golden_test(golden_cs_sample_cube  golden/test_cs_sample_cube.cpp)
 add_golden_test(golden_cs_generate_mips golden/test_cs_generate_mips.cpp)
+add_golden_test(golden_cs_append_consume golden/test_cs_append_consume.cpp)
 
 add_golden_test(golden_draw_solid_triangle  golden/test_draw_solid_triangle.cpp)
 add_golden_test(golden_draw_depth           golden/test_draw_depth.cpp)

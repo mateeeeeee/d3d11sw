@@ -15,18 +15,19 @@ A software implementation of the Direct3D 11 API.
 - [x] Multi-render-target, write masks, clip/cull distances
 - [x] Indexed/instanced/indirect draw and dispatch
 - [x] TGSM, barriers, thread pool for compute
+- [x] Append/consume buffers
 
 ## Missing Features
 
-- [ ] Geometry Shader
-- [ ] Hull Shader
-- [ ] Domain Shader
 - [ ] BC compressed texture formats (BC1-BC7)
 - [ ] SRGB for RTVs and SRVs
+- [ ] Geometry Shader
+- [ ] Stream output
+- [ ] Adjacency topologies
+- [ ] Hull Shader
+- [ ] Domain Shader
 - [ ] Anisotropic filtering
 - [ ] MSAA
-- [ ] Adjacency topologies
-- [ ] Double-precision shader ops
 - [ ] Deferred contexts
-- [ ] Stream output
-- [ ] Append/consume buffers
+
+

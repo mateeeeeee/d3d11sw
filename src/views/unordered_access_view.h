@@ -23,12 +23,15 @@ public:
     UINT8*                     GetDataPtr() const { return _dataPtr; }
     D3D11SW_SUBRESOURCE_LAYOUT GetLayout()  const { return _layout; }
     DXGI_FORMAT                GetFormat()  const { return _desc.Format; }
+    Uint*                      GetCounter()       { return &_counter; }
+    Uint                       GetFlags()   const { return _desc.ViewDimension == D3D11_UAV_DIMENSION_BUFFER ? _desc.Buffer.Flags : 0u; }
 
 private:
     ID3D11Resource*                    _resource = nullptr;
     D3D11_UNORDERED_ACCESS_VIEW_DESC1  _desc{};
     UINT8*                             _dataPtr  = nullptr;
     D3D11SW_SUBRESOURCE_LAYOUT         _layout{};
+    Uint                               _counter = 0;
 };
 
 }

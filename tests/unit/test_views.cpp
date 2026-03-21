@@ -595,3 +595,205 @@ TEST_F(ViewTests, ClearUAVFloat_R8G8B8A8Unorm_WritesUnorm)
     uav->Release();
     tex->Release();
 }
+
+TEST_F(ViewTests, UAV_AppendFlagRequiresFormatUnknown)
+{
+    D3D11_BUFFER_DESC bufDesc = {};
+    bufDesc.ByteWidth           = 64 * 4;
+    bufDesc.Usage               = D3D11_USAGE_DEFAULT;
+    bufDesc.BindFlags           = D3D11_BIND_UNORDERED_ACCESS;
+    bufDesc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufDesc.StructureByteStride = 4;
+
+    ID3D11Buffer* buf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&bufDesc, nullptr, &buf)));
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC desc = {};
+    desc.Format              = DXGI_FORMAT_R32_FLOAT;
+    desc.ViewDimension       = D3D11_UAV_DIMENSION_BUFFER;
+    desc.Buffer.NumElements  = 64;
+    desc.Buffer.Flags        = D3D11_BUFFER_UAV_FLAG_APPEND;
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateUnorderedAccessView(buf, &desc, &uav)));
+
+    buf->Release();
+}
+
+TEST_F(ViewTests, UAV_CounterFlagRequiresFormatUnknown)
+{
+    D3D11_BUFFER_DESC bufDesc = {};
+    bufDesc.ByteWidth           = 64 * 4;
+    bufDesc.Usage               = D3D11_USAGE_DEFAULT;
+    bufDesc.BindFlags           = D3D11_BIND_UNORDERED_ACCESS;
+    bufDesc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufDesc.StructureByteStride = 4;
+
+    ID3D11Buffer* buf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&bufDesc, nullptr, &buf)));
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC desc = {};
+    desc.Format              = DXGI_FORMAT_R32_UINT;
+    desc.ViewDimension       = D3D11_UAV_DIMENSION_BUFFER;
+    desc.Buffer.NumElements  = 64;
+    desc.Buffer.Flags        = D3D11_BUFFER_UAV_FLAG_COUNTER;
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    EXPECT_TRUE(FAILED(device->CreateUnorderedAccessView(buf, &desc, &uav)));
+
+    buf->Release();
+}
+
+TEST_F(ViewTests, UAV_AppendFlagWithFormatUnknownSucceeds)
+{
+    D3D11_BUFFER_DESC bufDesc = {};
+    bufDesc.ByteWidth           = 64 * 4;
+    bufDesc.Usage               = D3D11_USAGE_DEFAULT;
+    bufDesc.BindFlags           = D3D11_BIND_UNORDERED_ACCESS;
+    bufDesc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufDesc.StructureByteStride = 4;
+
+    ID3D11Buffer* buf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&bufDesc, nullptr, &buf)));
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC desc = {};
+    desc.Format              = DXGI_FORMAT_UNKNOWN;
+    desc.ViewDimension       = D3D11_UAV_DIMENSION_BUFFER;
+    desc.Buffer.NumElements  = 64;
+    desc.Buffer.Flags        = D3D11_BUFFER_UAV_FLAG_APPEND;
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    EXPECT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(buf, &desc, &uav)));
+
+    if (uav) { uav->Release(); }
+    buf->Release();
+}
+
+TEST_F(ViewTests, UAV_CopyStructureCount_ReturnsInitialCount)
+{
+    D3D11_BUFFER_DESC bufDesc = {};
+    bufDesc.ByteWidth           = 64 * 4;
+    bufDesc.Usage               = D3D11_USAGE_DEFAULT;
+    bufDesc.BindFlags           = D3D11_BIND_UNORDERED_ACCESS;
+    bufDesc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufDesc.StructureByteStride = 4;
+
+    ID3D11Buffer* buf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&bufDesc, nullptr, &buf)));
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC desc = {};
+    desc.Format              = DXGI_FORMAT_UNKNOWN;
+    desc.ViewDimension       = D3D11_UAV_DIMENSION_BUFFER;
+    desc.Buffer.NumElements  = 64;
+    desc.Buffer.Flags        = D3D11_BUFFER_UAV_FLAG_APPEND;
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(buf, &desc, &uav)));
+
+    UINT initialCount = 42;
+    context->CSSetUnorderedAccessViews(0, 1, &uav, &initialCount);
+
+    D3D11_BUFFER_DESC countBufDesc = {};
+    countBufDesc.ByteWidth      = 4;
+    countBufDesc.Usage          = D3D11_USAGE_STAGING;
+    countBufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+    ID3D11Buffer* countBuf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&countBufDesc, nullptr, &countBuf)));
+    context->CopyStructureCount(countBuf, 0, uav);
+
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    ASSERT_TRUE(SUCCEEDED(context->Map(countBuf, 0, D3D11_MAP_READ, 0, &mapped)));
+    EXPECT_EQ(*static_cast<const UINT*>(mapped.pData), 42u);
+    context->Unmap(countBuf, 0);
+
+    countBuf->Release();
+    uav->Release();
+    buf->Release();
+}
+
+TEST_F(ViewTests, UAV_CopyStructureCount_DefaultCounterIsZero)
+{
+    D3D11_BUFFER_DESC bufDesc = {};
+    bufDesc.ByteWidth           = 64 * 4;
+    bufDesc.Usage               = D3D11_USAGE_DEFAULT;
+    bufDesc.BindFlags           = D3D11_BIND_UNORDERED_ACCESS;
+    bufDesc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufDesc.StructureByteStride = 4;
+
+    ID3D11Buffer* buf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&bufDesc, nullptr, &buf)));
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC desc = {};
+    desc.Format              = DXGI_FORMAT_UNKNOWN;
+    desc.ViewDimension       = D3D11_UAV_DIMENSION_BUFFER;
+    desc.Buffer.NumElements  = 64;
+    desc.Buffer.Flags        = D3D11_BUFFER_UAV_FLAG_COUNTER;
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(buf, &desc, &uav)));
+
+    D3D11_BUFFER_DESC countBufDesc = {};
+    countBufDesc.ByteWidth      = 4;
+    countBufDesc.Usage          = D3D11_USAGE_STAGING;
+    countBufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+    ID3D11Buffer* countBuf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&countBufDesc, nullptr, &countBuf)));
+    context->CopyStructureCount(countBuf, 0, uav);
+
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    ASSERT_TRUE(SUCCEEDED(context->Map(countBuf, 0, D3D11_MAP_READ, 0, &mapped)));
+    EXPECT_EQ(*static_cast<const UINT*>(mapped.pData), 0u);
+    context->Unmap(countBuf, 0);
+
+    countBuf->Release();
+    uav->Release();
+    buf->Release();
+}
+
+TEST_F(ViewTests, UAV_InitialCount0xFFFFFFFF_DoesNotResetCounter)
+{
+    D3D11_BUFFER_DESC bufDesc = {};
+    bufDesc.ByteWidth           = 64 * 4;
+    bufDesc.Usage               = D3D11_USAGE_DEFAULT;
+    bufDesc.BindFlags           = D3D11_BIND_UNORDERED_ACCESS;
+    bufDesc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    bufDesc.StructureByteStride = 4;
+
+    ID3D11Buffer* buf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&bufDesc, nullptr, &buf)));
+
+    D3D11_UNORDERED_ACCESS_VIEW_DESC desc = {};
+    desc.Format              = DXGI_FORMAT_UNKNOWN;
+    desc.ViewDimension       = D3D11_UAV_DIMENSION_BUFFER;
+    desc.Buffer.NumElements  = 64;
+    desc.Buffer.Flags        = D3D11_BUFFER_UAV_FLAG_APPEND;
+
+    ID3D11UnorderedAccessView* uav = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateUnorderedAccessView(buf, &desc, &uav)));
+
+    UINT initialCount = 10;
+    context->CSSetUnorderedAccessViews(0, 1, &uav, &initialCount);
+
+    UINT keepCount = 0xFFFFFFFF;
+    context->CSSetUnorderedAccessViews(0, 1, &uav, &keepCount);
+
+    D3D11_BUFFER_DESC countBufDesc = {};
+    countBufDesc.ByteWidth      = 4;
+    countBufDesc.Usage          = D3D11_USAGE_STAGING;
+    countBufDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+
+    ID3D11Buffer* countBuf = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&countBufDesc, nullptr, &countBuf)));
+    context->CopyStructureCount(countBuf, 0, uav);
+
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    ASSERT_TRUE(SUCCEEDED(context->Map(countBuf, 0, D3D11_MAP_READ, 0, &mapped)));
+    EXPECT_EQ(*static_cast<const UINT*>(mapped.pData), 10u);
+    context->Unmap(countBuf, 0);
+
+    countBuf->Release();
+    uav->Release();
+    buf->Release();
+}

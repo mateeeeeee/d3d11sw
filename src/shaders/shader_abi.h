@@ -59,7 +59,7 @@ struct SW_UAV
 {
     void*               data;
     unsigned            elementCount;
-    unsigned            stride;        
+    unsigned            stride;
     unsigned            width;
     unsigned            height;
     unsigned            depth;
@@ -67,6 +67,7 @@ struct SW_UAV
     unsigned            slicePitch;
     DXGI_FORMAT         format;
     D3D11_UAV_DIMENSION dimension;
+    unsigned*           counter;
 };
 
 struct SW_Resources

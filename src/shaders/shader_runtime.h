@@ -1283,3 +1283,15 @@ static inline float sw_tgsm_imm_atomic_cmp_exch(SW_TGSM& g, unsigned off, float 
                                                        std::memory_order_relaxed);
     return sw_uint_bits(expected);
 }
+
+static inline float sw_uav_imm_atomic_alloc(SW_UAV& u)
+{
+    unsigned old = std::atomic_ref<unsigned>(*u.counter).fetch_add(1u, std::memory_order_relaxed);
+    return sw_uint_bits(old);
+}
+
+static inline float sw_uav_imm_atomic_consume(SW_UAV& u)
+{
+    unsigned old = std::atomic_ref<unsigned>(*u.counter).fetch_sub(1u, std::memory_order_relaxed);
+    return sw_uint_bits(old - 1u);
+}

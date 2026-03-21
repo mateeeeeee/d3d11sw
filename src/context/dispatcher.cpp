@@ -261,6 +261,8 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
         uav.data      = uavSW->GetDataPtr();
         uav.format    = desc.Format;
         uav.dimension = static_cast<D3D11_UAV_DIMENSION>(desc.ViewDimension);
+        uav.counter   = (uavSW->GetFlags() & (D3D11_BUFFER_UAV_FLAG_APPEND | D3D11_BUFFER_UAV_FLAG_COUNTER))
+                        ? uavSW->GetCounter() : nullptr;
         if (desc.ViewDimension == D3D11_UAV_DIMENSION_BUFFER)
         {
             uav.elementCount = desc.Buffer.NumElements;
