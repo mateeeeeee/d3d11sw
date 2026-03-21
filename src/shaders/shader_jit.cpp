@@ -11,6 +11,27 @@
 
 namespace d3d11sw {
 
+namespace {
+
+const Char* GetJITCompiler()
+{
+    if (const Char* env = std::getenv("D3D11SW_JIT_COMPILER"))
+    {
+        return env;
+    }
+    return D3D11SW_CXX_COMPILER;
+}
+
+Bool IsMSVCCompiler(const Char* compiler)
+{
+    std::string_view sv(compiler);
+    auto pos = sv.find_last_of("/\\");
+    std::string_view name = (pos != std::string_view::npos) ? sv.substr(pos + 1) : sv;
+    return name.starts_with("cl.") || name == "cl";
+}
+
+}
+
 ShaderJIT::ShaderJIT()  = default;
 ShaderJIT::~ShaderJIT() = default;
 
@@ -45,28 +66,32 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
 {
     std::string logPath = libPath + ".log";
     std::ostringstream cmd;
-#ifdef _MSC_VER
-    cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
-        << " /nologo /LD /MD /std:c++20 /O2 /fp:precise /EHsc"
-        << " /I\"" << D3D11SW_SRC_DIR << "\""
-        << " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
-        << " \"" << srcPath << "\""
-        << " /Fe\"" << libPath << "\""
-        << " /Fo\"" << libPath << ".obj\""
-        << " /link /NOIMPLIB\""
-        << " > \"" << logPath << "\" 2>&1";
-#else
-    cmd << "clang++"
-        << " -std=c++20 -O2 -ffast-math -march=native"
-        << " -fPIC -shared"
-        << " -I\"" << D3D11SW_SRC_DIR << "\""
-        << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
-        << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "/native-windows\""
-        << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "/directx-headers\""
-        << " \"" << srcPath << "\""
-        << " -o \"" << libPath << "\""
-        << " > \"" << logPath << "\" 2>&1";
-#endif
+    const Char* compiler = GetJITCompiler();
+    if (IsMSVCCompiler(compiler))
+    {
+        cmd << "\"\"" << compiler << "\""
+            << " /nologo /LD /MD /std:c++20 /O2 /fp:precise /EHsc"
+            << " /I\"" << D3D11SW_SRC_DIR << "\""
+            << " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
+            << " \"" << srcPath << "\""
+            << " /Fe\"" << libPath << "\""
+            << " /Fo\"" << libPath << ".obj\""
+            << " /link /NOIMPLIB\""
+            << " > \"" << logPath << "\" 2>&1";
+    }
+    else
+    {
+        cmd << compiler
+            << " -std=c++20 -O2 -ffast-math -march=native"
+            << " -fPIC -shared"
+            << " -I\"" << D3D11SW_SRC_DIR << "\""
+            << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
+            << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "/native-windows\""
+            << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "/directx-headers\""
+            << " \"" << srcPath << "\""
+            << " -o \"" << libPath << "\""
+            << " > \"" << logPath << "\" 2>&1";
+    }
     D3D11SW_INFO("ShaderJIT: {}", srcPath.c_str());
     Int rc = std::system(cmd.str().c_str());
     if (rc != 0)
