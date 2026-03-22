@@ -228,28 +228,12 @@ struct PerfDraw : ::testing::Test
 
 // --- Basic draw benchmarks ---
 
-TEST_F(PerfDraw, SingleTriangle_64x64)
-{
-    auto rt = CreateRT(64, 64);
-    BindSingleTriangleVB();
-
-    auto result = RunBenchmark("SingleTriangle_64x64", context, device, 100, 10, [&]() {
-        context->Draw(3, 0);
-    });
-    PrintHeader();
-    PrintResult(result);
-    PrintFooter();
-    WriteResult(result);
-    EXPECT_GT(result.median_ns, 0.0);
-    rt.Release();
-}
-
 TEST_F(PerfDraw, SingleTriangle_256x256)
 {
     auto rt = CreateRT(256, 256);
     BindSingleTriangleVB();
 
-    auto result = RunBenchmark("SingleTriangle_256x256", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("SingleTriangle_256x256", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -265,24 +249,8 @@ TEST_F(PerfDraw, SingleTriangle_512x512)
     auto rt = CreateRT(512, 512);
     BindSingleTriangleVB();
 
-    auto result = RunBenchmark("SingleTriangle_512x512", context, device, 50, 5, [&]() {
+    auto result = RunBenchmark("SingleTriangle_512x512", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
-    });
-    PrintHeader();
-    PrintResult(result);
-    PrintFooter();
-    WriteResult(result);
-    EXPECT_GT(result.median_ns, 0.0);
-    rt.Release();
-}
-
-TEST_F(PerfDraw, ManyTriangles_64x64)
-{
-    auto rt = CreateRT(64, 64);
-    BindManyTrianglesVB();
-
-    auto result = RunBenchmark("ManyTriangles_64x64", context, device, 100, 10, [&]() {
-        context->Draw(kManyTriangles * 3, 0);
     });
     PrintHeader();
     PrintResult(result);
@@ -297,7 +265,7 @@ TEST_F(PerfDraw, SingleTriangle_1024x1024)
     auto rt = CreateRT(1024, 1024);
     BindSingleTriangleVB();
 
-    auto result = RunBenchmark("SingleTriangle_1024x1024", context, device, 20, 3, [&]() {
+    auto result = RunBenchmark("SingleTriangle_1024x1024", context, device, 50, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -308,7 +276,39 @@ TEST_F(PerfDraw, SingleTriangle_1024x1024)
     rt.Release();
 }
 
-TEST_F(PerfDraw, ThinTriangle_512x512)
+TEST_F(PerfDraw, ManyTriangles_256x256)
+{
+    auto rt = CreateRT(256, 256);
+    BindManyTrianglesVB();
+
+    auto result = RunBenchmark("ManyTriangles_256x256", context, device, 100, 5, [&]() {
+        context->Draw(kManyTriangles * 3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+}
+
+TEST_F(PerfDraw, SingleTriangle_2048x2048)
+{
+    auto rt = CreateRT(2048, 2048);
+    BindSingleTriangleVB();
+
+    auto result = RunBenchmark("SingleTriangle_2048x2048", context, device, 20, 5, [&]() {
+        context->Draw(3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+}
+
+TEST_F(PerfDraw, ThinTriangle_1024x1024)
 {
     static const Vertex thinTri[] = {
         {-0.95f,  0.95f, 0.5f,  1.f, 0.f, 0.f, 1.f},
@@ -326,9 +326,9 @@ TEST_F(PerfDraw, ThinTriangle_512x512)
     ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &thinVB)));
 
     BindVB(thinVB);
-    auto rt = CreateRT(512, 512);
+    auto rt = CreateRT(1024, 1024);
 
-    auto result = RunBenchmark("ThinTriangle_512x512", context, device, 50, 5, [&]() {
+    auto result = RunBenchmark("ThinTriangle_1024x1024", context, device, 50, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -342,7 +342,7 @@ TEST_F(PerfDraw, ThinTriangle_512x512)
 
 // --- Depth benchmarks ---
 
-TEST_F(PerfDraw, DepthWrite_256x256)
+TEST_F(PerfDraw, DepthWrite_512x512)
 {
     BindSingleTriangleVB();
 
@@ -354,9 +354,9 @@ TEST_F(PerfDraw, DepthWrite_256x256)
     ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilState(&dsDesc, &dsState)));
     context->OMSetDepthStencilState(dsState, 0);
 
-    auto rt = CreateRTWithDepth(256, 256);
+    auto rt = CreateRTWithDepth(512, 512);
 
-    auto result = RunBenchmark("DepthWrite_256x256", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("DepthWrite_512x512", context, device, 100, 5, [&]() {
         context->ClearDepthStencilView(rt.dsv, D3D11_CLEAR_DEPTH, 1.f, 0);
         context->Draw(3, 0);
     });
@@ -370,7 +370,7 @@ TEST_F(PerfDraw, DepthWrite_256x256)
     rt.Release();
 }
 
-TEST_F(PerfDraw, DepthReject_256x256)
+TEST_F(PerfDraw, DepthReject_512x512)
 {
     static const Vertex nearTri[] = {
         { 0.0f,  0.8f, 0.2f,  1.f, 0.f, 0.f, 1.f},
@@ -407,14 +407,14 @@ TEST_F(PerfDraw, DepthReject_256x256)
     ASSERT_TRUE(SUCCEEDED(device->CreateDepthStencilState(&dsDesc, &dsState)));
     context->OMSetDepthStencilState(dsState, 0);
 
-    auto rt = CreateRTWithDepth(256, 256);
+    auto rt = CreateRTWithDepth(512, 512);
 
     BindVB(nearVB);
     context->Draw(3, 0);
 
     BindVB(farVB);
 
-    auto result = RunBenchmark("DepthReject_256x256", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("DepthReject_512x512", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -431,12 +431,12 @@ TEST_F(PerfDraw, DepthReject_256x256)
 
 // --- Blend benchmarks ---
 
-TEST_F(PerfDraw, NoBlend_256x256)
+TEST_F(PerfDraw, NoBlend_512x512)
 {
     BindAlphaTriangleVB();
-    auto rt = CreateRT(256, 256);
+    auto rt = CreateRT(512, 512);
 
-    auto result = RunBenchmark("NoBlend_256x256", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("NoBlend_512x512", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -447,7 +447,7 @@ TEST_F(PerfDraw, NoBlend_256x256)
     rt.Release();
 }
 
-TEST_F(PerfDraw, AlphaBlend_256x256)
+TEST_F(PerfDraw, AlphaBlend_512x512)
 {
     BindAlphaTriangleVB();
     ID3D11BlendState* bs = CreateAlphaBlendState();
@@ -455,9 +455,9 @@ TEST_F(PerfDraw, AlphaBlend_256x256)
     FLOAT factor[4] = {0.f, 0.f, 0.f, 0.f};
     context->OMSetBlendState(bs, factor, 0xFFFFFFFF);
 
-    auto rt = CreateRT(256, 256);
+    auto rt = CreateRT(512, 512);
 
-    auto result = RunBenchmark("AlphaBlend_256x256", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("AlphaBlend_512x512", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -469,7 +469,7 @@ TEST_F(PerfDraw, AlphaBlend_256x256)
     bs->Release();
 }
 
-TEST_F(PerfDraw, AdditiveBlend_256x256)
+TEST_F(PerfDraw, AdditiveBlend_512x512)
 {
     BindAlphaTriangleVB();
 
@@ -488,9 +488,9 @@ TEST_F(PerfDraw, AdditiveBlend_256x256)
     FLOAT factor[4] = {0.f, 0.f, 0.f, 0.f};
     context->OMSetBlendState(bs, factor, 0xFFFFFFFF);
 
-    auto rt = CreateRT(256, 256);
+    auto rt = CreateRT(512, 512);
 
-    auto result = RunBenchmark("AdditiveBlend_256x256", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("AdditiveBlend_512x512", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -502,7 +502,29 @@ TEST_F(PerfDraw, AdditiveBlend_256x256)
     bs->Release();
 }
 
-TEST_F(PerfDraw, AlphaBlend_512x512)
+TEST_F(PerfDraw, AlphaBlend_1024x1024)
+{
+    BindAlphaTriangleVB();
+    ID3D11BlendState* bs = CreateAlphaBlendState();
+    ASSERT_NE(bs, nullptr);
+    FLOAT factor[4] = {0.f, 0.f, 0.f, 0.f};
+    context->OMSetBlendState(bs, factor, 0xFFFFFFFF);
+
+    auto rt = CreateRT(1024, 1024);
+
+    auto result = RunBenchmark("AlphaBlend_1024x1024", context, device, 50, 5, [&]() {
+        context->Draw(3, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+    bs->Release();
+}
+
+TEST_F(PerfDraw, Overdraw4x_AlphaBlend_512x512)
 {
     BindAlphaTriangleVB();
     ID3D11BlendState* bs = CreateAlphaBlendState();
@@ -512,29 +534,7 @@ TEST_F(PerfDraw, AlphaBlend_512x512)
 
     auto rt = CreateRT(512, 512);
 
-    auto result = RunBenchmark("AlphaBlend_512x512", context, device, 50, 5, [&]() {
-        context->Draw(3, 0);
-    });
-    PrintHeader();
-    PrintResult(result);
-    PrintFooter();
-    WriteResult(result);
-    EXPECT_GT(result.median_ns, 0.0);
-    rt.Release();
-    bs->Release();
-}
-
-TEST_F(PerfDraw, Overdraw4x_AlphaBlend_256x256)
-{
-    BindAlphaTriangleVB();
-    ID3D11BlendState* bs = CreateAlphaBlendState();
-    ASSERT_NE(bs, nullptr);
-    FLOAT factor[4] = {0.f, 0.f, 0.f, 0.f};
-    context->OMSetBlendState(bs, factor, 0xFFFFFFFF);
-
-    auto rt = CreateRT(256, 256);
-
-    auto result = RunBenchmark("Overdraw4x_AlphaBlend_256", context, device, 50, 5, [&]() {
+    auto result = RunBenchmark("Overdraw4x_AlphaBlend_512", context, device, 50, 5, [&]() {
         context->Draw(3, 0);
         context->Draw(3, 0);
         context->Draw(3, 0);
@@ -549,7 +549,7 @@ TEST_F(PerfDraw, Overdraw4x_AlphaBlend_256x256)
     bs->Release();
 }
 
-TEST_F(PerfDraw, StencilWrite_256x256)
+TEST_F(PerfDraw, StencilWrite_512x512)
 {
     BindSingleTriangleVB();
 
@@ -570,7 +570,7 @@ TEST_F(PerfDraw, StencilWrite_256x256)
 
     RTResources rt;
     D3D11_TEXTURE2D_DESC texDesc{};
-    texDesc.Width = 256; texDesc.Height = 256;
+    texDesc.Width = 512; texDesc.Height = 512;
     texDesc.MipLevels = 1; texDesc.ArraySize = 1;
     texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     texDesc.SampleDesc.Count = 1;
@@ -580,7 +580,7 @@ TEST_F(PerfDraw, StencilWrite_256x256)
     device->CreateRenderTargetView(rt.tex, nullptr, &rt.rtv);
 
     D3D11_TEXTURE2D_DESC dsTexDesc{};
-    dsTexDesc.Width = 256; dsTexDesc.Height = 256;
+    dsTexDesc.Width = 512; dsTexDesc.Height = 512;
     dsTexDesc.MipLevels = 1; dsTexDesc.ArraySize = 1;
     dsTexDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
     dsTexDesc.SampleDesc.Count = 1;
@@ -591,13 +591,13 @@ TEST_F(PerfDraw, StencilWrite_256x256)
 
     context->OMSetRenderTargets(1, &rt.rtv, rt.dsv);
     D3D11_VIEWPORT viewport{};
-    viewport.Width = 256.f; viewport.Height = 256.f; viewport.MaxDepth = 1.f;
+    viewport.Width = 512.f; viewport.Height = 512.f; viewport.MaxDepth = 1.f;
     context->RSSetViewports(1, &viewport);
     FLOAT clearColor[4] = {0.f, 0.f, 0.f, 1.f};
     context->ClearRenderTargetView(rt.rtv, clearColor);
     context->ClearDepthStencilView(rt.dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
 
-    auto result = RunBenchmark("StencilWrite_256x256", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("StencilWrite_512x512", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -609,7 +609,7 @@ TEST_F(PerfDraw, StencilWrite_256x256)
     rt.Release();
 }
 
-TEST_F(PerfDraw, FullscreenQuad_256x256)
+TEST_F(PerfDraw, FullscreenQuad_512x512)
 {
     static const Vertex fsQuad[] = {
         {-1.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
@@ -626,8 +626,8 @@ TEST_F(PerfDraw, FullscreenQuad_256x256)
     ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &fsVB)));
     BindVB(fsVB);
 
-    auto rt = CreateRT(256, 256);
-    auto result = RunBenchmark("FullscreenQuad_256x256", context, device, 100, 10, [&]() {
+    auto rt = CreateRT(512, 512);
+    auto result = RunBenchmark("FullscreenQuad_512x512", context, device, 100, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -639,7 +639,7 @@ TEST_F(PerfDraw, FullscreenQuad_256x256)
     fsVB->Release();
 }
 
-TEST_F(PerfDraw, FullscreenQuad_1024x1024)
+TEST_F(PerfDraw, FullscreenQuad_2048x2048)
 {
     static const Vertex fsQuad[] = {
         {-1.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
@@ -656,8 +656,8 @@ TEST_F(PerfDraw, FullscreenQuad_1024x1024)
     ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &fsVB)));
     BindVB(fsVB);
 
-    auto rt = CreateRT(1024, 1024);
-    auto result = RunBenchmark("FullscreenQuad_1024x1024", context, device, 20, 3, [&]() {
+    auto rt = CreateRT(2048, 2048);
+    auto result = RunBenchmark("FullscreenQuad_2048x2048", context, device, 20, 5, [&]() {
         context->Draw(3, 0);
     });
     PrintHeader();
@@ -900,27 +900,11 @@ struct PerfDrawCube : ::testing::Test
     }
 };
 
-TEST_F(PerfDrawCube, TexturedCube_256x256)
-{
-    auto rt = CreateRT(256, 256);
-
-    auto result = RunBenchmark("TexturedCube_256x256", context, device, 100, 10, [&]() {
-        context->ClearDepthStencilView(rt.dsv, D3D11_CLEAR_DEPTH, 1.f, 0);
-        context->DrawIndexed(36, 0, 0);
-    });
-    PrintHeader();
-    PrintResult(result);
-    PrintFooter();
-    WriteResult(result);
-    EXPECT_GT(result.median_ns, 0.0);
-    rt.Release();
-}
-
 TEST_F(PerfDrawCube, TexturedCube_512x512)
 {
     auto rt = CreateRT(512, 512);
 
-    auto result = RunBenchmark("TexturedCube_512x512", context, device, 50, 5, [&]() {
+    auto result = RunBenchmark("TexturedCube_512x512", context, device, 100, 5, [&]() {
         context->ClearDepthStencilView(rt.dsv, D3D11_CLEAR_DEPTH, 1.f, 0);
         context->DrawIndexed(36, 0, 0);
     });
@@ -936,7 +920,23 @@ TEST_F(PerfDrawCube, TexturedCube_1024x1024)
 {
     auto rt = CreateRT(1024, 1024);
 
-    auto result = RunBenchmark("TexturedCube_1024x1024", context, device, 20, 3, [&]() {
+    auto result = RunBenchmark("TexturedCube_1024x1024", context, device, 50, 5, [&]() {
+        context->ClearDepthStencilView(rt.dsv, D3D11_CLEAR_DEPTH, 1.f, 0);
+        context->DrawIndexed(36, 0, 0);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+    rt.Release();
+}
+
+TEST_F(PerfDrawCube, TexturedCube_2048x2048)
+{
+    auto rt = CreateRT(2048, 2048);
+
+    auto result = RunBenchmark("TexturedCube_2048x2048", context, device, 20, 5, [&]() {
         context->ClearDepthStencilView(rt.dsv, D3D11_CLEAR_DEPTH, 1.f, 0);
         context->DrawIndexed(36, 0, 0);
     });

@@ -11,7 +11,7 @@ struct PerfCompute : ::testing::Test
     ID3D11Buffer*              buf     = nullptr;
     ID3D11UnorderedAccessView* uav     = nullptr;
 
-    static constexpr UINT kMaxElements = 16384;
+    static constexpr UINT kMaxElements = 256 * 256 * 64;
 
     void SetUp() override
     {
@@ -53,20 +53,8 @@ struct PerfCompute : ::testing::Test
 
 TEST_F(PerfCompute, SingleGroup_8x8x1)
 {
-    auto result = RunBenchmark("SingleGroup_8x8x1", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("SingleGroup_8x8x1", context, device, 50, 5, [&]() {
         context->Dispatch(1, 1, 1);
-    });
-    PrintHeader();
-    PrintResult(result);
-    PrintFooter();
-    WriteResult(result);
-    EXPECT_GT(result.median_ns, 0.0);
-}
-
-TEST_F(PerfCompute, MultiGroup_4x4)
-{
-    auto result = RunBenchmark("MultiGroup_4x4", context, device, 100, 10, [&]() {
-        context->Dispatch(4, 4, 1);
     });
     PrintHeader();
     PrintResult(result);
@@ -77,7 +65,7 @@ TEST_F(PerfCompute, MultiGroup_4x4)
 
 TEST_F(PerfCompute, MultiGroup_16x16)
 {
-    auto result = RunBenchmark("MultiGroup_16x16", context, device, 100, 10, [&]() {
+    auto result = RunBenchmark("MultiGroup_16x16", context, device, 50, 5, [&]() {
         context->Dispatch(16, 16, 1);
     });
     PrintHeader();
@@ -87,10 +75,22 @@ TEST_F(PerfCompute, MultiGroup_16x16)
     EXPECT_GT(result.median_ns, 0.0);
 }
 
-TEST_F(PerfCompute, LargeDispatch_128x128)
+TEST_F(PerfCompute, MultiGroup_64x64)
 {
-    auto result = RunBenchmark("LargeDispatch_128x128", context, device, 3, 1, [&]() {
-        context->Dispatch(128, 128, 1);
+    auto result = RunBenchmark("MultiGroup_64x64", context, device, 20, 5, [&]() {
+        context->Dispatch(64, 64, 1);
+    });
+    PrintHeader();
+    PrintResult(result);
+    PrintFooter();
+    WriteResult(result);
+    EXPECT_GT(result.median_ns, 0.0);
+}
+
+TEST_F(PerfCompute, LargeDispatch_256x256)
+{
+    auto result = RunBenchmark("LargeDispatch_256x256", context, device, 3, 1, [&]() {
+        context->Dispatch(256, 256, 1);
     });
     PrintHeader();
     PrintResult(result);
@@ -147,10 +147,10 @@ struct PerfComputeTGSM : ::testing::Test
     }
 };
 
-TEST_F(PerfComputeTGSM, SharedMem_1Group)
+TEST_F(PerfComputeTGSM, SharedMem_4x4)
 {
-    auto result = RunBenchmark("SharedMem_1Group", context, device, 100, 10, [&]() {
-        context->Dispatch(1, 1, 1);
+    auto result = RunBenchmark("SharedMem_4x4", context, device, 50, 5, [&]() {
+        context->Dispatch(4, 4, 1);
     });
     PrintHeader();
     PrintResult(result);
@@ -159,10 +159,10 @@ TEST_F(PerfComputeTGSM, SharedMem_1Group)
     EXPECT_GT(result.median_ns, 0.0);
 }
 
-TEST_F(PerfComputeTGSM, SharedMem_16x16)
+TEST_F(PerfComputeTGSM, SharedMem_32x32)
 {
-    auto result = RunBenchmark("SharedMem_16x16", context, device, 100, 10, [&]() {
-        context->Dispatch(16, 16, 1);
+    auto result = RunBenchmark("SharedMem_32x32", context, device, 20, 5, [&]() {
+        context->Dispatch(32, 32, 1);
     });
     PrintHeader();
     PrintResult(result);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <d3d11_4.h>
+#include <chrono>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -37,81 +38,58 @@ inline BenchmarkResult ComputeStats(const char* name, std::vector<double>& timin
     int n = static_cast<int>(timings.size());
     std::sort(timings.begin(), timings.end());
 
-    double sum = 0;
-    for (auto t : timings)
+    int trimCount = n / 4;
+    int trimmedStart = trimCount;
+    int trimmedEnd = n - trimCount;
+    int trimmedN = trimmedEnd - trimmedStart;
+    if (trimmedN < 1)
     {
-        sum += t;
+        trimmedStart = 0;
+        trimmedEnd = n;
+        trimmedN = n;
     }
-    double mean = sum / n;
+
+    double sum = 0;
+    for (int i = trimmedStart; i < trimmedEnd; ++i)
+    {
+        sum += timings[i];
+    }
+    double mean = sum / trimmedN;
 
     double variance = 0;
-    for (auto t : timings)
+    for (int i = trimmedStart; i < trimmedEnd; ++i)
     {
-        variance += (t - mean) * (t - mean);
+        variance += (timings[i] - mean) * (timings[i] - mean);
     }
-    double stddev = std::sqrt(variance / n);
+    double stddev = std::sqrt(variance / trimmedN);
 
-    double median = (n % 2 == 0)
-        ? (timings[n / 2 - 1] + timings[n / 2]) / 2.0
-        : timings[n / 2];
+    double median = (trimmedN % 2 == 0)
+        ? (timings[trimmedStart + trimmedN / 2 - 1] + timings[trimmedStart + trimmedN / 2]) / 2.0
+        : timings[trimmedStart + trimmedN / 2];
 
-    return {name, n, timings.front(), timings.back(), median, mean, stddev};
+    return {name, n, timings[trimmedStart], timings[trimmedEnd - 1], median, mean, stddev};
 }
 
 template <typename FuncT>
 BenchmarkResult RunBenchmark(const char* name, ID3D11DeviceContext* ctx, ID3D11Device* dev,
                              int iterations, int warmup, FuncT&& fn)
 {
-    D3D11_QUERY_DESC tsDesc{};
-    tsDesc.Query = D3D11_QUERY_TIMESTAMP;
-
-    D3D11_QUERY_DESC disjointDesc{};
-    disjointDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
-
-    ID3D11Query* disjoint = nullptr;
-    dev->CreateQuery(&disjointDesc, &disjoint);
-
-    std::vector<ID3D11Query*> tsStart(iterations);
-    std::vector<ID3D11Query*> tsEnd(iterations);
-    for (int i = 0; i < iterations; ++i)
-    {
-        dev->CreateQuery(&tsDesc, &tsStart[i]);
-        dev->CreateQuery(&tsDesc, &tsEnd[i]);
-    }
+    (void)ctx;
+    (void)dev;
 
     for (int i = 0; i < warmup; ++i)
     {
         fn();
     }
 
-    ctx->Begin(disjoint);
-    for (int i = 0; i < iterations; ++i)
-    {
-        ctx->End(tsStart[i]);
-        fn();
-        ctx->End(tsEnd[i]);
-    }
-    ctx->End(disjoint);
-
-    D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData{};
-    ctx->GetData(disjoint, &disjointData, sizeof(disjointData), 0);
-
     std::vector<double> timings(iterations);
     for (int i = 0; i < iterations; ++i)
     {
-        UINT64 t0 = 0, t1 = 0;
-        ctx->GetData(tsStart[i], &t0, sizeof(t0), 0);
-        ctx->GetData(tsEnd[i], &t1, sizeof(t1), 0);
-        double deltaTicks = static_cast<double>(t1 - t0);
-        timings[i] = deltaTicks * (1'000'000'000.0 / disjointData.Frequency);
+        auto t0 = std::chrono::steady_clock::now();
+        fn();
+        auto t1 = std::chrono::steady_clock::now();
+        timings[i] = std::chrono::duration<double, std::nano>(t1 - t0).count();
     }
-
-    for (int i = 0; i < iterations; ++i)
-    {
-        tsStart[i]->Release();
-        tsEnd[i]->Release();
-    }
-    disjoint->Release();
 
     return ComputeStats(name, timings);
 }
