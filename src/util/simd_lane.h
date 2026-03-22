@@ -310,4 +310,53 @@ inline constexpr Usize SimdWidth = 1;
 using LaneF = LaneFloat<SimdWidth>;
 using LaneM = LaneMask<SimdWidth>;
 
+struct SimdVec4
+{
+#if D3D11SW_SIMD_NEON
+    float32x4_t v;
+
+    static SimdVec4 Load(const Float* p) { return {vld1q_f32(p)}; }
+    void Store(Float* p) const { vst1q_f32(p, v); }
+
+    SimdVec4 operator+(SimdVec4 r) const { return {vaddq_f32(v, r.v)}; }
+    SimdVec4 operator-(SimdVec4 r) const { return {vsubq_f32(v, r.v)}; }
+    SimdVec4 operator*(SimdVec4 r) const { return {vmulq_f32(v, r.v)}; }
+
+    friend SimdVec4 MulScalar(SimdVec4 a, Float s) { return {vmulq_n_f32(a.v, s)}; }
+    friend SimdVec4 MulAdd(SimdVec4 a, SimdVec4 b, Float s) { return {vmlaq_n_f32(a.v, b.v, s)}; }
+
+#elif D3D11SW_SIMD_SSE
+    __m128 v;
+
+    static SimdVec4 Load(const Float* p) { return {_mm_loadu_ps(p)}; }
+    void Store(Float* p) const { _mm_storeu_ps(p, v); }
+
+    SimdVec4 operator+(SimdVec4 r) const { return {_mm_add_ps(v, r.v)}; }
+    SimdVec4 operator-(SimdVec4 r) const { return {_mm_sub_ps(v, r.v)}; }
+    SimdVec4 operator*(SimdVec4 r) const { return {_mm_mul_ps(v, r.v)}; }
+
+    friend SimdVec4 MulScalar(SimdVec4 a, Float s) { return {_mm_mul_ps(a.v, _mm_set1_ps(s))}; }
+    friend SimdVec4 MulAdd(SimdVec4 a, SimdVec4 b, Float s)
+    {
+        return {_mm_add_ps(a.v, _mm_mul_ps(b.v, _mm_set1_ps(s)))};
+    }
+
+#else
+    Float v[4];
+
+    static SimdVec4 Load(const Float* p) { return {{p[0], p[1], p[2], p[3]}}; }
+    void Store(Float* p) const { p[0] = v[0]; p[1] = v[1]; p[2] = v[2]; p[3] = v[3]; }
+
+    SimdVec4 operator+(SimdVec4 r) const { return {{v[0]+r.v[0], v[1]+r.v[1], v[2]+r.v[2], v[3]+r.v[3]}}; }
+    SimdVec4 operator-(SimdVec4 r) const { return {{v[0]-r.v[0], v[1]-r.v[1], v[2]-r.v[2], v[3]-r.v[3]}}; }
+    SimdVec4 operator*(SimdVec4 r) const { return {{v[0]*r.v[0], v[1]*r.v[1], v[2]*r.v[2], v[3]*r.v[3]}}; }
+
+    friend SimdVec4 MulScalar(SimdVec4 a, Float s) { return {{a.v[0]*s, a.v[1]*s, a.v[2]*s, a.v[3]*s}}; }
+    friend SimdVec4 MulAdd(SimdVec4 a, SimdVec4 b, Float s)
+    {
+        return {{a.v[0]+b.v[0]*s, a.v[1]+b.v[1]*s, a.v[2]+b.v[2]*s, a.v[3]+b.v[3]*s}};
+    }
+#endif
+};
+
 }

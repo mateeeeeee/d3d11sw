@@ -17,6 +17,7 @@
 #include "util/env.h"
 #include "util/fixed_point.h"
 #include "util/scratch_arena.h"
+#include "util/simd_lane.h"
 #include <algorithm>
 #include <atomic>
 #include <bit>
@@ -138,6 +139,19 @@ SWRasterizer::SWRasterizer() : _config(Config::FromEnv()) {}
 SWRasterizer::~SWRasterizer() = default;
 
 struct VaryingMap { Int vsOutReg; Int psInReg; };
+
+D3D11SW_FORCEINLINE SW_float4 InterpolateVarying(
+    const SW_float4& v0, const SW_float4& v1, const SW_float4& v2,
+    Float b0, Float b1, Float b2, Float invPerspW)
+{
+    SimdVec4 r = MulScalar(SimdVec4::Load(&v0.x), b0);
+    r = MulAdd(r, SimdVec4::Load(&v1.x), b1);
+    r = MulAdd(r, SimdVec4::Load(&v2.x), b2);
+    r = MulScalar(r, invPerspW);
+    SW_float4 out;
+    r.Store(&out.x);
+    return out;
+}
 
 struct TileContext
 {
@@ -305,11 +319,9 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     for (Int vi = 0; vi < ctx.numVaryings; ++vi)
                     {
                         Int psR = ctx.varyings[vi].psInReg;
-                        Float ax = (b0 * ctx.v0pw[vi].x + b1 * ctx.v1pw[vi].x + b2 * ctx.v2pw[vi].x) * invPerspW;
-                        Float ay = (b0 * ctx.v0pw[vi].y + b1 * ctx.v1pw[vi].y + b2 * ctx.v2pw[vi].y) * invPerspW;
-                        Float az = (b0 * ctx.v0pw[vi].z + b1 * ctx.v1pw[vi].z + b2 * ctx.v2pw[vi].z) * invPerspW;
-                        Float aw = (b0 * ctx.v0pw[vi].w + b1 * ctx.v1pw[vi].w + b2 * ctx.v2pw[vi].w) * invPerspW;
-                        qin.pixels[q].v[psR] = { ax, ay, az, aw };
+                        qin.pixels[q].v[psR] = InterpolateVarying(
+                            ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
+                            b0, b1, b2, invPerspW);
                     }
                 }
 
@@ -449,12 +461,9 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 {
                     Int psR = ctx.varyings[vi].psInReg;
 
-                    Float ax = (b0 * ctx.v0pw[vi].x + b1 * ctx.v1pw[vi].x + b2 * ctx.v2pw[vi].x) * invPerspW;
-                    Float ay = (b0 * ctx.v0pw[vi].y + b1 * ctx.v1pw[vi].y + b2 * ctx.v2pw[vi].y) * invPerspW;
-                    Float az = (b0 * ctx.v0pw[vi].z + b1 * ctx.v1pw[vi].z + b2 * ctx.v2pw[vi].z) * invPerspW;
-                    Float aw = (b0 * ctx.v0pw[vi].w + b1 * ctx.v1pw[vi].w + b2 * ctx.v2pw[vi].w) * invPerspW;
-
-                    psIn.v[psR] = { ax, ay, az, aw };
+                    psIn.v[psR] = InterpolateVarying(
+                        ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
+                        b0, b1, b2, invPerspW);
                 }
 
                 psOut = {};
