@@ -59,8 +59,15 @@ A software implementation of the Direct3D 11 API.
 
 ## Tests
 
-Around 600 tests divided into three categoeies:
+Around 600 tests divided into three categories:
 - **Unit tests**: Device, resources, views, states, formats, shader compilation, draw and compute pipelines
 - **Golden tests**: Pixel-exact comparison against reference images
 - **Perf tests**: Draw and compute benchmarks
+
+## References
+
+- [D3D11.3 Functional Spec](https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm) — rasterization rules, fixed-point precision, LOD calculation, texture filtering
+- [D3D11 API Reference](https://learn.microsoft.com/en-us/windows/win32/api/d3d11/) — API contracts, parameter rules, struct/enum definitions
+- [Parsing DXBC](https://timjones.io/blog/archive/2015/09/02/parsing-direct3d-shader-bytecode) — DXBC container layout
+- `d3d11TokenizedProgramFormat.hpp` (Windows SDK) — opcode definitions, operand encoding, token layout for SM4/SM5 bytecode
 

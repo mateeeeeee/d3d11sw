@@ -1033,30 +1033,46 @@ void SWRasterizer::RasterizeTriangle(
         screenY[v] = (1.f - (ndcY[v] * 0.5f + 0.5f)) * vp.Height + vp.TopLeftY;
     }
 
-    Float edgeArea = (screenX[1] - screenX[0]) * (screenY[2] - screenY[0])
-                   - (screenY[1] - screenY[0]) * (screenX[2] - screenX[0]);
+    //https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm
+    // Post-clipped vertex positions are snapped to 28.4 fixed point, to uniformly distribute
+    // precision across the RenderTarget area. Rasterizer operations such as face culling occur
+    // on fixed point snapped positions, while attribute interpolator setup uses positions that
+    // have been converted back to floating point from the fixed point snapped positions.
+    auto toFixed = [](Float v) -> Fixed28_4 { return Fixed28_4::FromFloat(v); };
 
-    const Bool frontFace = rsDesc.FrontCounterClockwise ? (edgeArea > 0.f) : (edgeArea < 0.f);
-
-    if (rsDesc.CullMode == D3D11_CULL_BACK  && !frontFace) 
+    Fixed28_4 fx[3], fy[3];
+    for (Int v = 0; v < 3; ++v)
     {
-        return; 
+        fx[v] = toFixed(screenX[v]);
+        fy[v] = toFixed(screenY[v]);
+        screenX[v] = fx[v].ToFloat();
+        screenY[v] = fy[v].ToFloat();
     }
 
-    if (rsDesc.CullMode == D3D11_CULL_FRONT &&  frontFace) 
-    { 
-        return; 
+    Fixed28_4 fixedArea2 = (fx[1] - fx[0]) * (fy[2] - fy[0]) - (fy[1] - fy[0]) * (fx[2] - fx[0]);
+    if (fixedArea2 == 0)
+    {
+        return;
     }
 
-    if (edgeArea == 0.f) 
-    { 
-        return; 
+    const Bool frontFace = rsDesc.FrontCounterClockwise ? (fixedArea2 > 0) : (fixedArea2 < 0);
+
+    if (rsDesc.CullMode == D3D11_CULL_BACK  && !frontFace)
+    {
+        return;
+    }
+
+    if (rsDesc.CullMode == D3D11_CULL_FRONT &&  frontFace)
+    {
+        return;
     }
 
     Float depthBias = 0.f;
     if (rsDesc.DepthBias != 0 || rsDesc.SlopeScaledDepthBias != 0.f)
     {
         //https://learn.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-output-merger-stage-depth-bias
+        Float edgeArea = (screenX[1] - screenX[0]) * (screenY[2] - screenY[0])
+                       - (screenY[1] - screenY[0]) * (screenX[2] - screenX[0]);
         Float invArea = 1.f / edgeArea;
         Float dzdx = ((ndcZ[1] - ndcZ[0]) * (screenY[2] - screenY[0]) -
                        (ndcZ[2] - ndcZ[0]) * (screenY[1] - screenY[0])) * invArea;
@@ -1107,21 +1123,6 @@ void SWRasterizer::RasterizeTriangle(
         edge[0] = tri[2]; edge[1] = tri[0];
         RasterizeLine(edge, vsReflection, psReflection, psFn, psRes, om, state);
         return;
-    }
-
-    auto toFixed = [](Float v) -> Fixed28_4 { return Fixed28_4::FromFloat(v); };
-
-    Fixed28_4 fx[3], fy[3];
-    for (Int v = 0; v < 3; ++v)
-    {
-        fx[v] = toFixed(screenX[v]);
-        fy[v] = toFixed(screenY[v]);
-    }
-
-    Fixed28_4 fixedArea2 = (fx[1] - fx[0]) * (fy[2] - fy[0]) - (fy[1] - fy[0]) * (fx[2] - fx[0]);
-    if (fixedArea2 == 0) 
-    { 
-        return; 
     }
 
     Bool ccw = fixedArea2 > 0;
@@ -1177,6 +1178,7 @@ void SWRasterizer::RasterizeTriangle(
         return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
     };
 
+    //https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#3.4.2.1%20Top-Left%20Rule
     auto isTopLeft = [&](Int a, Int b) -> Bool
     {
         Fixed28_4 edgeY = fy[b] - fy[a];

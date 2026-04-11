@@ -12,6 +12,7 @@ public:
     constexpr explicit FixedPoint(StorageT v) : _raw(v) {}
 
     static FixedPoint FromFloat(Float v) { return FixedPoint(static_cast<StorageT>(v * Scale + 0.5f)); }
+    Float ToFloat() const { return static_cast<Float>(_raw) / static_cast<Float>(Scale); }
     explicit operator Float() const { return static_cast<Float>(_raw); }
 
     FixedPoint  operator+ (FixedPoint r) const { return FixedPoint(_raw + r._raw); }
