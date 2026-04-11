@@ -26,3 +26,40 @@ A software implementation of the Direct3D 11 API.
 - [x] Indexed/instanced/indirect draw and dispatch
 - [x] TGSM, barriers, thread pool for compute
 - [x] Append/consume buffers
+
+## Examples
+
+<details><summary><b>Screenshots</b></summary>
+
+**Triangle**
+<p align="center">
+    <img width="49%" src="examples/screenshots/RedTriangle.png" alt="Triangle"/>
+</p>
+
+**Textured Cube**
+<p align="center">
+    <img width="49%" src="examples/screenshots/TexturedCube.png" alt="Textured Cube"/>
+&nbsp;
+    <img width="49%" src="examples/screenshots/ProceduralTexturedCube.png" alt="Procedural Textured Cube"/>
+</p>
+
+**Instanced Cubes**
+<p align="center">
+    <img width="49%" src="examples/screenshots/InstancedCubes.png" alt="Instanced Cubes"/>
+</p>
+
+**Floor (Aliased vs Mipmapped)**
+<p align="center">
+    <img width="49%" src="examples/screenshots/AliasedFloor.png" alt="Aliased Floor"/>
+&nbsp;
+    <img width="49%" src="examples/screenshots/AntialiasedFloor.png" alt="Mipmapped Floor"/>
+</p>
+
+</details>
+
+## Tests
+
+- **Unit tests**: Device, resources, views, states, formats, shader compilation, draw and compute pipelines
+- **Golden tests**: Pixel-exact comparison against reference images
+- **Perf tests**: Draw and compute benchmarks
+
