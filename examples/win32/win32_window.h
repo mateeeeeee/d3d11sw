@@ -47,7 +47,7 @@ inline HWND Win32CreateWindow(const char* title, uint32_t width, uint32_t height
     return hwnd;
 }
 
-inline void Win32RunLoop(std::function<void()> tick = nullptr)
+inline void Win32RunLoop(std::function<void()> tick = nullptr, std::function<void(WPARAM)> onKey = nullptr)
 {
     MSG msg{};
     if (tick)
@@ -57,6 +57,7 @@ inline void Win32RunLoop(std::function<void()> tick = nullptr)
             while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE))
             {
                 if (msg.message == WM_QUIT) { return; }
+                if (msg.message == WM_KEYDOWN && onKey) { onKey(msg.wParam); }
                 TranslateMessage(&msg);
                 DispatchMessageA(&msg);
             }

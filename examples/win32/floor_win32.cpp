@@ -25,6 +25,10 @@ int main()
         QueryPerformanceCounter(&now);
         float t = (float)(now.QuadPart - start.QuadPart) / (float)freq.QuadPart;
         FloorRenderFrame(app, t);
+    },
+    [&](WPARAM key)
+    {
+        if (key == VK_SPACE) { FloorToggleLod(app); }
     });
 
     FloorShutdown(app);
