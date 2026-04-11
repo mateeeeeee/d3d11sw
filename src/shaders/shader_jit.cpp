@@ -30,6 +30,63 @@ Bool IsMSVCCompiler(const Char* compiler)
     return name.starts_with("cl.") || name == "cl";
 }
 
+void EnsureMSVCEnvironment()
+{
+    static Bool done = false;
+    if (done)
+    {
+        return;
+    }
+
+    done = true;
+    if (std::getenv("INCLUDE"))
+    {
+        return;
+    }
+
+    namespace fs = std::filesystem;
+    // cl.exe: <MSVC>/bin/Host<arch>/<arch>/cl.exe
+    fs::path msvcRoot = fs::path(D3D11SW_CXX_COMPILER).parent_path().parent_path().parent_path().parent_path();
+    std::string inc = (msvcRoot / "include").string();
+    std::string lib = (msvcRoot / "lib" / "x64").string();
+
+    for (const Char* root : {"C:/Program Files (x86)", "C:/Program Files"})
+    {
+        fs::path kitsInc = fs::path(root) / "Windows Kits" / "10" / "Include";
+        fs::path kitsLib = fs::path(root) / "Windows Kits" / "10" / "Lib";
+        if (!fs::exists(kitsInc)) { continue; }
+        for (const auto& e : fs::directory_iterator(kitsInc))
+        {
+            if (fs::exists(e.path() / "ucrt"))
+            {
+                inc += ";" + (e.path() / "ucrt").string();
+                inc += ";" + (e.path() / "shared").string();
+                inc += ";" + (e.path() / "um").string();
+            }
+        }
+        if (fs::exists(kitsLib))
+        {
+            for (const auto& e : fs::directory_iterator(kitsLib))
+            {
+                if (fs::exists(e.path() / "ucrt" / "x64"))
+                {
+                    lib += ";" + (e.path() / "ucrt" / "x64").string();
+                    lib += ";" + (e.path() / "um" / "x64").string();
+                }
+            }
+        }
+        break;
+    }
+
+    D3D11SW_INFO("ShaderJIT: INCLUDE={}", inc);
+    D3D11SW_INFO("ShaderJIT: LIB={}", lib);
+
+#if defined(D3D11SW_PLATFORM_WINDOWS)
+    _putenv_s("INCLUDE", inc.c_str());
+    _putenv_s("LIB", lib.c_str());
+#endif
+}
+
 }
 
 ShaderJIT::ShaderJIT()  = default;
@@ -43,7 +100,12 @@ ShaderJIT& GetShaderJIT()
 
 std::string ShaderJIT::CacheDir() const
 {
-    return "/tmp/d3d11sw/"; //return (std::filesystem::temp_directory_path() / "d3d11sw").string() + "/";
+#if defined(D3D11SW_PLATFORM_WINDOWS)
+    return "\\tmp\\d3d11sw\\";
+#else
+    return "/tmp/d3d11sw/"; 
+#endif
+    //return (std::filesystem::temp_directory_path() / "d3d11sw").string() + "/";
 }
 
 Uint64 ShaderJIT::Hash(const void* data, Usize len) const
@@ -69,15 +131,15 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
     const Char* compiler = GetJITCompiler();
     if (IsMSVCCompiler(compiler))
     {
-        cmd << "\"\"" << compiler << "\""
-            << " /nologo /LD /MD /std:c++20 /O2 /fp:precise /EHsc"
-            << " /I\"" << D3D11SW_SRC_DIR << "\""
-            << " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
-            << " \"" << srcPath << "\""
-            << " /Fe\"" << libPath << "\""
-            << " /Fo\"" << libPath << ".obj\""
-            << " /link /NOIMPLIB\""
-            << " > \"" << logPath << "\" 2>&1";
+		EnsureMSVCEnvironment();
+		cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
+			<< " /nologo /LD /MD /std:c++20 /O2 /fp:fast /EHsc"
+			<< " /I\"" << D3D11SW_SRC_DIR << "\""
+			<< " \"" << srcPath << "\""
+			<< " /Fe\"" << libPath << "\""
+			<< " /Fo\"" << libPath << ".obj\""
+			<< " /link /NOIMPLIB"
+			<< " > \"" << logPath << "\" 2>&1\"";
     }
     else
     {
@@ -85,14 +147,12 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
             << " -std=c++20 -O2 -ffast-math -march=native"
             << " -fPIC -shared"
             << " -I\"" << D3D11SW_SRC_DIR << "\""
-            << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
-            << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "/native-windows\""
-            << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "/directx-headers\""
             << " \"" << srcPath << "\""
             << " -o \"" << libPath << "\""
             << " > \"" << logPath << "\" 2>&1";
     }
     D3D11SW_INFO("ShaderJIT: {}", srcPath.c_str());
+    D3D11SW_INFO("ShaderJIT: cmd {}", cmd.str());
     Int rc = std::system(cmd.str().c_str());
     if (rc != 0)
     {

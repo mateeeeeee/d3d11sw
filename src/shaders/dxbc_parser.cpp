@@ -10,6 +10,7 @@ static Bool ParseSignatureChunk(const Uint8* data, Usize size,
 {
     if (size < 8)
     {
+        D3D11SW_ERROR("ParseSignatureChunk: chunk too small ({} < 8)", size);
         return false;
     }
 
@@ -65,6 +66,7 @@ static Bool ParseRdefChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader& 
 {
     if (size < sizeof(DXBCRdefHeader))
     {
+        D3D11SW_ERROR("ParseRdefChunk: chunk too small ({} < {})", size, sizeof(DXBCRdefHeader));
         return false;
     }
 
@@ -121,6 +123,7 @@ static Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader
 {
     if (size < 8)
     {
+        D3D11SW_ERROR("ParseShaderChunk: chunk too small ({} < 8)", size);
         return false;
     }
 
@@ -131,6 +134,7 @@ static Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader
     if (!SM4Decode(tokens, numDwords, out.instrs, out.numTemps, threadGroup,
                    out.tgsm))
     {
+        D3D11SW_ERROR("ParseShaderChunk: SM4Decode failed");
         return false;
     }
 
@@ -177,6 +181,7 @@ Bool DXBCParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& 
 {
     if (!bytecode || len < sizeof(DXBCContainerHeader) + 4)
     {
+        D3D11SW_ERROR("DXBCParseReflection: invalid bytecode (null={}, len={})", !bytecode, len);
         return false;
     }
 
@@ -185,14 +190,17 @@ Bool DXBCParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& 
     std::memcpy(&hdr, base, sizeof(DXBCContainerHeader));
     if (hdr.magic != DXBC_MAGIC)
     {
+        D3D11SW_ERROR("DXBCParseReflection: bad magic 0x{:08X}", hdr.magic);
         return false;
     }
     if (hdr.version != 1)
     {
+        D3D11SW_ERROR("DXBCParseReflection: unsupported version {}", hdr.version);
         return false;
     }
     if (hdr.totalSize > len)
     {
+        D3D11SW_ERROR("DXBCParseReflection: totalSize {} > buffer len {}", hdr.totalSize, len);
         return false;
     }
 
@@ -232,6 +240,7 @@ Bool DXBCParse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out)
 {
     if (!DXBCParseReflection(bytecode, len, out))
     {
+        D3D11SW_ERROR("DXBCParse: DXBCParseReflection failed");
         return false;
     }
 

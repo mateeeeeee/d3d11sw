@@ -144,7 +144,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel1D)
     float data[] = { 1.f, 2.f, 3.f, 4.f };
     SW_SRV t{};
     t.data     = data;
-    t.format   = DXGI_FORMAT_R32_FLOAT;
+    t.format   = SW_FORMAT_R32_FLOAT;
     t.mips[0].width    = 4;
     t.mips[0].height   = 1;
     t.mips[0].depth    = 1;
@@ -177,7 +177,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel3d)
 
     SW_SRV t{};
     t.data       = data;
-    t.format     = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format     = SW_FORMAT_R8G8B8A8_UNORM;
     t.mips[0].width      = 2;
     t.mips[0].height     = 2;
     t.mips[0].depth      = 2;
@@ -203,7 +203,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel3dClamps)
     float data[4] = { 1.f, 2.f, 3.f, 4.f };
     SW_SRV t{};
     t.data       = data;
-    t.format     = DXGI_FORMAT_R32_FLOAT;
+    t.format     = SW_FORMAT_R32_FLOAT;
     t.mips[0].width      = 2;
     t.mips[0].height     = 1;
     t.mips[0].depth      = 1;
@@ -220,7 +220,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel2dVia3d)
     float data[] = { 10.f, 20.f, 30.f, 40.f };
     SW_SRV t{};
     t.data       = data;
-    t.format     = DXGI_FORMAT_R32_FLOAT;
+    t.format     = SW_FORMAT_R32_FLOAT;
     t.mips[0].width      = 2;
     t.mips[0].height     = 2;
     t.mips[0].depth      = 1;
@@ -300,7 +300,7 @@ TEST_F(ShaderRuntimeTests, FetchTexelMip)
 
     SW_SRV t{};
     t.data = data;
-    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format = SW_FORMAT_R8G8B8A8_UNORM;
     t.mipLevels = 2;
     t.mips[0] = {2, 2, 1, 2*4, 2*2*4};
     t.mips[1] = {1, 1, 1, 1*4, 1*4};
@@ -321,7 +321,7 @@ TEST_F(ShaderRuntimeTests, FetchTexelMipClamps)
     unsigned char mip0[4] = {255, 0, 0, 255};
     SW_SRV t{};
     t.data = mip0;
-    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format = SW_FORMAT_R8G8B8A8_UNORM;
     t.mipLevels = 1;
     t.mips[0] = {1, 1, 1, 4, 4};
     t.mipOffsets[0] = 0;
@@ -363,7 +363,7 @@ TEST_F(ShaderRuntimeTests, SampleLodPoint)
 
     SW_SRV t{};
     t.data = data;
-    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format = SW_FORMAT_R8G8B8A8_UNORM;
     t.mipLevels = 2;
     t.mips[0] = {2, 2, 1, 2*4, 2*2*4};
     t.mips[1] = {1, 1, 1, 1*4, 1*4};
@@ -371,9 +371,9 @@ TEST_F(ShaderRuntimeTests, SampleLodPoint)
     t.mipOffsets[1] = sizeof(mip0);
 
     SW_Sampler s{};
-    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.filter = SW_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = SW_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = SW_TEXTURE_ADDRESS_CLAMP;
     s.maxLOD = 1.f;
 
     SW_float4 r0 = sw_sample_2d_lod(t, s, 0.5f, 0.5f, 0.f);
@@ -396,7 +396,7 @@ TEST_F(ShaderRuntimeTests, SampleLodTrilinear)
 
     SW_SRV t{};
     t.data = data;
-    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format = SW_FORMAT_R8G8B8A8_UNORM;
     t.mipLevels = 2;
     t.mips[0] = {1, 1, 1, 4, 4};
     t.mips[1] = {1, 1, 1, 4, 4};
@@ -404,9 +404,9 @@ TEST_F(ShaderRuntimeTests, SampleLodTrilinear)
     t.mipOffsets[1] = sizeof(mip0);
 
     SW_Sampler s{};
-    s.filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.filter = SW_FILTER_MIN_MAG_MIP_LINEAR;
+    s.addressU = SW_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = SW_TEXTURE_ADDRESS_CLAMP;
     s.maxLOD = 1.f;
 
     SW_float4 r = sw_sample_2d_lod(t, s, 0.5f, 0.5f, 0.5f);
@@ -425,7 +425,7 @@ TEST_F(ShaderRuntimeTests, SampleLodClampsToMinMax)
 
     SW_SRV t{};
     t.data = data;
-    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format = SW_FORMAT_R8G8B8A8_UNORM;
     t.mipLevels = 2;
     t.mips[0] = {1, 1, 1, 4, 4};
     t.mips[1] = {1, 1, 1, 4, 4};
@@ -433,9 +433,9 @@ TEST_F(ShaderRuntimeTests, SampleLodClampsToMinMax)
     t.mipOffsets[1] = sizeof(mip0);
 
     SW_Sampler s{};
-    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.filter = SW_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = SW_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = SW_TEXTURE_ADDRESS_CLAMP;
     s.minLOD = 0.f;
     s.maxLOD = 0.f;
 
@@ -474,7 +474,7 @@ TEST_F(ShaderRuntimeTests, SampleGrad)
 
     SW_SRV t{};
     t.data = data;
-    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format = SW_FORMAT_R8G8B8A8_UNORM;
     t.mipLevels = 2;
     t.mips[0] = {2, 2, 1, 2*4, 2*2*4};
     t.mips[1] = {1, 1, 1, 1*4, 1*4};
@@ -482,9 +482,9 @@ TEST_F(ShaderRuntimeTests, SampleGrad)
     t.mipOffsets[1] = sizeof(mip0);
 
     SW_Sampler s{};
-    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.filter = SW_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = SW_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = SW_TEXTURE_ADDRESS_CLAMP;
     s.maxLOD = 1.f;
 
     SW_float4 r0 = sw_sample_2d_grad(t, s, 0.5f, 0.5f, 0.5f, 0.f, 0.f, 0.5f);
@@ -540,7 +540,7 @@ TEST_F(ShaderRuntimeTests, FetchTexel3dMip)
 
     SW_SRV t{};
     t.data = data;
-    t.format = DXGI_FORMAT_R32_FLOAT;
+    t.format = SW_FORMAT_R32_FLOAT;
     t.mipLevels = 2;
     t.mips[0] = {2, 2, 2, 2*4, 2*2*4};
     t.mips[1] = {1, 1, 1, 1*4, 1*4};
@@ -568,7 +568,7 @@ TEST_F(ShaderRuntimeTests, SampleLodBias)
 
     SW_SRV t{};
     t.data = data;
-    t.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    t.format = SW_FORMAT_R8G8B8A8_UNORM;
     t.mipLevels = 2;
     t.mips[0] = {1, 1, 1, 4, 4};
     t.mips[1] = {1, 1, 1, 4, 4};
@@ -576,9 +576,9 @@ TEST_F(ShaderRuntimeTests, SampleLodBias)
     t.mipOffsets[1] = sizeof(mip0);
 
     SW_Sampler s{};
-    s.filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
-    s.addressU = D3D11_TEXTURE_ADDRESS_CLAMP;
-    s.addressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+    s.filter = SW_FILTER_MIN_MAG_MIP_POINT;
+    s.addressU = SW_TEXTURE_ADDRESS_CLAMP;
+    s.addressV = SW_TEXTURE_ADDRESS_CLAMP;
     s.mipLODBias = 1.f;
     s.maxLOD = 1.f;
 
@@ -601,10 +601,10 @@ TEST_F(ShaderRuntimeTests, UavStoreTyped_R8G8B8A8_UNORM)
     unsigned char pixels[4 * 4] = {};
     SW_UAV u{};
     u.data         = pixels;
-    u.format       = DXGI_FORMAT_R8G8B8A8_UNORM;
+    u.format       = SW_FORMAT_R8G8B8A8_UNORM;
     u.width        = 2;
     u.elementCount = 4;
-    u.dimension    = D3D11_UAV_DIMENSION_TEXTURE2D;
+    u.dimension    = SW_UAV_DIMENSION_TEXTURE2D;
 
     sw_uav_store_typed(u, 0, 0, {1.0f, 0.0f, 0.0f, 1.0f});
     sw_uav_store_typed(u, 1, 0, {0.0f, 1.0f, 0.0f, 1.0f});
@@ -622,10 +622,10 @@ TEST_F(ShaderRuntimeTests, UavStoreTyped_R8G8B8A8_UNORM_Clamps)
     unsigned char pixels[4] = {};
     SW_UAV u{};
     u.data         = pixels;
-    u.format       = DXGI_FORMAT_R8G8B8A8_UNORM;
+    u.format       = SW_FORMAT_R8G8B8A8_UNORM;
     u.width        = 1;
     u.elementCount = 1;
-    u.dimension    = D3D11_UAV_DIMENSION_TEXTURE2D;
+    u.dimension    = SW_UAV_DIMENSION_TEXTURE2D;
 
     sw_uav_store_typed(u, 0, 0, {2.0f, -1.0f, 0.0f, 1.0f});
     EXPECT_EQ(pixels[0], 255);

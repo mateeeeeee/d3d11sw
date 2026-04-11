@@ -1,4 +1,5 @@
 #include "common/common.h"
+#include "common/log.h"
 #include "dxgi/presenter.h"
 
 #ifdef D3D11SW_PLATFORM_WINDOWS
@@ -18,6 +19,7 @@ public:
         HDC hdc = GetDC(_hwnd);
         if (!hdc)
         {
+            D3D11SW_ERROR("Win32Presenter::Present: GetDC failed");
             return;
         }
 
@@ -47,6 +49,7 @@ std::unique_ptr<ISwapChainPresenter> CreatePresenter(void* hwnd)
 {
     if (!hwnd)
     {
+        D3D11SW_ERROR("CreatePresenter: hwnd is null");
         return nullptr;
     }
     return std::make_unique<Win32Presenter>((HWND)hwnd);

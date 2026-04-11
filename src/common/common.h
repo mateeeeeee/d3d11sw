@@ -17,8 +17,6 @@
     #include <dxgi1_2.h>
 #endif
 
-#include <atomic>
-
 #ifdef _WIN32
     #define D3D11SW_COM_UUID(str)          __declspec(uuid(str))
     #define D3D11SW_DEFINE_UUID(type, ...) // nothing, __declspec handles it

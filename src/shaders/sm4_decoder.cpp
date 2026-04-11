@@ -1,4 +1,5 @@
 #include "shaders/sm4_decoder.h"
+#include "common/log.h"
 #include <cstring>
 
 namespace d3d11sw {
@@ -135,6 +136,7 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
     threadGroupSizeOut[0] = threadGroupSizeOut[1] = threadGroupSizeOut[2] = 1;
     if (numDwords < 2)
     {
+        D3D11SW_ERROR("SM4Decode: bytecode too short ({} dwords)", numDwords);
         return false;
     }
 

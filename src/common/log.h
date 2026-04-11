@@ -18,12 +18,14 @@ namespace d3d11sw
     void LogInit();
     void LogDestroy();
 
+    void LogOutput(const std::string& msg);
+
     template<typename... Args>
     void Log(LogLevel level, char const* fmt, Args&&... args)
     {
         std::string log_entry = std::vformat(fmt, std::make_format_args(args...));
-        std::string full_log_entry = std::format("{} {} {}", GetCurrentTimeString(), GetLogPrefix(level), log_entry);
-        printf("%s\n", full_log_entry.c_str());
+        std::string full_log_entry = std::format("{} {} {}\n", GetCurrentTimeString(), GetLogPrefix(level), log_entry);
+        LogOutput(full_log_entry);
     }
 
     struct LogInitScope

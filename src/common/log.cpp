@@ -1,3 +1,4 @@
+#include "common/common.h"
 #include "common/log.h"
 #include <chrono>
 
@@ -37,6 +38,14 @@ namespace d3d11sw
             local_time.tm_sec,
             static_cast<Int>(ms.count()));
         return timestamp;
+    }
+
+    void LogOutput(const std::string& msg)
+    {
+        printf("%s", msg.c_str());
+#if defined(D3D11SW_PLATFORM_WINDOWS)
+        OutputDebugStringA(msg.c_str());
+#endif
     }
 
     void LogInit()

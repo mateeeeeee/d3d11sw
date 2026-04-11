@@ -1,5 +1,6 @@
 #include "context/dispatcher.h"
 #include "context/pipeline_state.h"
+#include "common/log.h"
 #include "shaders/shader_abi.h"
 #include "shaders/dxbc_parser.h"
 #include "resources/buffer.h"
@@ -285,15 +286,17 @@ void SWDispatcher::Dispatch(
     Uint32 groupCountX, Uint32 groupCountY, Uint32 groupCountZ,
     D3D11SW_PIPELINE_STATE& state)
 {
-    if (!state.cs) 
-    { 
-        return; 
+    if (!state.cs)
+    {
+        D3D11SW_ERROR("Dispatch: no compute shader bound");
+        return;
     }
 
     SW_CSFn fn = state.cs->GetJitFn();
-    if (!fn) 
-    { 
-        return; 
+    if (!fn)
+    {
+        D3D11SW_ERROR("Dispatch: JIT function is null for compute shader");
+        return;
     }
 
     const D3D11SW_ParsedShader& shader = state.cs->GetReflection();

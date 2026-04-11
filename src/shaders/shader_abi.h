@@ -1,17 +1,7 @@
 #pragma once
-#include "common/common.h"
+#include "shaders/shader_constants.h"
 
 namespace d3d11sw {
-
-static constexpr unsigned SW_MAX_VS_INPUTS  = D3D11_IA_VERTEX_INPUT_RESOURCE_SLOT_COUNT;
-static constexpr unsigned SW_MAX_VARYINGS   = D3D11_VS_OUTPUT_REGISTER_COUNT;
-static constexpr unsigned SW_MAX_PS_OUTPUTS = D3D11_PS_OUTPUT_REGISTER_COUNT;
-static constexpr unsigned SW_MAX_CBUFS      = D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT;
-static constexpr unsigned SW_MAX_TEXTURES   = D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT;
-static constexpr unsigned SW_MAX_SAMPLERS   = D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT;
-static constexpr unsigned SW_MAX_UAVS       = D3D11_1_UAV_SLOT_COUNT;
-static constexpr unsigned SW_MAX_TGSM       = 8;
-static constexpr unsigned SW_MAX_MIP_LEVELS = 15;
 
 struct SW_float4
 {
@@ -37,37 +27,37 @@ struct SW_SRV
     const void* data;
     unsigned    mipLevels;
     unsigned    stride;
-    DXGI_FORMAT format;
+    unsigned    format;
     SW_MipInfo  mips[SW_MAX_MIP_LEVELS];
     unsigned    mipOffsets[SW_MAX_MIP_LEVELS];
 };
 
 struct SW_Sampler
 {
-    D3D11_FILTER               filter;
-    D3D11_TEXTURE_ADDRESS_MODE addressU;
-    D3D11_TEXTURE_ADDRESS_MODE addressV;
-    D3D11_TEXTURE_ADDRESS_MODE addressW;
-    float                      mipLODBias;
-    float                      minLOD;
-    float                      maxLOD;
-    D3D11_COMPARISON_FUNC      comparisonFunc;
-    float                      borderColor[4];
+    unsigned filter;
+    unsigned addressU;
+    unsigned addressV;
+    unsigned addressW;
+    float    mipLODBias;
+    float    minLOD;
+    float    maxLOD;
+    unsigned comparisonFunc;
+    float    borderColor[4];
 };
 
 struct SW_UAV
 {
-    void*               data;
-    unsigned            elementCount;
-    unsigned            stride;
-    unsigned            width;
-    unsigned            height;
-    unsigned            depth;
-    unsigned            rowPitch;
-    unsigned            slicePitch;
-    DXGI_FORMAT         format;
-    D3D11_UAV_DIMENSION dimension;
-    unsigned*           counter;
+    void*    data;
+    unsigned elementCount;
+    unsigned stride;
+    unsigned width;
+    unsigned height;
+    unsigned depth;
+    unsigned rowPitch;
+    unsigned slicePitch;
+    unsigned format;
+    unsigned dimension;
+    unsigned* counter;
 };
 
 struct SW_Resources
@@ -111,8 +101,8 @@ using SW_PSQuadFn = void(*)(const SW_PSQuadInput*, SW_PSQuadOutput*, const SW_Re
 struct SW_TGSM
 {
     void*    data;
-    unsigned size;    
-    unsigned stride;  
+    unsigned size;
+    unsigned stride;
 };
 
 using SW_BarrierFn = void(*)(void*);

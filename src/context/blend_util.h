@@ -1,7 +1,6 @@
 #pragma once
-#include "common/macros.h"
 #include <d3d11_4.h>
-#include <algorithm>
+#include <cmath>
 
 namespace d3d11sw {
 
@@ -48,7 +47,7 @@ inline Float ComputeBlendFactor(D3D11_BLEND factor, const Float src[4], const Fl
         case D3D11_BLEND_INV_BLEND_FACTOR: return 1.f - blendFactor[comp];
         case D3D11_BLEND_SRC_ALPHA_SAT:
         {
-            Float f = std::min(src[3], 1.f - dst[3]);
+            Float f = std::fmin(src[3], 1.f - dst[3]);
             return comp == 3 ? 1.f : f;
         }
         case D3D11_BLEND_SRC1_COLOR:      return src1[comp];
@@ -66,8 +65,8 @@ inline Float ComputeBlendOp(D3D11_BLEND_OP op, Float srcTerm, Float dstTerm)
         case D3D11_BLEND_OP_ADD:          return srcTerm + dstTerm;
         case D3D11_BLEND_OP_SUBTRACT:     return srcTerm - dstTerm;
         case D3D11_BLEND_OP_REV_SUBTRACT: return dstTerm - srcTerm;
-        case D3D11_BLEND_OP_MIN:          return std::min(srcTerm, dstTerm);
-        case D3D11_BLEND_OP_MAX:          return std::max(srcTerm, dstTerm);
+        case D3D11_BLEND_OP_MIN:          return std::fmin(srcTerm, dstTerm);
+        case D3D11_BLEND_OP_MAX:          return std::fmax(srcTerm, dstTerm);
         default:                          return srcTerm + dstTerm;
     }
 }

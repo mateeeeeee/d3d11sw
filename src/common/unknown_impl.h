@@ -1,5 +1,6 @@
 #pragma once
 #include "common.h"
+#include <atomic>
 
 namespace d3d11sw {
 
