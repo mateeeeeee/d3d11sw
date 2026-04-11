@@ -22,6 +22,18 @@ inline SW_float4 operator*(SW_float4 a, SW_float4 b) { return {a.x*b.x, a.y*b.y,
 inline SW_float4 operator/(SW_float4 a, SW_float4 b) { return {a.x/b.x, a.y/b.y, a.z/b.z, a.w/b.w}; }
 inline SW_float4 operator-(SW_float4 a)              { return {-a.x, -a.y, -a.z, -a.w}; }
 
+static inline float sw_srgb_to_linear(float s)
+{
+    if (s <= 0.04045f) { return s / 12.92f; }
+    return std::pow((s + 0.055f) / 1.055f, 2.4f);
+}
+
+static inline float sw_linear_to_srgb(float l)
+{
+    if (l <= 0.0031308f) { return l * 12.92f; }
+    return 1.055f * std::pow(l, 1.f / 2.4f) - 0.055f;
+}
+
 // Scalar intrinsics
 inline float sw_dot2(SW_float4 a, SW_float4 b) { return a.x*b.x + a.y*b.y; }
 inline float sw_dot3(SW_float4 a, SW_float4 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
@@ -301,11 +313,13 @@ static inline SW_float4 sw_fetch_texel_at(const unsigned char* data, unsigned fm
     switch (fmt)
     {
         case SW_FORMAT_R8G8B8A8_UNORM:
-        case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
             return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
+        case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
+            return { sw_srgb_to_linear(p[0]/255.f), sw_srgb_to_linear(p[1]/255.f), sw_srgb_to_linear(p[2]/255.f), p[3]/255.f };
         case SW_FORMAT_B8G8R8A8_UNORM:
-        case SW_FORMAT_B8G8R8A8_UNORM_SRGB:
             return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
+        case SW_FORMAT_B8G8R8A8_UNORM_SRGB:
+            return { sw_srgb_to_linear(p[2]/255.f), sw_srgb_to_linear(p[1]/255.f), sw_srgb_to_linear(p[0]/255.f), p[3]/255.f };
         case SW_FORMAT_R8G8B8A8_SNORM:
             return { std::fmax((signed char)p[0]/127.f,-1.f), std::fmax((signed char)p[1]/127.f,-1.f),
                      std::fmax((signed char)p[2]/127.f,-1.f), std::fmax((signed char)p[3]/127.f,-1.f) };
@@ -508,10 +522,14 @@ static inline SW_float4 sw_fetch_texel_3d(const SW_SRV& t, unsigned x, unsigned 
     switch (t.format)
     {
         case SW_FORMAT_R8G8B8A8_UNORM:
-        case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
         {
             const unsigned char* p = base + x * 4u;
             return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
+        }
+        case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
+            return { sw_srgb_to_linear(p[0]/255.f), sw_srgb_to_linear(p[1]/255.f), sw_srgb_to_linear(p[2]/255.f), p[3]/255.f };
         }
         case SW_FORMAT_R32_FLOAT:
         {
@@ -526,10 +544,14 @@ static inline SW_float4 sw_fetch_texel_3d(const SW_SRV& t, unsigned x, unsigned 
             return { v[0], v[1], v[2], v[3] };
         }
         case SW_FORMAT_B8G8R8A8_UNORM:
-        case SW_FORMAT_B8G8R8A8_UNORM_SRGB:
         {
             const unsigned char* p = base + x * 4u;
             return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
+        }
+        case SW_FORMAT_B8G8R8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
+            return { sw_srgb_to_linear(p[2]/255.f), sw_srgb_to_linear(p[1]/255.f), sw_srgb_to_linear(p[0]/255.f), p[3]/255.f };
         }
         default:
             return { 0.f, 0.f, 0.f, 0.f };
@@ -900,10 +922,14 @@ static inline SW_float4 sw_fetch_texel_3d_mip(const SW_SRV& t, unsigned x, unsig
     switch (t.format)
     {
         case SW_FORMAT_R8G8B8A8_UNORM:
-        case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
         {
             const unsigned char* p = base + x * 4u;
             return { p[0]/255.f, p[1]/255.f, p[2]/255.f, p[3]/255.f };
+        }
+        case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
+            return { sw_srgb_to_linear(p[0]/255.f), sw_srgb_to_linear(p[1]/255.f), sw_srgb_to_linear(p[2]/255.f), p[3]/255.f };
         }
         case SW_FORMAT_R32_FLOAT:
         {
@@ -918,10 +944,14 @@ static inline SW_float4 sw_fetch_texel_3d_mip(const SW_SRV& t, unsigned x, unsig
             return { fv[0], fv[1], fv[2], fv[3] };
         }
         case SW_FORMAT_B8G8R8A8_UNORM:
-        case SW_FORMAT_B8G8R8A8_UNORM_SRGB:
         {
             const unsigned char* p = base + x * 4u;
             return { p[2]/255.f, p[1]/255.f, p[0]/255.f, p[3]/255.f };
+        }
+        case SW_FORMAT_B8G8R8A8_UNORM_SRGB:
+        {
+            const unsigned char* p = base + x * 4u;
+            return { sw_srgb_to_linear(p[2]/255.f), sw_srgb_to_linear(p[1]/255.f), sw_srgb_to_linear(p[0]/255.f), p[3]/255.f };
         }
         default:
             return { 0.f, 0.f, 0.f, 0.f };

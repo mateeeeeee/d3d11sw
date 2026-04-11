@@ -5,7 +5,6 @@ A software implementation of the Direct3D 11 API.
 ## Missing Features
 
 - [ ] BC compressed texture formats (BC1-BC7)
-- [ ] SRGB for RTVs and SRVs
 - [ ] Geometry Shader, Stream output, Adjacency topologies
 - [ ] Tesselation: Hull Shader, Domain Shader
 - [ ] Anisotropic filtering
@@ -20,6 +19,7 @@ A software implementation of the Direct3D 11 API.
 - [x] 2x2 quad pixel shader execution (derivatives, auto-LOD)
 - [x] Texture sampling: 1D/2D/3D/cube, point/bilinear/trilinear, all address modes
 - [x] Mipmap chains, GenerateMips, SampleLevel/SampleGrad/SampleBias/SampleCmp
+- [x] SRGB support
 - [x] Depth/stencil with all comparison functions and stencil ops
 - [x] Blending with all blend factors/ops, dual-source, logic ops
 - [x] Multi-render-target, write masks, clip/cull distances
@@ -59,6 +59,7 @@ A software implementation of the Direct3D 11 API.
 
 ## Tests
 
+Around 600 tests divided into three categoeies:
 - **Unit tests**: Device, resources, views, states, formats, shader compilation, draw and compute pipelines
 - **Golden tests**: Pixel-exact comparison against reference images
 - **Perf tests**: Draw and compute benchmarks

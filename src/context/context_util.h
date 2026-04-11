@@ -11,6 +11,18 @@
 
 namespace d3d11sw {
 
+inline Float SrgbToLinear(Float s)
+{
+    if (s <= 0.04045f) { return s / 12.92f; }
+    return std::pow((s + 0.055f) / 1.055f, 2.4f);
+}
+
+inline Float LinearToSrgb(Float l)
+{
+    if (l <= 0.0031308f) { return l * 12.92f; }
+    return 1.055f * std::pow(l, 1.f / 2.4f) - 0.055f;
+}
+
 inline constexpr Uint16 FloatToHalf(Float f)
 {
     Uint u = std::bit_cast<Uint>(f);
@@ -117,8 +129,9 @@ inline void PackColor(DXGI_FORMAT fmt, const Float rgba[4], Uint8 out[16])
     switch (fmt)
     {
         case DXGI_FORMAT_R8G8B8A8_UNORM:
-        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
             out[0]=u8(rgba[0]); out[1]=u8(rgba[1]); out[2]=u8(rgba[2]); out[3]=u8(rgba[3]); break;
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+            out[0]=u8(LinearToSrgb(rgba[0])); out[1]=u8(LinearToSrgb(rgba[1])); out[2]=u8(LinearToSrgb(rgba[2])); out[3]=u8(rgba[3]); break;
         case DXGI_FORMAT_R8G8B8A8_SNORM:
             out[0]=(Uint8)s8(rgba[0]); out[1]=(Uint8)s8(rgba[1]);
             out[2]=(Uint8)s8(rgba[2]); out[3]=(Uint8)s8(rgba[3]); break;
@@ -128,8 +141,9 @@ inline void PackColor(DXGI_FORMAT fmt, const Float rgba[4], Uint8 out[16])
             out[0]=(Uint8)(Int8)rgba[0]; out[1]=(Uint8)(Int8)rgba[1];
             out[2]=(Uint8)(Int8)rgba[2]; out[3]=(Uint8)(Int8)rgba[3]; break;
         case DXGI_FORMAT_B8G8R8A8_UNORM:
-        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
             out[0]=u8(rgba[2]); out[1]=u8(rgba[1]); out[2]=u8(rgba[0]); out[3]=u8(rgba[3]); break;
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+            out[0]=u8(LinearToSrgb(rgba[2])); out[1]=u8(LinearToSrgb(rgba[1])); out[2]=u8(LinearToSrgb(rgba[0])); out[3]=u8(rgba[3]); break;
         case DXGI_FORMAT_R8G8_UNORM:
             out[0]=u8(rgba[0]); out[1]=u8(rgba[1]); break;
         case DXGI_FORMAT_R8_UNORM:
@@ -219,17 +233,27 @@ inline void UnpackColor(DXGI_FORMAT fmt, const Uint8* src, FLOAT rgba[4])
     switch (fmt)
     {
         case DXGI_FORMAT_R8G8B8A8_UNORM:
-        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
             rgba[0] = src[0] / 255.f;
             rgba[1] = src[1] / 255.f;
             rgba[2] = src[2] / 255.f;
             rgba[3] = src[3] / 255.f;
             break;
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+            rgba[0] = SrgbToLinear(src[0] / 255.f);
+            rgba[1] = SrgbToLinear(src[1] / 255.f);
+            rgba[2] = SrgbToLinear(src[2] / 255.f);
+            rgba[3] = src[3] / 255.f;
+            break;
         case DXGI_FORMAT_B8G8R8A8_UNORM:
-        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
             rgba[0] = src[2] / 255.f;
             rgba[1] = src[1] / 255.f;
             rgba[2] = src[0] / 255.f;
+            rgba[3] = src[3] / 255.f;
+            break;
+        case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
+            rgba[0] = SrgbToLinear(src[2] / 255.f);
+            rgba[1] = SrgbToLinear(src[1] / 255.f);
+            rgba[2] = SrgbToLinear(src[0] / 255.f);
             rgba[3] = src[3] / 255.f;
             break;
         case DXGI_FORMAT_R8G8B8A8_SNORM:
