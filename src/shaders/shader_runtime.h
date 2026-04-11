@@ -797,8 +797,53 @@ static inline SW_float4 sw_sample_2d_grad(const SW_SRV& t, const SW_Sampler& s,
                                             float ddx_u, float ddx_v,
                                             float ddy_u, float ddy_v)
 {
-    float lod = sw_compute_lod(t, ddx_u, ddx_v, ddy_u, ddy_v);
-    return sw_sample_2d_lod(t, s, u, v, lod);
+    float w = (float)t.mips[0].width;
+    float h = (float)t.mips[0].height;
+    float rho_x = std::sqrt(ddx_u * ddx_u * w * w + ddx_v * ddx_v * h * h);
+    float rho_y = std::sqrt(ddy_u * ddy_u * w * w + ddy_v * ddy_v * h * h);
+
+    bool aniso = (s.filter & 0x40) && s.maxAnisotropy > 1;
+    if (!aniso)
+    {
+        float rho = std::fmax(rho_x, rho_y);
+        float lod = rho > 0.f ? std::log2(rho) : 0.f;
+        return sw_sample_2d_lod(t, s, u, v, lod);
+    }
+
+    //Reference: https://docs.vulkan.org/spec/latest/chapters/textures.html#textures-texel-anisotropic-filtering
+    float rhoMax = std::fmax(rho_x, rho_y);
+    float rhoMin = std::fmin(rho_x, rho_y);
+    float ratio = rhoMin > 0.f ? rhoMax / rhoMin : 1.f;
+    unsigned N = std::clamp((unsigned)std::ceil(ratio), 1u, s.maxAnisotropy);
+
+    float lod = rhoMin > 0.f ? std::log2(rhoMin) : 0.f;
+    float step_du, step_dv;
+    if (rho_x > rho_y)
+    {
+        step_du = ddx_u;
+        step_dv = ddx_v;
+    }
+    else
+    {
+        step_du = ddy_u;
+        step_dv = ddy_v;
+    }
+
+    SW_float4 acc = {0.f, 0.f, 0.f, 0.f};
+    for (unsigned i = 1; i <= N; ++i)
+    {
+        float dx = -0.5f + (float)i / (float)(N + 1);
+        float su = u + dx * step_du;
+        float sv = v + dx * step_dv;
+        SW_float4 c = sw_sample_2d_lod(t, s, su, sv, lod);
+        acc.x += c.x;
+        acc.y += c.y;
+        acc.z += c.z;
+        acc.w += c.w;
+    }
+
+    float inv = 1.f / (float)N;
+    return {acc.x * inv, acc.y * inv, acc.z * inv, acc.w * inv};
 }
 
 static inline SW_float4 sw_sample_2d_cmp_lod(const SW_SRV& t, const SW_Sampler& s,

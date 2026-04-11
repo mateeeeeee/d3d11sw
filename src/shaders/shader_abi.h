@@ -43,6 +43,7 @@ struct SW_Sampler
     float    maxLOD;
     unsigned comparisonFunc;
     float    borderColor[4];
+    unsigned maxAnisotropy;
 };
 
 struct SW_UAV

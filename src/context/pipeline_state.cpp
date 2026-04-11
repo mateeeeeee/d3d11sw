@@ -114,6 +114,7 @@ void BuildStageResources(
         res.smp[i].borderColor[1]  = desc.BorderColor[1];
         res.smp[i].borderColor[2]  = desc.BorderColor[2];
         res.smp[i].borderColor[3]  = desc.BorderColor[3];
+        res.smp[i].maxAnisotropy   = desc.MaxAnisotropy;
     }
 }
 

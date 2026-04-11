@@ -244,6 +244,7 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
 		res.smp[i].borderColor[1]  = desc.BorderColor[1];
 		res.smp[i].borderColor[2]  = desc.BorderColor[2];
 		res.smp[i].borderColor[3]  = desc.BorderColor[3];
+        res.smp[i].maxAnisotropy   = desc.MaxAnisotropy;
     }
 
     for (Uint i = 0; i < SW_MAX_UAVS; ++i)
