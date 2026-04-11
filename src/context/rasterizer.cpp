@@ -294,22 +294,97 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     continue;
                 }
 
+                Float quadDepth[4];
+                Float quadPerspW[4];
+                Float quadB0[4], quadB1[4], quadB2[4], quadInvPerspW[4];
+                for (Int q = 0; q < 4; ++q)
+                {
+                    quadB0[q] = static_cast<Float>(qw0[q]) * ctx.invArea2;
+                    quadB1[q] = static_cast<Float>(qw1[q]) * ctx.invArea2;
+                    quadB2[q] = 1.f - quadB0[q] - quadB1[q];
+                    quadPerspW[q] = ctx.iw2 + quadB0[q] * ctx.diw0 + quadB1[q] * ctx.diw1;
+                    quadInvPerspW[q] = (quadPerspW[q] != 0.f) ? 1.f / quadPerspW[q] : 0.f;
+                    quadDepth[q] = ctx.ndcZ2 + quadB0[q] * ctx.dz0 + quadB1[q] * ctx.dz1;
+                    quadDepth[q] += ctx.depthBias;
+                    quadDepth[q] = std::clamp(quadDepth[q], ctx.vpMinDepth, ctx.vpMaxDepth);
+                }
+
+                unsigned depthPassMask = activeMask;
+                if (ctx.earlyZ)
+                {
+                    depthPassMask = 0;
+                    for (Int q = 0; q < 4; ++q)
+                    {
+                        if (!(activeMask & (1u << q)))
+                        {
+                            continue;
+                        }
+
+                        if (om.stencilEnabled)
+                        {
+                            Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
+                            Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
+                            Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                            if (!CompareStencil(
+                                    ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                    maskedRef, maskedVal))
+                            {
+                                continue;
+                            }
+                        }
+
+                        if (om.depthEnabled && !TestDepth(om, qx[q], qy[q], quadDepth[q]))
+                        {
+                            continue;
+                        }
+
+                        depthPassMask |= (1u << q);
+                    }
+                    if (depthPassMask == 0)
+                    {
+                        // all active pixels failed — apply stencil fail ops, skip PS
+                        if (om.stencilEnabled)
+                        {
+                            const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+                            for (Int q = 0; q < 4; ++q)
+                            {
+                                if (!(activeMask & (1u << q)))
+                                {
+                                    continue;
+                                }
+                                Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
+                                Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
+                                Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                                D3D11_STENCIL_OP op;
+                                if (!CompareStencil(
+                                        ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                        maskedRef, maskedVal))
+                                {
+                                    op = stencilOps->StencilFailOp;
+                                }
+                                else
+                                {
+                                    op = stencilOps->StencilDepthFailOp;
+                                }
+                                Uint8 result = ApplyStencilOp(op, oldStencil, om.stencilRef);
+                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                WriteStencil(om, qx[q], qy[q], written);
+                            }
+                        }
+                        w0_q += ctx.w0_dx * 2;
+                        w1_q += ctx.w1_dx * 2;
+                        w2_q += ctx.w2_dx * 2;
+                        continue;
+                    }
+                }
+
                 SW_PSQuadInput qin{};
                 qin.activeMask = activeMask;
                 for (Int q = 0; q < 4; ++q)
                 {
-                    Float b0 = static_cast<Float>(qw0[q]) * ctx.invArea2;
-                    Float b1 = static_cast<Float>(qw1[q]) * ctx.invArea2;
-                    Float b2 = 1.f - b0 - b1;
-                    Float perspW = ctx.iw2 + b0 * ctx.diw0 + b1 * ctx.diw1;
-                    Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
-                    Float depth = ctx.ndcZ2 + b0 * ctx.dz0 + b1 * ctx.dz1;
-                    depth += ctx.depthBias;
-                    depth = std::clamp(depth, ctx.vpMinDepth, ctx.vpMaxDepth);
-
                     Float pxC = static_cast<Float>(qx[q]) + 0.5f;
                     Float pyC = static_cast<Float>(qy[q]) + 0.5f;
-                    qin.pixels[q].pos = { pxC, pyC, depth, perspW };
+                    qin.pixels[q].pos = { pxC, pyC, quadDepth[q], quadPerspW[q] };
                     if (ctx.svPosRegPS >= 0)
                     {
                         qin.pixels[q].v[ctx.svPosRegPS] = qin.pixels[q].pos;
@@ -321,7 +396,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         Int psR = ctx.varyings[vi].psInReg;
                         qin.pixels[q].v[psR] = InterpolateVarying(
                             ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
-                            b0, b1, b2, invPerspW);
+                            quadB0[q], quadB1[q], quadB2[q], quadInvPerspW[q]);
                     }
                 }
 
@@ -334,20 +409,81 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     {
                         continue;
                     }
-                    if (qout.pixels[q].discarded)
-                    {
-                        continue;
-                    }
 
                     Float depth = qin.pixels[q].pos.z;
-                    if (om.depthEnabled)
+                    const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+
+                    if (ctx.earlyZ)
                     {
-                        Float testDepth = qout.pixels[q].depthWritten ? qout.pixels[q].oDepth : depth;
-                        if (!TestDepth(om, qx[q], qy[q], testDepth))
+                        if (qout.pixels[q].discarded)
                         {
                             continue;
                         }
-                        depth = testDepth;
+                        if (!(depthPassMask & (1u << q)))
+                        {
+                            // early-Z failed — apply stencil fail ops
+                            if (om.stencilEnabled)
+                            {
+                                Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
+                                Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
+                                Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                                D3D11_STENCIL_OP op;
+                                if (!CompareStencil(
+                                        ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                        maskedRef, maskedVal))
+                                {
+                                    op = stencilOps->StencilFailOp;
+                                }
+                                else
+                                {
+                                    op = stencilOps->StencilDepthFailOp;
+                                }
+                                Uint8 result = ApplyStencilOp(op, oldStencil, om.stencilRef);
+                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                WriteStencil(om, qx[q], qy[q], written);
+                            }
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        if (qout.pixels[q].discarded)
+                        {
+                            continue;
+                        }
+
+                        if (om.stencilEnabled)
+                        {
+                            Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
+                            Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
+                            Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                            if (!CompareStencil(
+                                    ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                    maskedRef, maskedVal))
+                            {
+                                Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
+                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                WriteStencil(om, qx[q], qy[q], written);
+                                continue;
+                            }
+                        }
+
+                        if (om.depthEnabled)
+                        {
+                            Float testDepth = qout.pixels[q].depthWritten ? qout.pixels[q].oDepth : depth;
+                            if (!TestDepth(om, qx[q], qy[q], testDepth))
+                            {
+                                if (om.stencilEnabled)
+                                {
+                                    Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
+                                    Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                    WriteStencil(om, qx[q], qy[q], written);
+                                }
+                                continue;
+                            }
+                            depth = testDepth;
+                        }
                     }
 
                     if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
@@ -406,17 +542,15 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 depth += ctx.depthBias;
                 depth = std::clamp(depth, ctx.vpMinDepth, ctx.vpMaxDepth);
 
-                Uint8 oldStencil = 0;
-                const D3D11_DEPTH_STENCILOP_DESC* stencilOps = nullptr;
+                Bool earlyZPassed = true;
                 if (ctx.earlyZ)
                 {
                     if (om.stencilEnabled)
                     {
-                        oldStencil = ReadStencil(om, px, py);
-                        stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
-
+                        Uint8 oldStencil = ReadStencil(om, px, py);
                         Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
                         Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                        const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
                         if (!CompareStencil(
                                 ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
                                 maskedRef, maskedVal))
@@ -424,28 +558,27 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                             Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
                             Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
                             WriteStencil(om, px, py, written);
-                            w0 += ctx.w0_dx;
-                            w1 += ctx.w1_dx;
-                            w2 += ctx.w2_dx;
-                            continue;
+                            earlyZPassed = false;
+                        }
+                        else if (om.depthEnabled && !TestDepth(om, px, py, depth))
+                        {
+                            Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                            WriteStencil(om, px, py, written);
+                            earlyZPassed = false;
                         }
                     }
-
-                    if (om.depthEnabled)
+                    else if (om.depthEnabled && !TestDepth(om, px, py, depth))
                     {
-                        if (!TestDepth(om, px, py, depth))
-                        {
-                            if (om.stencilEnabled)
-                            {
-                                Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                WriteStencil(om, px, py, written);
-                            }
-                            w0 += ctx.w0_dx;
-                            w1 += ctx.w1_dx;
-                            w2 += ctx.w2_dx;
-                            continue;
-                        }
+                        earlyZPassed = false;
+                    }
+
+                    if (!earlyZPassed)
+                    {
+                        w0 += ctx.w0_dx;
+                        w1 += ctx.w1_dx;
+                        w2 += ctx.w2_dx;
+                        continue;
                     }
                 }
 
@@ -482,8 +615,8 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     Float testDepth = psOut.depthWritten ? psOut.oDepth : depth;
                     if (om.stencilEnabled)
                     {
-                        oldStencil = ReadStencil(om, px, py);
-                        stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+                        Uint8 oldStencil = ReadStencil(om, px, py);
+                        const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
 
                         Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
                         Uint8 maskedVal = oldStencil & om.stencilReadMask;
@@ -499,23 +632,24 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                             w2 += ctx.w2_dx;
                             continue;
                         }
-                    }
 
-                    if (om.depthEnabled)
-                    {
-                        if (!TestDepth(om, px, py, testDepth))
+                        if (om.depthEnabled && !TestDepth(om, px, py, testDepth))
                         {
-                            if (om.stencilEnabled)
-                            {
-                                Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                WriteStencil(om, px, py, written);
-                            }
+                            Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                            WriteStencil(om, px, py, written);
                             w0 += ctx.w0_dx;
                             w1 += ctx.w1_dx;
                             w2 += ctx.w2_dx;
                             continue;
                         }
+                    }
+                    else if (om.depthEnabled && !TestDepth(om, px, py, testDepth))
+                    {
+                        w0 += ctx.w0_dx;
+                        w1 += ctx.w1_dx;
+                        w2 += ctx.w2_dx;
+                        continue;
                     }
 
                     depth = testDepth;
@@ -528,6 +662,8 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
 
                 if (om.stencilEnabled)
                 {
+                    Uint8 oldStencil = ReadStencil(om, px, py);
+                    const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
                     Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
                     Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
                     WriteStencil(om, px, py, written);
@@ -1190,7 +1326,7 @@ void SWRasterizer::RasterizeTriangle(
     D3D11PixelShaderSW* psSW = state.ps;
     tctx.quadMode  = psReflection.needsQuad && psSW && psSW->GetQuadFn();
     tctx.psQuadFn  = tctx.quadMode ? psSW->GetQuadFn() : nullptr;
-    if (tctx.quadMode)
+    if (tctx.quadMode && (psReflection.usesDiscard || psReflection.writesSVDepth || psReflection.usesUAVs))
     {
         tctx.earlyZ = false;
     }
