@@ -20,7 +20,7 @@ A software implementation of the Direct3D 11 API.
 - [x] Anisotropic filtering
 - [x] Mipmap chains, GenerateMips, SampleLevel/SampleGrad/SampleBias/SampleCmp
 - [x] SRGB support
-- [x] Depth/stencil with all comparison functions and stencil ops
+- [x] Depth/stencil with all comparison functions and stencil ops, HiZ
 - [x] Blending with all blend factors/ops, dual-source, logic ops
 - [x] Multi-render-target, write masks, clip/cull distances
 - [x] Indexed/instanced/indirect draw and dispatch

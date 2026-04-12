@@ -38,6 +38,8 @@ OMState InitOM(D3D11SW_PIPELINE_STATE& state)
     om.dsvFmt      = dsv ? dsv->GetFormat()  : DXGI_FORMAT_UNKNOWN;
     om.dsvRowPitch = dsv ? dsv->GetLayout().RowPitch : 0;
     om.dsvPixStride = dsv ? DepthPixelStride(om.dsvFmt) : 0;
+    om.dsvWidth  = (dsv && om.dsvPixStride > 0) ? static_cast<Int>(dsv->GetLayout().RowPitch / om.dsvPixStride) : 0;
+    om.dsvHeight = dsv ? static_cast<Int>(dsv->GetLayout().NumRows) : 0;
     if (!dsv)
     {
         om.depthEnabled = false;

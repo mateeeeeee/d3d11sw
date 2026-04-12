@@ -27,6 +27,8 @@ struct OMState
     DXGI_FORMAT dsvFmt;
     Uint dsvRowPitch;
     Uint dsvPixStride;
+    Int dsvWidth;
+    Int dsvHeight;
 
     Bool stencilEnabled;
     Uint8 stencilReadMask;

@@ -25,6 +25,8 @@ public:
                      Uint instanceCount, Uint startInstance,
                      D3D11SW_PIPELINE_STATE& state);
 
+    void ClearHiZ(Uint8* dsvData, Int width, Int height, Float clearDepth);
+    
 private:
     struct Config
     {
@@ -38,6 +40,7 @@ private:
 
     Config _config;
     std::unique_ptr<TileThreadPool> _tilePool;
+    HiZBuffer _hiZ;
 
 private:
     void RasterizeTriangle(const SW_VSOutput tri[3],

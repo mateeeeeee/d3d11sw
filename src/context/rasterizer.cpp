@@ -138,6 +138,11 @@ private:
 SWRasterizer::SWRasterizer() : _config(Config::FromEnv()) {}
 SWRasterizer::~SWRasterizer() = default;
 
+void SWRasterizer::ClearHiZ(Uint8* dsvData, Int width, Int height, Float clearDepth)
+{
+    _hiZ.Clear(dsvData, width, height, _config.tileSize, clearDepth);
+}
+
 struct VaryingMap { Int vsOutReg; Int psInReg; };
 
 D3D11SW_FORCEINLINE SW_float4 InterpolateVarying(
@@ -191,6 +196,11 @@ struct TileContext
     Bool earlyZ;
     Bool quadMode;
     SW_PSQuadFn psQuadFn;
+
+    Float* hiZ;
+    Int hiZTilesX;
+    Int hiZWidth, hiZHeight;
+    Int hiZTileSize;
 };
 
 void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
@@ -240,9 +250,43 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
             (w2_TL >= 0 && w2_TR >= 0 && w2_BL >= 0 && w2_BR >= 0);
     }
 
-    if (allOutside) 
-    { 
-        return; 
+    if (allOutside)
+    {
+        return;
+    }
+
+    if (ctx.useTiling && ctx.hiZ && ctx.om->depthEnabled &&
+        (ctx.om->depthFunc == D3D11_COMPARISON_LESS || ctx.om->depthFunc == D3D11_COMPARISON_LESS_EQUAL))
+    {
+        Float b0_TL = static_cast<Float>(w0_tile) * ctx.invArea2;
+        Float b1_TL = static_cast<Float>(w1_tile) * ctx.invArea2;
+        Float b0_TR = static_cast<Float>(w0_tile + ctx.w0_cornerDx) * ctx.invArea2;
+        Float b1_TR = static_cast<Float>(w1_tile + ctx.w1_cornerDx) * ctx.invArea2;
+        Float b0_BL = static_cast<Float>(w0_tile + ctx.w0_cornerDy) * ctx.invArea2;
+        Float b1_BL = static_cast<Float>(w1_tile + ctx.w1_cornerDy) * ctx.invArea2;
+        Float b0_BR = static_cast<Float>(w0_tile + ctx.w0_cornerDx + ctx.w0_cornerDy) * ctx.invArea2;
+        Float b1_BR = static_cast<Float>(w1_tile + ctx.w1_cornerDx + ctx.w1_cornerDy) * ctx.invArea2;
+
+        Float zTL = ctx.ndcZ2 + b0_TL * ctx.dz0 + b1_TL * ctx.dz1 + ctx.depthBias;
+        Float zTR = ctx.ndcZ2 + b0_TR * ctx.dz0 + b1_TR * ctx.dz1 + ctx.depthBias;
+        Float zBL = ctx.ndcZ2 + b0_BL * ctx.dz0 + b1_BL * ctx.dz1 + ctx.depthBias;
+        Float zBR = ctx.ndcZ2 + b0_BR * ctx.dz0 + b1_BR * ctx.dz1 + ctx.depthBias;
+
+        Float zMinTri = std::min({zTL, zTR, zBL, zBR});
+        zMinTri = std::clamp(zMinTri, ctx.vpMinDepth, ctx.vpMaxDepth);
+
+        Int gCol = tileX / ctx.hiZTileSize;
+        Int gRow = tileY / ctx.hiZTileSize;
+        Float hiZVal = ctx.hiZ[gRow * ctx.hiZTilesX + gCol];
+
+        if (ctx.om->depthFunc == D3D11_COMPARISON_LESS && zMinTri >= hiZVal)
+        {
+            return;
+        }
+        if (ctx.om->depthFunc == D3D11_COMPARISON_LESS_EQUAL && zMinTri > hiZVal)
+        {
+            return;
+        }
     }
 
     Int tMinX = std::max(tileX, ctx.minX);
@@ -680,6 +724,25 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
         w0_pixRowStart += ctx.w0_dy;
         w1_pixRowStart += ctx.w1_dy;
         w2_pixRowStart += ctx.w2_dy;
+    }
+
+    if (ctx.hiZ && ctx.om->depthEnabled && ctx.om->depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+    {
+        OMState& om = *ctx.om;
+        Int gCol = tileX / ctx.hiZTileSize;
+        Int gRow = tileY / ctx.hiZTileSize;
+        Int scanMaxX = std::min(tileX + ctx.tileStepX, ctx.hiZWidth);
+        Int scanMaxY = std::min(tileY + ctx.tileStepY, ctx.hiZHeight);
+        Float maxZ = 0.f;
+        for (Int sy = tileY; sy < scanMaxY; ++sy)
+        {
+            for (Int sx = tileX; sx < scanMaxX; ++sx)
+            {
+                Uint8* p = om.dsvData + (Uint64)sy * om.dsvRowPitch + (Uint64)sx * om.dsvPixStride;
+                maxZ = std::max(maxZ, ReadDepthValue(om.dsvFmt, p));
+            }
+        }
+        ctx.hiZ[gRow * ctx.hiZTilesX + gCol] = maxZ;
     }
 }
 
@@ -1280,6 +1343,11 @@ void SWRasterizer::RasterizeTriangle(
     Int numTilesY = (maxY - tileMinY + tileStepY - 1) / tileStepY;
     Int totalTiles = numTilesX * numTilesY;
 
+    if (om.dsvData && !_hiZ.Matches(om.dsvData))
+    {
+        ClearHiZ(om.dsvData, om.dsvWidth, om.dsvHeight, 1.0f);
+    }
+
     TileContext tctx{};
     tctx.w0_tileOrig  = w0_tileOrig;  tctx.w1_tileOrig  = w1_tileOrig;  tctx.w2_tileOrig  = w2_tileOrig;
     tctx.w0_tileStepX = w0_tileStepX; tctx.w1_tileStepX = w1_tileStepX; tctx.w2_tileStepX = w2_tileStepX;
@@ -1332,6 +1400,12 @@ void SWRasterizer::RasterizeTriangle(
     {
         tctx.earlyZ = false;
     }
+
+    tctx.hiZ        = _hiZ.Matches(om.dsvData) ? _hiZ.data.data() : nullptr;
+    tctx.hiZTilesX  = _hiZ.tilesX;
+    tctx.hiZWidth   = _hiZ.width;
+    tctx.hiZHeight  = _hiZ.height;
+    tctx.hiZTileSize = _hiZ.tileSize;
 
     Bool useThreads = useTiling && _config.tileThreads > 0
                       && totalTiles > _config.tileThreads;

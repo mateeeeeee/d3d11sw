@@ -1,4 +1,5 @@
 #include "context.h"
+#include "context/depth_stencil_util.h"
 #include "resources/subresource_layout.h"
 #include "resources/buffer.h"
 #include "resources/texture1d.h"
@@ -702,6 +703,13 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
         }
         default:
             break;
+    }
+
+    if (ClearFlags & D3D11_CLEAR_DEPTH)
+    {
+        Int width = static_cast<Int>(layout.RowPitch / DepthPixelStride(fmt));
+        Int height = static_cast<Int>(layout.NumRows);
+        _rasterizer.ClearHiZ(data, width, height, Depth);
     }
 }
 
