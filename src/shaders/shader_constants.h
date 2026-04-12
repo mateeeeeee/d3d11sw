@@ -57,6 +57,19 @@ static constexpr unsigned SW_FORMAT_R8_SINT               = 64;
 static constexpr unsigned SW_FORMAT_B8G8R8A8_UNORM        = 87;
 static constexpr unsigned SW_FORMAT_B8G8R8A8_UNORM_SRGB   = 91;
 
+static constexpr unsigned SW_FORMAT_BC1_UNORM             = 71;
+static constexpr unsigned SW_FORMAT_BC1_UNORM_SRGB        = 72;
+static constexpr unsigned SW_FORMAT_BC2_UNORM             = 74;
+static constexpr unsigned SW_FORMAT_BC2_UNORM_SRGB        = 75;
+static constexpr unsigned SW_FORMAT_BC3_UNORM             = 77;
+static constexpr unsigned SW_FORMAT_BC3_UNORM_SRGB        = 78;
+static constexpr unsigned SW_FORMAT_BC4_UNORM             = 80;
+static constexpr unsigned SW_FORMAT_BC4_SNORM             = 81;
+static constexpr unsigned SW_FORMAT_BC5_UNORM             = 83;
+static constexpr unsigned SW_FORMAT_BC5_SNORM             = 84;
+static constexpr unsigned SW_FORMAT_BC7_UNORM             = 98;
+static constexpr unsigned SW_FORMAT_BC7_UNORM_SRGB        = 99;
+
 static constexpr unsigned SW_TEXTURE_ADDRESS_WRAP        = 1;
 static constexpr unsigned SW_TEXTURE_ADDRESS_MIRROR      = 2;
 static constexpr unsigned SW_TEXTURE_ADDRESS_CLAMP       = 3;

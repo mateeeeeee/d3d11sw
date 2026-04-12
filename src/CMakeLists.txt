@@ -154,6 +154,8 @@ else()
     )
 endif()
 
+target_link_libraries(d3d11 PRIVATE bc_decomp)
+
 if(APPLE)
     target_link_libraries(d3d11 PRIVATE "-framework AppKit" "-framework QuartzCore")
 endif()
@@ -166,5 +168,7 @@ target_compile_options(d3d11 PRIVATE
 target_compile_definitions(d3d11 PRIVATE
     D3D11SW_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
     D3D11SW_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
+    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+    D3D11SW_BC_DECOMP_LIB="$<TARGET_FILE:bc_decomp>"
     $<$<BOOL:${WIN32}>:D3D11SW_BUILDING_DLL>
 )

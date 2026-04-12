@@ -133,9 +133,11 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
     {
 		EnsureMSVCEnvironment();
 		cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
-			<< " /nologo /LD /MD /std:c++20 /O2 /fp:fast /EHsc"
+			<< " /nologo /LD /MD /std:c++20 /O3 /fp:fast /EHsc"
 			<< " /I\"" << D3D11SW_SRC_DIR << "\""
+			<< " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
 			<< " \"" << srcPath << "\""
+			<< " \"" << D3D11SW_BC_DECOMP_LIB << "\""
 			<< " /Fe\"" << libPath << "\""
 			<< " /Fo\"" << libPath << ".obj\""
 			<< " /link /NOIMPLIB"
@@ -144,10 +146,12 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
     else
     {
         cmd << compiler
-            << " -std=c++20 -O2 -ffast-math -march=native"
+            << " -std=c++20 -O3 -ffast-math -march=native"
             << " -fPIC -shared"
             << " -I\"" << D3D11SW_SRC_DIR << "\""
+            << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
             << " \"" << srcPath << "\""
+            << " \"" << D3D11SW_BC_DECOMP_LIB << "\""
             << " -o \"" << libPath << "\""
             << " > \"" << logPath << "\" 2>&1";
     }

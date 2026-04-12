@@ -1,6 +1,9 @@
 // File included at top for every generated C++ shader
 #pragma once
 #include "shaders/shader_abi.h"
+#include "bc7enc/rgbcx.h"
+#include "bc7enc/bc7decomp.h"
+#include "util/bc2.h"
 #include <atomic>
 #include <cmath>
 #include <cstring>
@@ -260,6 +263,18 @@ static inline unsigned sw_format_stride(unsigned fmt)
         case SW_FORMAT_R8_SNORM:
         case SW_FORMAT_R8_UINT:
         case SW_FORMAT_R8_SINT:            return 1;
+        case SW_FORMAT_BC1_UNORM:
+        case SW_FORMAT_BC1_UNORM_SRGB:
+        case SW_FORMAT_BC4_UNORM:
+        case SW_FORMAT_BC4_SNORM:           return 8;
+        case SW_FORMAT_BC3_UNORM:
+        case SW_FORMAT_BC3_UNORM_SRGB:
+        case SW_FORMAT_BC2_UNORM:
+        case SW_FORMAT_BC2_UNORM_SRGB:
+        case SW_FORMAT_BC5_UNORM:
+        case SW_FORMAT_BC5_SNORM:
+        case SW_FORMAT_BC7_UNORM:
+        case SW_FORMAT_BC7_UNORM_SRGB:     return 16;
         default:                             return 4;
     }
 }
@@ -302,12 +317,111 @@ static inline float sw_r10_to_float(unsigned v)
     return r;
 }
 
+static inline SW_float4 sw_fetch_bc_texel(const unsigned char* data, unsigned fmt,
+                                           unsigned w, unsigned h, unsigned rowPitch,
+                                           unsigned x, unsigned y)
+{
+    unsigned bx = x / 4;
+    unsigned by = y / 4;
+    unsigned lx = x % 4;
+    unsigned ly = y % 4;
+
+    unsigned blockStride;
+    switch (fmt)
+    {
+        case SW_FORMAT_BC1_UNORM:
+        case SW_FORMAT_BC1_UNORM_SRGB:
+        case SW_FORMAT_BC4_UNORM:
+        case SW_FORMAT_BC4_SNORM:
+            blockStride = 8;
+            break;
+        default:
+            blockStride = 16;
+            break;
+    }
+
+    const unsigned char* block = data + (unsigned long long)by * rowPitch + (unsigned long long)bx * blockStride;
+
+    uint8_t pixels[16 * 4];
+    std::memset(pixels, 0, sizeof(pixels));
+
+    switch (fmt)
+    {
+        case SW_FORMAT_BC1_UNORM:
+        case SW_FORMAT_BC1_UNORM_SRGB:
+            rgbcx::unpack_bc1(block, pixels);
+            break;
+        case SW_FORMAT_BC3_UNORM:
+        case SW_FORMAT_BC3_UNORM_SRGB:
+            rgbcx::unpack_bc3(block, pixels);
+            break;
+        case SW_FORMAT_BC2_UNORM:
+        case SW_FORMAT_BC2_UNORM_SRGB:
+            unpack_bc2(block, pixels);
+            break;
+        case SW_FORMAT_BC4_UNORM:
+        case SW_FORMAT_BC4_SNORM:
+            rgbcx::unpack_bc4(block, pixels, 4);
+            break;
+        case SW_FORMAT_BC5_UNORM:
+        case SW_FORMAT_BC5_SNORM:
+            rgbcx::unpack_bc5(block, pixels, 0, 1, 4);
+            break;
+        case SW_FORMAT_BC7_UNORM:
+        case SW_FORMAT_BC7_UNORM_SRGB:
+        {
+            bc7decomp::color_rgba colors[16];
+            bc7decomp::unpack_bc7(block, colors);
+            std::memcpy(pixels, colors, 64);
+            break;
+        }
+        default:
+            return { 0.f, 0.f, 0.f, 0.f };
+    }
+
+    unsigned idx = ly * 4 + lx;
+    const uint8_t* px = pixels + idx * 4;
+
+    switch (fmt)
+    {
+        case SW_FORMAT_BC4_UNORM:
+            return { px[0] / 255.f, 0.f, 0.f, 1.f };
+        case SW_FORMAT_BC4_SNORM:
+            return { std::fmax((float)(int8_t)px[0] / 127.f, -1.f), 0.f, 0.f, 1.f };
+        case SW_FORMAT_BC5_UNORM:
+            return { px[0] / 255.f, px[1] / 255.f, 0.f, 1.f };
+        case SW_FORMAT_BC5_SNORM:
+            return { std::fmax((float)(int8_t)px[0] / 127.f, -1.f),
+                     std::fmax((float)(int8_t)px[1] / 127.f, -1.f), 0.f, 1.f };
+        case SW_FORMAT_BC1_UNORM_SRGB:
+        case SW_FORMAT_BC2_UNORM_SRGB:
+        case SW_FORMAT_BC3_UNORM_SRGB:
+        case SW_FORMAT_BC7_UNORM_SRGB:
+            return { sw_srgb_to_linear(px[0] / 255.f), sw_srgb_to_linear(px[1] / 255.f),
+                     sw_srgb_to_linear(px[2] / 255.f), px[3] / 255.f };
+        default:
+            return { px[0] / 255.f, px[1] / 255.f, px[2] / 255.f, px[3] / 255.f };
+    }
+}
+
 static inline SW_float4 sw_fetch_texel_at(const unsigned char* data, unsigned fmt,
                                            unsigned w, unsigned h, unsigned rowPitch,
                                            unsigned x, unsigned y)
 {
     x = std::min(x, w ? w - 1 : 0u);
     y = std::min(y, h ? h - 1 : 0u);
+    switch (fmt)
+    {
+        case SW_FORMAT_BC1_UNORM: case SW_FORMAT_BC1_UNORM_SRGB:
+        case SW_FORMAT_BC2_UNORM: case SW_FORMAT_BC2_UNORM_SRGB:
+        case SW_FORMAT_BC3_UNORM: case SW_FORMAT_BC3_UNORM_SRGB:
+        case SW_FORMAT_BC4_UNORM: case SW_FORMAT_BC4_SNORM:
+        case SW_FORMAT_BC5_UNORM: case SW_FORMAT_BC5_SNORM:
+        case SW_FORMAT_BC7_UNORM: case SW_FORMAT_BC7_UNORM_SRGB:
+            return sw_fetch_bc_texel(data, fmt, w, h, rowPitch, x, y);
+        default:
+            break;
+    }
     unsigned stride = sw_format_stride(fmt);
     const unsigned char* p = data + (unsigned long long)y * rowPitch + (unsigned long long)x * stride;
     switch (fmt)
@@ -516,6 +630,22 @@ static inline SW_float4 sw_fetch_texel_3d(const SW_SRV& t, unsigned x, unsigned 
     z = std::min(z, t.mips[0].depth  ? t.mips[0].depth  - 1 : 0u);
     y = std::min(y, t.mips[0].height ? t.mips[0].height - 1 : 0u);
     x = std::min(x, t.mips[0].width  ? t.mips[0].width  - 1 : 0u);
+    switch (t.format)
+    {
+        case SW_FORMAT_BC1_UNORM: case SW_FORMAT_BC1_UNORM_SRGB:
+        case SW_FORMAT_BC2_UNORM: case SW_FORMAT_BC2_UNORM_SRGB:
+        case SW_FORMAT_BC3_UNORM: case SW_FORMAT_BC3_UNORM_SRGB:
+        case SW_FORMAT_BC4_UNORM: case SW_FORMAT_BC4_SNORM:
+        case SW_FORMAT_BC5_UNORM: case SW_FORMAT_BC5_SNORM:
+        case SW_FORMAT_BC7_UNORM: case SW_FORMAT_BC7_UNORM_SRGB:
+        {
+            const unsigned char* sliceBase = static_cast<const unsigned char*>(t.data)
+                                            + (unsigned long long)z * t.mips[0].slicePitch;
+            return sw_fetch_bc_texel(sliceBase, t.format, t.mips[0].width, t.mips[0].height, t.mips[0].rowPitch, x, y);
+        }
+        default:
+            break;
+    }
     const unsigned char* base = static_cast<const unsigned char*>(t.data)
                                + (unsigned long long)z * t.mips[0].slicePitch
                                + (unsigned long long)y * t.mips[0].rowPitch;
@@ -961,6 +1091,22 @@ static inline SW_float4 sw_fetch_texel_3d_mip(const SW_SRV& t, unsigned x, unsig
     z = std::min(z, mi.depth  ? mi.depth  - 1 : 0u);
     y = std::min(y, mi.height ? mi.height - 1 : 0u);
     x = std::min(x, mi.width  ? mi.width  - 1 : 0u);
+    switch (t.format)
+    {
+        case SW_FORMAT_BC1_UNORM: case SW_FORMAT_BC1_UNORM_SRGB:
+        case SW_FORMAT_BC2_UNORM: case SW_FORMAT_BC2_UNORM_SRGB:
+        case SW_FORMAT_BC3_UNORM: case SW_FORMAT_BC3_UNORM_SRGB:
+        case SW_FORMAT_BC4_UNORM: case SW_FORMAT_BC4_SNORM:
+        case SW_FORMAT_BC5_UNORM: case SW_FORMAT_BC5_SNORM:
+        case SW_FORMAT_BC7_UNORM: case SW_FORMAT_BC7_UNORM_SRGB:
+        {
+            const unsigned char* sliceBase = sw_mip_data(t, mip)
+                                            + (unsigned long long)z * mi.slicePitch;
+            return sw_fetch_bc_texel(sliceBase, t.format, mi.width, mi.height, mi.rowPitch, x, y);
+        }
+        default:
+            break;
+    }
     const unsigned char* base = sw_mip_data(t, mip)
                                + (unsigned long long)z * mi.slicePitch
                                + (unsigned long long)y * mi.rowPitch;

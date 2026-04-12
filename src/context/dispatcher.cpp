@@ -212,8 +212,8 @@ void SWDispatcher::BuildResources(SW_Resources& res, D3D11SW_PIPELINE_STATE& sta
         for (Uint m = 0; m < srv.mipLevels && m < SW_MAX_MIP_LEVELS; ++m)
         {
             D3D11SW_SUBRESOURCE_LAYOUT ml = srvSW->GetMipLayout(m);
-            srv.mips[m].width     = ml.PixelStride > 0 ? ml.RowPitch / ml.PixelStride : 0;
-            srv.mips[m].height    = ml.NumRows;
+            srv.mips[m].width     = ml.PixelStride > 0 ? (ml.RowPitch / ml.PixelStride) * ml.BlockSize : 0;
+            srv.mips[m].height    = ml.NumRows * ml.BlockSize;
             srv.mips[m].depth     = ml.NumSlices;
             srv.mips[m].rowPitch  = ml.RowPitch;
             srv.mips[m].slicePitch = ml.DepthPitch;
