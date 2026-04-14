@@ -23,11 +23,8 @@ SW_PSFn D3D11PixelShaderSW::GetJitFn()
     {
         void* fn = GetShaderJIT().GetOrCompile(_bytecode.data(), _bytecode.size(), D3D11SW_ShaderType::Pixel);
         _jitFn   = reinterpret_cast<SW_PSFn>(fn);
-        if (_reflection.needsQuad)
-        {
-            void* qfn = GetShaderJIT().FindSymbol(_bytecode.data(), _bytecode.size(), "ShaderMainQuad");
-            _quadFn = reinterpret_cast<SW_PSQuadFn>(qfn);
-        }
+        void* qfn = GetShaderJIT().FindSymbol(_bytecode.data(), _bytecode.size(), "ShaderMainQuad");
+        _quadFn = reinterpret_cast<SW_PSQuadFn>(qfn);
         _compiled = true;
     }
     return _jitFn;

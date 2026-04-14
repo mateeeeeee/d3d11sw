@@ -6,6 +6,7 @@
 #include "misc/input_layout.h"
 #include "shaders/vertex_shader.h"
 #include "shaders/pixel_shader.h"
+#include "shaders/geometry_shader.h"
 #include "states/blend_state.h"
 #include "states/depth_stencil_state.h"
 #include "states/rasterizer_state.h"
@@ -28,6 +29,7 @@
 #include <thread>
 #include <vector>
 #include <d3dcommon.h>
+#include <d3d11TokenizedProgramFormat.hpp>
 
 namespace d3d11sw {
 
@@ -184,7 +186,6 @@ struct TileContext
 
     OMState* om;
 
-    SW_PSFn psFn;
     SW_Resources* psRes;
 
     Int tileMinX, tileMinY;
@@ -194,7 +195,6 @@ struct TileContext
     Bool useTiling;
     Bool frontFace;
     Bool earlyZ;
-    Bool quadMode;
     SW_PSQuadFn psQuadFn;
 
     Float* hiZ;
@@ -294,10 +294,12 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     Int tMinY = std::max(tileY, ctx.minY);
     Int tMaxY = std::min(tileY + ctx.tileStepY, ctx.maxY);
 
-    if (ctx.quadMode)
-    {
-        Int qMinX = tMinX & ~1;
-        Int qMinY = tMinY & ~1;
+    Int qMinX = tMinX & ~1;
+    Int qMinY = tMinY & ~1;
+
+    Bool interiorTile = fullyCovered &&
+        tMinX == tileX && tMaxX == tileX + ctx.tileStepX &&
+        tMinY == tileY && tMaxY == tileY + ctx.tileStepY;
 
         Fixed28_4 w0_qRowStart = w0_tile + ctx.w0_dx * (qMinX - tileX) + ctx.w0_dy * (qMinY - tileY);
         Fixed28_4 w1_qRowStart = w1_tile + ctx.w1_dx * (qMinX - tileX) + ctx.w1_dy * (qMinY - tileY);
@@ -321,13 +323,21 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 Int qx[4] = { px, px+1, px, px+1 };
                 Int qy[4] = { py, py, py+1, py+1 };
 
-                unsigned activeMask = 0;
-                for (Int q = 0; q < 4; ++q)
+                unsigned activeMask;
+                if (interiorTile)
                 {
-                    if (qx[q] >= tMinX && qx[q] < tMaxX && qy[q] >= tMinY && qy[q] < tMaxY &&
-                        (fullyCovered || (qw0[q] >= 0 && qw1[q] >= 0 && qw2[q] >= 0)))
+                    activeMask = 0xFu;
+                }
+                else
+                {
+                    activeMask = 0;
+                    for (Int q = 0; q < 4; ++q)
                     {
-                        activeMask |= (1u << q);
+                        if (qx[q] >= tMinX && qx[q] < tMaxX && qy[q] >= tMinY && qy[q] < tMaxY &&
+                            (fullyCovered || (qw0[q] >= 0 && qw1[q] >= 0 && qw2[q] >= 0)))
+                        {
+                            activeMask |= (1u << q);
+                        }
                     }
                 }
                 if (activeMask == 0)
@@ -556,175 +566,6 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
             w1_qRowStart += ctx.w1_dy * 2;
             w2_qRowStart += ctx.w2_dy * 2;
         }
-        return;
-    }
-
-    Fixed28_4 w0_pixRowStart = w0_tile + ctx.w0_dx * (tMinX - tileX) + ctx.w0_dy * (tMinY - tileY);
-    Fixed28_4 w1_pixRowStart = w1_tile + ctx.w1_dx * (tMinX - tileX) + ctx.w1_dy * (tMinY - tileY);
-    Fixed28_4 w2_pixRowStart = w2_tile + ctx.w2_dx * (tMinX - tileX) + ctx.w2_dy * (tMinY - tileY);
-
-    OMState& om = *ctx.om;
-    psIn.isFrontFace = ctx.frontFace ? 1u : 0u;
-    for (Int py = tMinY; py < tMaxY; ++py)
-    {
-        Fixed28_4 w0 = w0_pixRowStart;
-        Fixed28_4 w1 = w1_pixRowStart;
-        Fixed28_4 w2 = w2_pixRowStart;
-
-        Float pyCenter = static_cast<Float>(py) + 0.5f;
-        for (Int px = tMinX; px < tMaxX; ++px)
-        {
-            if (fullyCovered || (w0 >= 0 && w1 >= 0 && w2 >= 0))
-            {
-                Float b0 = static_cast<Float>(w0) * ctx.invArea2;
-                Float b1 = static_cast<Float>(w1) * ctx.invArea2;
-
-                Float perspW = ctx.iw2 + b0 * ctx.diw0 + b1 * ctx.diw1;
-                Float invPerspW = (perspW != 0.f) ? 1.f / perspW : 0.f;
-
-                Float depth = ctx.ndcZ2 + b0 * ctx.dz0 + b1 * ctx.dz1;
-                depth += ctx.depthBias;
-                depth = std::clamp(depth, ctx.vpMinDepth, ctx.vpMaxDepth);
-
-                Bool earlyZPassed = true;
-                if (ctx.earlyZ)
-                {
-                    if (om.stencilEnabled)
-                    {
-                        Uint8 oldStencil = ReadStencil(om, px, py);
-                        Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
-                        Uint8 maskedVal = oldStencil & om.stencilReadMask;
-                        const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
-                        if (!CompareStencil(
-                                ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
-                                maskedRef, maskedVal))
-                        {
-                            Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
-                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                            WriteStencil(om, px, py, written);
-                            earlyZPassed = false;
-                        }
-                        else if (om.depthEnabled && !TestDepth(om, px, py, depth))
-                        {
-                            Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                            WriteStencil(om, px, py, written);
-                            earlyZPassed = false;
-                        }
-                    }
-                    else if (om.depthEnabled && !TestDepth(om, px, py, depth))
-                    {
-                        earlyZPassed = false;
-                    }
-
-                    if (!earlyZPassed)
-                    {
-                        w0 += ctx.w0_dx;
-                        w1 += ctx.w1_dx;
-                        w2 += ctx.w2_dx;
-                        continue;
-                    }
-                }
-
-                Float pxCenter = static_cast<Float>(px) + 0.5f;
-                psIn.pos = { pxCenter, pyCenter, depth, perspW };
-                if (ctx.svPosRegPS >= 0)
-                {
-                    psIn.v[ctx.svPosRegPS] = psIn.pos;
-                }
-
-                Float b2 = 1.f - b0 - b1;
-                for (Int vi = 0; vi < ctx.numVaryings; ++vi)
-                {
-                    Int psR = ctx.varyings[vi].psInReg;
-
-                    psIn.v[psR] = InterpolateVarying(
-                        ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
-                        b0, b1, b2, invPerspW);
-                }
-
-                psOut = {};
-                ctx.psFn(&psIn, &psOut, ctx.psRes);
-
-                if (psOut.discarded)
-                {
-                    w0 += ctx.w0_dx;
-                    w1 += ctx.w1_dx;
-                    w2 += ctx.w2_dx;
-                    continue;
-                }
-
-                if (!ctx.earlyZ)
-                {
-                    Float testDepth = psOut.depthWritten ? psOut.oDepth : depth;
-                    if (om.stencilEnabled)
-                    {
-                        Uint8 oldStencil = ReadStencil(om, px, py);
-                        const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
-
-                        Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
-                        Uint8 maskedVal = oldStencil & om.stencilReadMask;
-                        if (!CompareStencil(
-                                ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
-                                maskedRef, maskedVal))
-                        {
-                            Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
-                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                            WriteStencil(om, px, py, written);
-                            w0 += ctx.w0_dx;
-                            w1 += ctx.w1_dx;
-                            w2 += ctx.w2_dx;
-                            continue;
-                        }
-
-                        if (om.depthEnabled && !TestDepth(om, px, py, testDepth))
-                        {
-                            Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                            WriteStencil(om, px, py, written);
-                            w0 += ctx.w0_dx;
-                            w1 += ctx.w1_dx;
-                            w2 += ctx.w2_dx;
-                            continue;
-                        }
-                    }
-                    else if (om.depthEnabled && !TestDepth(om, px, py, testDepth))
-                    {
-                        w0 += ctx.w0_dx;
-                        w1 += ctx.w1_dx;
-                        w2 += ctx.w2_dx;
-                        continue;
-                    }
-
-                    depth = testDepth;
-                }
-
-                if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
-                {
-                    WriteDepth(om, px, py, depth);
-                }
-
-                if (om.stencilEnabled)
-                {
-                    Uint8 oldStencil = ReadStencil(om, px, py);
-                    const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
-                    Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
-                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                    WriteStencil(om, px, py, written);
-                }
-
-                WritePixel(om, px, py, psOut);
-            }
-
-            w0 += ctx.w0_dx;
-            w1 += ctx.w1_dx;
-            w2 += ctx.w2_dx;
-        }
-
-        w0_pixRowStart += ctx.w0_dy;
-        w1_pixRowStart += ctx.w1_dy;
-        w2_pixRowStart += ctx.w2_dy;
-    }
 
     if (ctx.hiZ && ctx.om->depthEnabled && ctx.om->depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
     {
@@ -755,14 +596,14 @@ static void ProcessTileTrampoline(void* ctx, Uint32 tileIdx)
 
 static constexpr Float NearEpsilon = 1e-5f;
 
-static SW_VSOutput LerpVertex(const SW_VSOutput& a, const SW_VSOutput& b, Float t)
+static SW_VSOutput LerpVertex(const SW_VSOutput& a, const SW_VSOutput& b, Float t, Int numVaryings)
 {
-    SW_VSOutput r;
+    SW_VSOutput r{};
     r.pos.x = a.pos.x + (b.pos.x - a.pos.x) * t;
     r.pos.y = a.pos.y + (b.pos.y - a.pos.y) * t;
     r.pos.z = a.pos.z + (b.pos.z - a.pos.z) * t;
     r.pos.w = a.pos.w + (b.pos.w - a.pos.w) * t;
-    for (Int i = 0; i < SW_MAX_VARYINGS; ++i)
+    for (Int i = 0; i < numVaryings; ++i)
     {
         r.o[i].x = a.o[i].x + (b.o[i].x - a.o[i].x) * t;
         r.o[i].y = a.o[i].y + (b.o[i].y - a.o[i].y) * t;
@@ -773,6 +614,8 @@ static SW_VSOutput LerpVertex(const SW_VSOutput& a, const SW_VSOutput& b, Float 
     {
         r.clipDist[i] = a.clipDist[i] + (b.clipDist[i] - a.clipDist[i]) * t;
     }
+    r.viewportIndex = a.viewportIndex;
+    r.rtArrayIndex = a.rtArrayIndex;
     return r;
 }
 
@@ -781,11 +624,11 @@ static constexpr Int MaxClipVerts = 24;
 static Int ClipPolygonAgainstPlane(
     const SW_VSOutput* in, Int inCount,
     SW_VSOutput* out,
-    Float px, Float py, Float pz, Float pw)
+    Float px, Float py, Float pz, Float pw, Int numVaryings)
 {
-    if (inCount < 3) 
-    { 
-        return 0; 
+    if (inCount < 3)
+    {
+        return 0;
     }
 
     Int outCount = 0;
@@ -809,7 +652,7 @@ static Int ClipPolygonAgainstPlane(
         if (aInside != bInside)
         {
             Float t = dA / (dA - dB);
-            out[outCount++] = LerpVertex(a, b, t);
+            out[outCount++] = LerpVertex(a, b, t, numVaryings);
         }
     }
     return outCount;
@@ -817,7 +660,7 @@ static Int ClipPolygonAgainstPlane(
 
 static Int ClipPolygonAgainstClipDist(
     const SW_VSOutput* in, Int inCount,
-    SW_VSOutput* out, Int clipIdx)
+    SW_VSOutput* out, Int clipIdx, Int numVaryings)
 {
     if (inCount < 3) 
     { 
@@ -842,7 +685,7 @@ static Int ClipPolygonAgainstClipDist(
         if ((dA >= 0.f) != (dB >= 0.f))
         {
             Float t = dA / (dA - dB);
-            out[outCount++] = LerpVertex(a, b, t);
+            out[outCount++] = LerpVertex(a, b, t, numVaryings);
         }
     }
     return outCount;
@@ -850,7 +693,7 @@ static Int ClipPolygonAgainstClipDist(
 
 static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
                         Float guardBandK, Bool depthClip, Int numClipDist,
-                        ScratchArena& arena)
+                        Int numVaryings, ScratchArena& arena)
 {
     Bool anyNear = false;
     Bool anyOther = false;
@@ -917,7 +760,7 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
             if (aIn != bIn)
             {
                 Float t = dA / (dA - dB);
-                dst[outCount++] = LerpVertex(a, b, t);
+                dst[outCount++] = LerpVertex(a, b, t, numVaryings);
             }
         }
         count = outCount;
@@ -941,7 +784,7 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
 
         for (const auto& pl : planes)
         {
-            Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw);
+            Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw, numVaryings);
             count = outCount;
             std::swap(src, dst);
             if (count < 3) 
@@ -962,7 +805,7 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
 
         for (const auto& pl : planes)
         {
-            Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw);
+            Int outCount = ClipPolygonAgainstPlane(src, count, dst, pl.px, pl.py, pl.pz, pl.pw, numVaryings);
             count = outCount;
             std::swap(src, dst);
             if (count < 3) 
@@ -974,7 +817,7 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
 
     for (Int c = 0; c < numClipDist; ++c)
     {
-        Int outCount = ClipPolygonAgainstClipDist(src, count, dst, c);
+        Int outCount = ClipPolygonAgainstClipDist(src, count, dst, c, numVaryings);
         count = outCount;
         std::swap(src, dst);
         if (count < 3) 
@@ -997,7 +840,7 @@ void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput tri[3],
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
-    SW_PSFn psFn,
+    SW_PSQuadFn psFn,
     SW_Resources& psRes,
     OMState& om,
     D3D11SW_PIPELINE_STATE& state,
@@ -1008,7 +851,9 @@ void SWRasterizer::RasterizeTriangle(
         return;
     }
 
-    const D3D11_VIEWPORT& vp = state.viewports[0];
+    Uint32 vpIdx = std::min(tri[0].viewportIndex, state.numViewports - 1);
+    const D3D11_VIEWPORT& vp = state.viewports[vpIdx];
+    om.rtArrayIndex = tri[0].rtArrayIndex;
     D3D11_RASTERIZER_DESC rsDesc{};
     rsDesc.FillMode = D3D11_FILL_SOLID;
     rsDesc.CullMode = D3D11_CULL_BACK;
@@ -1022,6 +867,16 @@ void SWRasterizer::RasterizeTriangle(
     Bool depthClip = rsDesc.DepthClipEnable;
     Int numClipDist = static_cast<Int>(vsReflection.numClipDistances);
     Int numCullDist = static_cast<Int>(vsReflection.numCullDistances);
+
+    Int clipNumVaryings = 0;
+    for (const auto& e : vsReflection.outputs)
+    {
+        if (e.svType == 0)
+        {
+            clipNumVaryings = std::max(clipNumVaryings, static_cast<Int>(e.reg) + 1);
+        }
+    }
+
     for (Int c = 0; c < numCullDist; ++c)
     {
         if (tri[0].cullDist[c] < 0.f && tri[1].cullDist[c] < 0.f && tri[2].cullDist[c] < 0.f)
@@ -1073,7 +928,7 @@ void SWRasterizer::RasterizeTriangle(
             ScratchArena arena;
             using TriVerts = SW_VSOutput[3];
             TriVerts* clipped = arena.Alloc<TriVerts>(MaxClipVerts - 2);
-            Int n = ClipTriangle(tri, clipped, _config.guardBandK, depthClip, numClipDist, arena);
+            Int n = ClipTriangle(tri, clipped, _config.guardBandK, depthClip, numClipDist, clipNumVaryings, arena);
             for (Int t = 0; t < n; ++t)
             {
                 RasterizeTriangle(clipped[t], vsReflection, psReflection, psFn, psRes, om, state, true);
@@ -1219,7 +1074,7 @@ void SWRasterizer::RasterizeTriangle(
 
     if (rsDesc.ScissorEnable && state.numScissorRects > 0)
     {
-        const D3D11_RECT& sr = state.scissorRects[0];
+        const D3D11_RECT& sr = state.scissorRects[vpIdx];
         vpMinX = std::max(vpMinX, static_cast<Int>(sr.left));
         vpMinY = std::max(vpMinY, static_cast<Int>(sr.top));
         vpMaxX = std::min(vpMaxX, static_cast<Int>(sr.right));
@@ -1377,7 +1232,6 @@ void SWRasterizer::RasterizeTriangle(
 
     tctx.om          = &om;
 
-    tctx.psFn        = psFn;
     tctx.psRes       = &psRes;
 
     tctx.tileMinX  = tileMinX;
@@ -1394,12 +1248,7 @@ void SWRasterizer::RasterizeTriangle(
     tctx.earlyZ    = !psReflection.usesDiscard && !psReflection.writesSVDepth && !psReflection.usesUAVs;
 
     D3D11PixelShaderSW* psSW = state.ps;
-    tctx.quadMode  = psReflection.needsQuad && psSW && psSW->GetQuadFn();
-    tctx.psQuadFn  = tctx.quadMode ? psSW->GetQuadFn() : nullptr;
-    if (tctx.quadMode && (psReflection.usesDiscard || psReflection.writesSVDepth || psReflection.usesUAVs))
-    {
-        tctx.earlyZ = false;
-    }
+    tctx.psQuadFn  = psSW ? psSW->GetQuadFn() : nullptr;
 
     tctx.hiZ        = _hiZ.Matches(om.dsvData) ? _hiZ.data.data() : nullptr;
     tctx.hiZTilesX  = _hiZ.tilesX;
@@ -1435,17 +1284,19 @@ void SWRasterizer::RasterizeLine(
     const SW_VSOutput endpts[2],
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
-    SW_PSFn psFn,
+    SW_PSQuadFn psFn,
     SW_Resources& psRes,
     OMState& om,
     D3D11SW_PIPELINE_STATE& state)
 {
-    if (state.numViewports == 0) 
-    { 
-        return; 
+    if (state.numViewports == 0)
+    {
+        return;
     }
 
-    const D3D11_VIEWPORT& vp = state.viewports[0];
+    Uint32 vpIdx = std::min(endpts[0].viewportIndex, state.numViewports - 1);
+    const D3D11_VIEWPORT& vp = state.viewports[vpIdx];
+    om.rtArrayIndex = endpts[0].rtArrayIndex;
     for (Int v = 0; v < 2; ++v)
     {
         if (endpts[v].pos.w <= 0.f) 
@@ -1494,7 +1345,7 @@ void SWRasterizer::RasterizeLine(
 
     Float dx = screenX[1] - screenX[0];
     Float dy = screenY[1] - screenY[0];
-    Int steps = static_cast<Int>(std::max(std::fabs(dx), std::fabs(dy)));
+    Int steps = static_cast<Int>(std::ceil(std::max(std::fabs(dx), std::fabs(dy))));
     if (steps == 0) 
     { 
         steps = 1;
@@ -1536,10 +1387,16 @@ void SWRasterizer::RasterizeLine(
             };
         }
 
-        SW_PSOutput psOut{};
-        psFn(&psIn, &psOut, &psRes);
+        SW_PSQuadInput qin{};
+        qin.pixels[0] = psIn;
+        qin.activeMask = 1u;
+        SW_PSQuadOutput qout{};
+        psFn(&qin, &qout, &psRes);
 
-        WritePixel(om, px, py, psOut);
+        if (!qout.pixels[0].discarded)
+        {
+            WritePixel(om, px, py, qout.pixels[0]);
+        }
     }
 }
 
@@ -1547,17 +1404,19 @@ void SWRasterizer::RasterizePoint(
     const SW_VSOutput& point,
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
-    SW_PSFn psFn,
+    SW_PSQuadFn psFn,
     SW_Resources& psRes,
     OMState& om,
     D3D11SW_PIPELINE_STATE& state)
 {
-    if (state.numViewports == 0) 
-    { 
-        return; 
+    if (state.numViewports == 0)
+    {
+        return;
     }
 
-    const D3D11_VIEWPORT& vp = state.viewports[0];
+    Uint32 vpIdx = std::min(point.viewportIndex, state.numViewports - 1);
+    const D3D11_VIEWPORT& vp = state.viewports[vpIdx];
+    om.rtArrayIndex = point.rtArrayIndex;
     if (point.pos.w <= 0.f) 
     { 
         return; 
@@ -1618,10 +1477,16 @@ void SWRasterizer::RasterizePoint(
         psIn.v[varyings[vi].psInReg] = point.o[varyings[vi].vsOutReg];
     }
 
-    SW_PSOutput psOut{};
-    psFn(&psIn, &psOut, &psRes);
+    SW_PSQuadInput qin{};
+    qin.pixels[0] = psIn;
+    qin.activeMask = 1u;
+    SW_PSQuadOutput qout{};
+    psFn(&qin, &qout, &psRes);
 
-    WritePixel(om, px, py, psOut);
+    if (!qout.pixels[0].discarded)
+    {
+        WritePixel(om, px, py, qout.pixels[0]);
+    }
 }
 
 void SWRasterizer::DrawInternal(
@@ -1629,10 +1494,10 @@ void SWRasterizer::DrawInternal(
     const UINT* indices, Uint vertexCount, Int baseVertex,
     D3D11SW_PIPELINE_STATE& state)
 {
-    SW_PSFn psFn = state.ps->GetJitFn();
-    if (!vs.vsFn || !psFn) 
-    { 
-        return; 
+    SW_PSQuadFn psFn = state.ps->GetQuadFn();
+    if (!vs.vsFn || !psFn)
+    {
+        return;
     }
 
     const D3D11SW_ParsedShader& vsRefl = *vs.vsReflection;
@@ -1640,19 +1505,312 @@ void SWRasterizer::DrawInternal(
 
     SW_Resources psRes{};
     BuildStageResources(psRes, state.psCBs, state.psCBOffsets, state.psSRVs, state.psSamplers);
-    ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
-        [&](const SW_VSOutput tri[3])
+
+    if (state.gs)
+    {
+        SW_GSFn gsFn = state.gs->GetJitFn();
+
+        if (gsFn)
         {
-            RasterizeTriangle(tri, vsRefl, psRefl, psFn, psRes, om, state);
-        },
-        [&](const SW_VSOutput endpts[2])
+            const D3D11SW_ParsedShader& gsRefl = state.gs->GetReflection();
+            SW_Resources gsRes{};
+            BuildStageResources(gsRes, state.gsCBs, state.gsCBOffsets, state.gsSRVs, state.gsSamplers);
+
+            Uint primID = 0;
+            Uint32 gsInstCount = gsRefl.gsInstanceCount;
+            auto runGS = [&](const SW_VSOutput* verts, Uint vertCount)
+            {
+                SW_GSInput gsIn{};
+                for (Uint i = 0; i < vertCount; ++i)
+                {
+                    gsIn.vertices[i] = verts[i];
+                    for (const auto& e : gsRefl.inputs)
+                    {
+                        if (e.svType == D3D_NAME_POSITION)
+                        {
+                            auto& p = verts[i].pos;
+                            gsIn.vertices[i].o[e.reg] = {p.x, p.y, p.z, p.w};
+                        }
+                    }
+                }
+                gsIn.vertexCount = vertCount;
+                gsIn.primitiveID = primID++;
+
+                for (Uint32 inst = 0; inst < gsInstCount; ++inst)
+                {
+                    gsIn.instanceID = inst;
+                    SW_GSOutput gsOut{};
+                    gsFn(&gsIn, &gsOut, &gsRes);
+                    if (state.gs->HasSO())
+                    {
+                        WriteSOVertices(gsOut, gsRefl, *state.gs, state);
+                    }
+
+                    RasterizeGSOutput(gsOut, gsRefl, psRefl, psFn, psRes, om, state);
+                }
+            };
+
+            ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
+                [&](const SW_VSOutput* v, Uint n) { runGS(v, n); });
+        }
+        else if (state.gs->HasSO())
         {
-            RasterizeLine(endpts, vsRefl, psRefl, psFn, psRes, om, state);
-        },
-        [&](const SW_VSOutput& pt)
+            ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
+                [&](const SW_VSOutput* v, Uint n)
+                {
+                    SW_GSOutput soOut{};
+                    for (Uint i = 0; i < n; ++i)
+                    {
+                        soOut.vertices[i] = v[i];
+                    }
+                    soOut.vertexCount = n;
+                    WriteSOVertices(soOut, vsRefl, *state.gs, state);
+
+                    switch (n)
+                    {
+                    case 1: RasterizePoint(v[0], vsRefl, psRefl, psFn, psRes, om, state); break;
+                    case 2: RasterizeLine(v, vsRefl, psRefl, psFn, psRes, om, state); break;
+                    case 3: RasterizeTriangle(v, vsRefl, psRefl, psFn, psRes, om, state); break;
+                    case 4: {
+                        SW_VSOutput e[2] = { v[1], v[2] };
+                        RasterizeLine(e, vsRefl, psRefl, psFn, psRes, om, state);
+                        break;
+                    }
+                    case 6: {
+                        SW_VSOutput t[3] = { v[0], v[2], v[4] };
+                        RasterizeTriangle(t, vsRefl, psRefl, psFn, psRes, om, state);
+                        break;
+                    }
+                    }
+                });
+        }
+    }
+    else
+    {
+        ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
+            [&](const SW_VSOutput* v, Uint n)
+            {
+                switch (n)
+                {
+                case 1: RasterizePoint(v[0], vsRefl, psRefl, psFn, psRes, om, state); break;
+                case 2: RasterizeLine(v, vsRefl, psRefl, psFn, psRes, om, state); break;
+                case 3: RasterizeTriangle(v, vsRefl, psRefl, psFn, psRes, om, state); break;
+                case 4: {
+                    SW_VSOutput e[2] = { v[1], v[2] };
+                    RasterizeLine(e, vsRefl, psRefl, psFn, psRes, om, state);
+                    break;
+                }
+                case 6: {
+                    SW_VSOutput t[3] = { v[0], v[2], v[4] };
+                    RasterizeTriangle(t, vsRefl, psRefl, psFn, psRes, om, state);
+                    break;
+                }
+                }
+            });
+    }
+}
+
+void SWRasterizer::WriteSOVertices(
+    const SW_GSOutput& gsOut,
+    const D3D11SW_ParsedShader& gsRefl,
+    const D3D11GeometryShaderSW& gs,
+    D3D11SW_PIPELINE_STATE& state)
+{
+    const auto& soDecls   = gs.GetSODecls();
+    const Uint32* soStrides = gs.GetSOStrides();
+    for (Uint vi = 0; vi < gsOut.vertexCount; ++vi)
+    {
+        const SW_VSOutput& vert = gsOut.vertices[vi];
+        Uint8 vertStream = gsOut.streamIndex[vi];
+        Uint32 slotWritePos[D3D11_SO_BUFFER_SLOT_COUNT] = {};
+        for (const auto& d : soDecls)
         {
-            RasterizePoint(pt, vsRefl, psRefl, psFn, psRes, om, state);
-        });
+            if (d.stream != vertStream)
+            {
+                continue;
+            }
+            Uint8 slot = d.outputSlot;
+            auto& t = state.soTargets[slot];
+            if (slot >= D3D11_SO_BUFFER_SLOT_COUNT || !t.buffer)
+            {
+                continue;
+            }
+
+            Uint32 stride = soStrides[slot];
+            Uint8* bufData = static_cast<Uint8*>(t.buffer->GetDataPtr());
+            Uint64 bufSize = t.buffer->GetDataSize();
+            if (t.writeOffset + stride > bufSize)
+            {
+                continue;
+            }
+
+            Uint32 declBytes = d.componentCount * 4;
+            if (d.semanticName[0] == '\0')
+            {
+                slotWritePos[slot] += declBytes;
+                continue;
+            }
+
+            const Float* src = nullptr;
+            Float posBuf[4];
+            Int reg = -1;
+            for (const auto& e : gsRefl.outputs)
+            {
+                if (e.semanticIndex == d.semanticIndex &&
+                    std::strcmp(e.name, d.semanticName) == 0)
+                {
+                    reg = static_cast<Int>(e.reg);
+                    break;
+                }
+            }
+            if (reg < 0)
+            {
+                slotWritePos[slot] += declBytes;
+                continue;
+            }
+
+            Bool isSVPos = false;
+            for (const auto& e : gsRefl.outputs)
+            {
+                if (static_cast<Int>(e.reg) == reg && e.svType == D3D_NAME_POSITION)
+                {
+                    isSVPos = true;
+                    break;
+                }
+            }
+
+            if (isSVPos)
+            {
+                posBuf[0] = vert.pos.x;
+                posBuf[1] = vert.pos.y;
+                posBuf[2] = vert.pos.z;
+                posBuf[3] = vert.pos.w;
+                src = posBuf;
+            }
+            else
+            {
+                src = &vert.o[reg].x;
+            }
+
+            Float* dst = reinterpret_cast<Float*>(bufData + t.writeOffset + slotWritePos[slot]);
+            for (Uint8 c = 0; c < d.componentCount; ++c)
+            {
+                dst[c] = src[d.startComponent + c];
+            }
+            slotWritePos[slot] += declBytes;
+        }
+
+        Bool slotWritten[D3D11_SO_BUFFER_SLOT_COUNT] = {};
+        for (const auto& d : soDecls)
+        {
+            if (d.stream == vertStream)
+            {
+                slotWritten[d.outputSlot] = true;
+            }
+        }
+
+        for (Uint8 slot = 0; slot < D3D11_SO_BUFFER_SLOT_COUNT; ++slot)
+        {
+            auto& t = state.soTargets[slot];
+            if (t.buffer && soStrides[slot] > 0 && slotWritten[slot])
+            {
+                t.writeOffset += soStrides[slot];
+                t.vertexCount++;
+            }
+        }
+    }
+}
+
+void SWRasterizer::RasterizeGSOutput(
+    const SW_GSOutput& gsOut,
+    const D3D11SW_ParsedShader& gsRefl,
+    const D3D11SW_ParsedShader& psRefl,
+    SW_PSQuadFn psFn, SW_Resources& psRes,
+    OMState& om, D3D11SW_PIPELINE_STATE& state)
+{
+    if (gsOut.vertexCount == 0)
+    {
+        return;
+    }
+
+    Uint32 outputTopo = gsRefl.gsOutputTopology;
+    Uint32 rasterStream = state.gs ? state.gs->GetRasterizedStream() : 0;
+
+    auto isCut = [&](Uint idx) -> Bool
+    {
+        return (gsOut.stripCuts[idx / 32] >> (idx % 32)) & 1u;
+    };
+
+    // Build a filtered vertex list for the rasterized stream only
+    std::vector<SW_VSOutput> filtered;
+    std::vector<Bool> cuts;
+    filtered.reserve(gsOut.vertexCount);
+    cuts.reserve(gsOut.vertexCount);
+    for (Uint i = 0; i < gsOut.vertexCount; ++i)
+    {
+        if (gsOut.streamIndex[i] != rasterStream)
+        {
+            continue;
+        }
+        filtered.push_back(gsOut.vertices[i]);
+        cuts.push_back(isCut(i));
+    }
+
+    Uint stripStart = 0;
+    for (Uint i = 0; i <= filtered.size(); ++i)
+    {
+        Bool endStrip = (i == filtered.size()) || (i > 0 && cuts[i - 1]);
+        if (!endStrip)
+        {
+            continue;
+        }
+
+        Uint stripLen = i - stripStart;
+        const SW_VSOutput* v = &filtered[stripStart];
+
+        switch (outputTopo)
+        {
+        case D3D10_SB_PRIMITIVE_TOPOLOGY_POINTLIST:
+            for (Uint j = 0; j < stripLen; ++j)
+            {
+                RasterizePoint(v[j], gsRefl, psRefl, psFn, psRes, om, state);
+            }
+            break;
+
+        case D3D10_SB_PRIMITIVE_TOPOLOGY_LINESTRIP:
+            for (Uint j = 0; j + 1 < stripLen; ++j)
+            {
+                SW_VSOutput endpts[2] = { v[j], v[j + 1] };
+                RasterizeLine(endpts, gsRefl, psRefl, psFn, psRes, om, state);
+            }
+            break;
+
+        case D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP:
+            for (Uint j = 0; j + 2 < stripLen; ++j)
+            {
+                SW_VSOutput tri[3];
+                if (j & 1)
+                {
+                    tri[0] = v[j + 1];
+                    tri[1] = v[j];
+                    tri[2] = v[j + 2];
+                }
+                else
+                {
+                    tri[0] = v[j];
+                    tri[1] = v[j + 1];
+                    tri[2] = v[j + 2];
+                }
+                RasterizeTriangle(tri, gsRefl, psRefl, psFn, psRes, om, state);
+            }
+            break;
+
+        default:
+            break;
+        }
+
+        stripStart = i;
+    }
 }
 
 void SWRasterizer::Draw(
@@ -1684,9 +1842,9 @@ void SWRasterizer::DrawIndexed(
     Uint instanceCount, Uint startInstance,
     D3D11SW_PIPELINE_STATE& state)
 {
-    if (!state.vs || !state.ps) 
-    { 
-        return; 
+    if (!state.vs || !state.ps)
+    {
+        return;
     }
 
     VertexState vs = InitVS(state);
@@ -1697,15 +1855,41 @@ void SWRasterizer::DrawIndexed(
         indices[i] = FetchIndex(vs, startIndex + i);
     }
 
+    Bool isStrip = (state.topology == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP ||
+                    state.topology == D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP ||
+                    state.topology == D3D11_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ ||
+                    state.topology == D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ);
+
+    Uint32 restartIndex = (state.indexFormat == DXGI_FORMAT_R16_UINT) ? 0xFFFF : 0xFFFFFFFF;
+
     for (Uint inst = 0; inst < instanceCount; ++inst)
     {
         vs.instanceID = startInstance + inst;
-        if (vs.cacheEnabled) 
-        { 
-            vs.cache.clear(); 
+        if (vs.cacheEnabled)
+        {
+            vs.cache.clear();
         }
 
-        DrawInternal(vs, om, indices.data(), indexCount, baseVertex, state);
+        if (isStrip)
+        {
+            Uint stripStart = 0;
+            for (Uint i = 0; i <= indexCount; ++i)
+            {
+                if (i == indexCount || indices[i] == restartIndex)
+                {
+                    Uint stripLen = i - stripStart;
+                    if (stripLen > 0)
+                    {
+                        DrawInternal(vs, om, indices.data() + stripStart, stripLen, baseVertex, state);
+                    }
+                    stripStart = i + 1;
+                }
+            }
+        }
+        else
+        {
+            DrawInternal(vs, om, indices.data(), indexCount, baseVertex, state);
+        }
     }
 }
 

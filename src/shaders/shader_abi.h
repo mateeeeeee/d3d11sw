@@ -70,7 +70,7 @@ struct SW_Resources
 };
 
 struct SW_VSInput  { SW_float4 v[SW_MAX_VS_INPUTS]; };
-struct SW_VSOutput { SW_float4 pos; SW_float4 o[SW_MAX_VARYINGS]; float clipDist[8]; float cullDist[8]; };
+struct SW_VSOutput { SW_float4 pos; SW_float4 o[SW_MAX_VARYINGS]; float clipDist[8]; float cullDist[8]; unsigned viewportIndex = 0; unsigned rtArrayIndex = 0; };
 
 struct SW_PSInput  { SW_float4 pos; SW_float4 v[SW_MAX_VARYINGS]; unsigned isFrontFace; };
 struct SW_PSOutput { SW_float4 oC[SW_MAX_PS_OUTPUTS]; float oDepth; bool depthWritten; bool discarded; };
@@ -98,6 +98,24 @@ struct SW_PSQuadOutput
 };
 
 using SW_PSQuadFn = void(*)(const SW_PSQuadInput*, SW_PSQuadOutput*, const SW_Resources*);
+
+struct SW_GSInput
+{
+    SW_VSOutput vertices[SW_MAX_GS_INPUT_VERTS];
+    unsigned    vertexCount;
+    unsigned    primitiveID;
+    unsigned    instanceID;
+};
+
+struct SW_GSOutput
+{
+    SW_VSOutput   vertices[SW_MAX_GS_OUTPUT_VERTS];
+    unsigned      vertexCount;
+    unsigned      stripCuts[(SW_MAX_GS_OUTPUT_VERTS + 31) / 32];
+    unsigned char streamIndex[SW_MAX_GS_OUTPUT_VERTS];
+};
+
+using SW_GSFn = void(*)(const SW_GSInput*, SW_GSOutput*, const SW_Resources*);
 
 struct SW_TGSM
 {

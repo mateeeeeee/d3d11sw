@@ -15,6 +15,7 @@ struct RTInfo
     DXGI_FORMAT                     fmt;
     Uint                            rowPitch;
     Uint                            pixStride;
+    Uint                            slicePitch;
     D3D11_RENDER_TARGET_BLEND_DESC1 blendDesc;
 };
 
@@ -40,6 +41,7 @@ struct OMState
     RTInfo rtInfos[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT];
     Uint activeRTCount;
     const Float* blendFactor;
+    Uint rtArrayIndex;
 };
 
 OMState InitOM(D3D11SW_PIPELINE_STATE& state);
@@ -73,7 +75,7 @@ D3D11SW_FORCEINLINE void BlendAndWrite(const OMState& om, Int px, Int py, Uint r
                           const SW_float4& color, const SW_float4& src1Color)
 {
     const RTInfo& info = om.rtInfos[rtIdx];
-    Uint8* rtvPx = info.data + (Uint64)py * info.rowPitch + (Uint64)px * info.pixStride;
+    Uint8* rtvPx = info.data + (Uint64)om.rtArrayIndex * info.slicePitch + (Uint64)py * info.rowPitch + (Uint64)px * info.pixStride;
     if (info.blendDesc.LogicOpEnable)
     {
         Float srcColorF[4] = { color.x, color.y, color.z, color.w };

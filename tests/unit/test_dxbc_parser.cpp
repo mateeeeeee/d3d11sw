@@ -210,11 +210,8 @@ struct SM4DecoderTests : ::testing::Test {};
 
 TEST_F(SM4DecoderTests, EmptyStreamFails)
 {
-    std::vector<SM4Instruction> out;
-    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
-    Uint32 numTemps = 0;
-    Uint32 tgs[3]   = {};
-    EXPECT_FALSE(SM4Decode(nullptr, 0, out, numTemps, tgs, tgsmDecls));
+    D3D11SW_ParsedShader parsed{};
+    EXPECT_FALSE(SM4Decode(nullptr, 0, parsed));
 }
 
 TEST_F(SM4DecoderTests, RetOnly)
@@ -225,24 +222,18 @@ TEST_F(SM4DecoderTests, RetOnly)
         0x0100003E,  // ret
     };
 
-    std::vector<SM4Instruction> out;
-    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
-    Uint32 numTemps = 0;
-    Uint32 tgs[3]   = {};
-    EXPECT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), out, numTemps, tgs, tgsmDecls));
-    ASSERT_EQ(out.size(), 1u);
-    EXPECT_EQ(out[0].op, D3D10_SB_OPCODE_RET);
+    D3D11SW_ParsedShader parsed{};
+    EXPECT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), parsed));
+    ASSERT_EQ(parsed.instrs.size(), 1u);
+    EXPECT_EQ(parsed.instrs[0].op, D3D10_SB_OPCODE_RET);
 }
 
 TEST_F(SM4DecoderTests, DclTempsExtractsCount)
 {
     auto tokens = MakeMinimalVSTokens();
-    std::vector<SM4Instruction> instrs;
-    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
-    Uint32 numTemps = 0;
-    Uint32 tgs[3]   = {};
-    ASSERT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
-    EXPECT_EQ(numTemps, 1u);
+    D3D11SW_ParsedShader parsed{};
+    ASSERT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), parsed));
+    EXPECT_EQ(parsed.numTemps, 1u);
 }
 
 TEST_F(SM4DecoderTests, DclThreadGroupExtractsSize)
@@ -259,12 +250,9 @@ TEST_F(SM4DecoderTests, DclThreadGroupExtractsSize)
         ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_RET) | ENCODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(1),
     };
 
-    std::vector<SM4Instruction> instrs;
-    std::vector<D3D11SW_TGSMDecl> tgsmDecls;
-    Uint32 numTemps = 0;
-    Uint32 tgs[3]   = {};
-    ASSERT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), instrs, numTemps, tgs, tgsmDecls));
-    EXPECT_EQ(tgs[0], 8u);
-    EXPECT_EQ(tgs[1], 1u);
-    EXPECT_EQ(tgs[2], 1u);
+    D3D11SW_ParsedShader parsed{};
+    ASSERT_TRUE(SM4Decode(tokens.data(), static_cast<Uint32>(tokens.size()), parsed));
+    EXPECT_EQ(parsed.threadGroupX, 8u);
+    EXPECT_EQ(parsed.threadGroupY, 1u);
+    EXPECT_EQ(parsed.threadGroupZ, 1u);
 }

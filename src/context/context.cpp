@@ -266,6 +266,24 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetDepthStencilState(ID3D11DepthS
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::SOSetTargets(UINT NumBuffers, ID3D11Buffer*const* ppSOTargets, const UINT* pOffsets)
 {
+    for (Uint i = 0; i < D3D11_SO_BUFFER_SLOT_COUNT; ++i)
+    {
+        auto& t = _state.soTargets[i];
+        if (i < NumBuffers && ppSOTargets && ppSOTargets[i])
+        {
+            SetSlot(t.buffer, static_cast<D3D11BufferSW*>(ppSOTargets[i]));
+            if (pOffsets && pOffsets[i] != (UINT)-1)
+            {
+                t.writeOffset = pOffsets[i];
+                t.vertexCount = 0;
+            }
+        }
+        else
+        {
+            SetSlot(t.buffer, static_cast<D3D11BufferSW*>(nullptr));
+            t.writeOffset = 0;
+        }
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::RSSetState(ID3D11RasterizerState* pRasterizerState)
@@ -408,6 +426,11 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstanced(UINT VertexCountPerIn
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawAuto()
 {
+    Uint32 vertexCount = _state.soTargets[0].vertexCount;
+    if (vertexCount > 0)
+    {
+        _rasterizer.Draw(vertexCount, 0, 1, 0, _state);
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
@@ -817,6 +840,9 @@ FLOAT STDMETHODCALLTYPE D3D11DeviceContextSW::GetResourceMinLOD(ID3D11Resource* 
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::ResolveSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, ID3D11Resource* pSrcResource, UINT SrcSubresource, DXGI_FORMAT Format)
 {
+    //Atm, all MS Textures are forced to have 1 sample, 
+    //this implementation should change once we have proper implementation
+    CopySubresourceRegion(pDstResource, DstSubresource, 0, 0, 0, pSrcResource, SrcSubresource, nullptr);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::Begin(ID3D11Asynchronous* pAsync)
@@ -1155,6 +1181,19 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetDepthStencilState(ID3D11DepthS
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::SOGetTargets(UINT NumBuffers, ID3D11Buffer** ppSOTargets)
 {
+    if (!ppSOTargets)
+    {
+        return;
+    }
+
+    for (Uint i = 0; i < NumBuffers; ++i)
+    {
+        ppSOTargets[i] = (i < D3D11_SO_BUFFER_SLOT_COUNT) ? _state.soTargets[i].buffer : nullptr;
+        if (ppSOTargets[i])
+        {
+            ppSOTargets[i]->AddRef();
+        }
+    }
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetState(ID3D11RasterizerState** ppRasterizerState)

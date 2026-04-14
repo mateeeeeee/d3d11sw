@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SHADER_DIR="$SCRIPT_DIR"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FXC2_DIR="$REPO_ROOT/third_party/fxc2"
 FXC2_EXE="$FXC2_DIR/fxc2.exe"
 

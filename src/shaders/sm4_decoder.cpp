@@ -126,14 +126,16 @@ static Uint32 ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& op)
     return consumed;
 }
 
-Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
-               std::vector<SM4Instruction>& out,
-               Uint32& numTempsOut,
-               Uint32  threadGroupSizeOut[3],
-               std::vector<D3D11SW_TGSMDecl>& tgsmOut)
+Bool SM4Decode(const Uint32* tokens, Uint32 numDwords, D3D11SW_ParsedShader& out)
 {
-    numTempsOut = 0;
-    threadGroupSizeOut[0] = threadGroupSizeOut[1] = threadGroupSizeOut[2] = 1;
+    out.numTemps = 0;
+    out.threadGroupX = 1;
+    out.threadGroupY = 1;
+    out.threadGroupZ = 1;
+    out.gsInputPrimitive = 0;
+    out.gsOutputTopology = 0;
+    out.gsMaxOutputVertices = 0;
+    out.gsInstanceCount = 1;
     if (numDwords < 2)
     {
         D3D11SW_ERROR("SM4Decode: bytecode too short ({} dwords)", numDwords);
@@ -163,7 +165,21 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
         {
             if (pos + 1 < instrEnd)
             {
-                numTempsOut = tokens[pos + 1];
+                out.numTemps = tokens[pos + 1];
+            }
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D10_SB_OPCODE_DCL_INDEXABLE_TEMP)
+        {
+            if (pos + 3 < instrEnd)
+            {
+                D3D11SW_IndexableTempDecl decl{};
+                decl.regIndex = tokens[pos + 1];
+                decl.numRegs  = tokens[pos + 2];
+                decl.numComps = tokens[pos + 3];
+                out.indexableTemps.push_back(decl);
             }
             pos = instrEnd;
             continue;
@@ -173,9 +189,9 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
         {
             if (pos + 3 < instrEnd)
             {
-                threadGroupSizeOut[0] = tokens[pos + 1];
-                threadGroupSizeOut[1] = tokens[pos + 2];
-                threadGroupSizeOut[2] = tokens[pos + 3];
+                out.threadGroupX = tokens[pos + 1];
+                out.threadGroupY = tokens[pos + 2];
+                out.threadGroupZ = tokens[pos + 3];
             }
             pos = instrEnd;
             continue;
@@ -191,7 +207,7 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
             decl.slot   = gOp.indices[0];
             decl.size   = elementCount * 4;
             decl.stride = 0;
-            tgsmOut.push_back(decl);
+            out.tgsm.push_back(decl);
             pos = instrEnd;
             continue;
         }
@@ -208,7 +224,49 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
             decl.slot   = gOp.indices[0];
             decl.size   = stride * count;
             decl.stride = stride;
-            tgsmOut.push_back(decl);
+            out.tgsm.push_back(decl);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D10_SB_OPCODE_DCL_GS_INPUT_PRIMITIVE)
+        {
+            out.gsInputPrimitive = DECODE_D3D10_SB_GS_INPUT_PRIMITIVE(opTok);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D10_SB_OPCODE_DCL_GS_OUTPUT_PRIMITIVE_TOPOLOGY)
+        {
+            out.gsOutputTopology = DECODE_D3D10_SB_GS_OUTPUT_PRIMITIVE_TOPOLOGY(opTok);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D10_SB_OPCODE_DCL_MAX_OUTPUT_VERTEX_COUNT)
+        {
+            if (pos + 1 < instrEnd)
+            {
+                out.gsMaxOutputVertices = tokens[pos + 1];
+            }
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_GS_INSTANCE_COUNT)
+        {
+            out.gsInstanceCount = tokens[pos + 1];
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_STREAM ||
+            op == D3D11_SB_OPCODE_DCL_INPUT_CONTROL_POINT_COUNT ||
+            op == D3D11_SB_OPCODE_DCL_OUTPUT_CONTROL_POINT_COUNT ||
+            op == D3D11_SB_OPCODE_DCL_FUNCTION_BODY ||
+            op == D3D11_SB_OPCODE_DCL_FUNCTION_TABLE ||
+            op == D3D11_SB_OPCODE_DCL_INTERFACE)
+        {
             pos = instrEnd;
             continue;
         }
@@ -257,7 +315,7 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords,
         }
 
         pos = instrEnd;
-        out.push_back(std::move(instr));
+        out.instrs.push_back(std::move(instr));
     }
 
     return true;

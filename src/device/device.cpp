@@ -13,6 +13,7 @@
 #include "misc/input_layout.h"
 #include "shaders/vertex_shader.h"
 #include "shaders/pixel_shader.h"
+#include "shaders/geometry_shader.h"
 #include "shaders/compute_shader.h"
 #include "states/blend_state.h"
 #include "states/depth_stencil_state.h"
@@ -31,7 +32,7 @@ HRESULT D3D11DeviceSW::CreateAndInit(T** ppOut, ArgsT&&... args)
 {
 	try
 	{
-		T* obj = new T(this);
+		T* obj = new(std::nothrow) T(this);
 		HRESULT hr = obj->Init(std::forward<ArgsT>(args)...);
 		if (FAILED(hr)) { delete obj; return hr; }
 		*ppOut = obj;
@@ -222,6 +223,10 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D(
     D3D11_TEXTURE2D_DESC1 desc1 = {};
     std::memcpy(&desc1, pDesc, sizeof(D3D11_TEXTURE2D_DESC));
     desc1.TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED;
+
+    //#todo: force non-MS texture for now, implement later
+    desc1.SampleDesc.Count   = 1;
+    desc1.SampleDesc.Quality = 0;
 
     D3D11Texture2DSW* tex = nullptr;
     HRESULT hr = CreateAndInit(&tex, &desc1, pInitialData);
@@ -471,7 +476,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11GeometryShader** ppGeometryShader)
 {
-    return E_NOTIMPL;
+    D3D11GeometryShaderSW* shader = nullptr;
+    HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (!ppGeometryShader)
+    {
+        shader->Release();
+        return S_FALSE;
+    }
+    *ppGeometryShader = shader;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShaderWithStreamOutput(
@@ -485,7 +502,29 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShaderWithStreamOutput(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11GeometryShader** ppGeometryShader)
 {
-    return E_NOTIMPL;
+    D3D11GeometryShaderSW* shader = new(std::nothrow) D3D11GeometryShaderSW(this);
+    if (!shader)
+    {
+        return E_OUTOFMEMORY;
+    }
+    
+    HRESULT hr = shader->InitWithStreamOutput(
+        pShaderBytecode, BytecodeLength,
+        pSODeclaration, NumEntries,
+        pBufferStrides, NumStrides,
+        RasterizedStream);
+    if (FAILED(hr))
+    {
+        shader->Release();
+        return hr;
+    }
+    if (!ppGeometryShader)
+    {
+        shader->Release();
+        return S_FALSE;
+    }
+    *ppGeometryShader = shader;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreatePixelShader(
@@ -754,7 +793,12 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckMultisampleQualityLevels(
     UINT SampleCount,
     UINT* pNumQualityLevels)
 {
-    return E_NOTIMPL;
+    if (!pNumQualityLevels)
+    {
+        return E_INVALIDARG;
+    }
+    *pNumQualityLevels = (SampleCount >= 1 && SampleCount <= 16 && (SampleCount & (SampleCount - 1)) == 0) ? 1 : 0;
+    return S_OK;
 }
 
 void STDMETHODCALLTYPE D3D11DeviceSW::CheckCounterInfo(
@@ -1121,7 +1165,7 @@ void STDMETHODCALLTYPE D3D11DeviceSW::GetResourceTiling(ID3D11Resource* pTiledRe
 
 HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckMultisampleQualityLevels1(DXGI_FORMAT Format, UINT SampleCount, UINT Flags, UINT* pNumQualityLevels)
 {
-    return E_NOTIMPL;
+    return CheckMultisampleQualityLevels(Format, SampleCount, pNumQualityLevels);
 }
 
 // ---- ID3D11Device3 ----
@@ -1155,8 +1199,12 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D1(const D3D11_TEXTURE2D_
         return E_INVALIDARG;
     }
 
+    D3D11_TEXTURE2D_DESC1 desc = *pDesc;
+    desc.SampleDesc.Count   = 1;
+    desc.SampleDesc.Quality = 0;
+
     D3D11Texture2DSW* tex = nullptr;
-    HRESULT hr = CreateAndInit(&tex, pDesc, pInitialData);
+    HRESULT hr = CreateAndInit(&tex, &desc, pInitialData);
     if (FAILED(hr))
     {
         return hr;

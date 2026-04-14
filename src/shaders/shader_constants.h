@@ -12,6 +12,8 @@ static constexpr unsigned SW_MAX_SAMPLERS   = 16;
 static constexpr unsigned SW_MAX_UAVS       = 64;
 static constexpr unsigned SW_MAX_TGSM       = 8;
 static constexpr unsigned SW_MAX_MIP_LEVELS = 15;
+static constexpr unsigned SW_MAX_GS_INPUT_VERTS  = 6;
+static constexpr unsigned SW_MAX_GS_OUTPUT_VERTS = 1024;
 
 static constexpr unsigned SW_FORMAT_R32G32B32A32_FLOAT    = 2;
 static constexpr unsigned SW_FORMAT_R32G32B32A32_UINT     = 3;

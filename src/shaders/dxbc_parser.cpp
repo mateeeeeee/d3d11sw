@@ -6,7 +6,8 @@
 namespace d3d11sw {
 
 static Bool ParseSignatureChunk(const Uint8* data, Usize size,
-                                std::vector<D3D11SW_ShaderSignatureElement>& out)
+                                std::vector<D3D11SW_ShaderSignatureElement>& out,
+                                Bool osg5 = false)
 {
     if (size < 8)
     {
@@ -17,20 +18,43 @@ static Bool ParseSignatureChunk(const Uint8* data, Usize size,
     Uint32 elementCount;
     std::memcpy(&elementCount, data, 4);
 
+    Usize elemSize = osg5 ? sizeof(DXBCSigElement5) : sizeof(DXBCSigElement);
+
     out.reserve(elementCount);
     for (Uint32 i = 0; i < elementCount; ++i)
     {
-        const Uint8* rec = data + 8 + i * sizeof(DXBCSigElement);
-        if (rec + sizeof(DXBCSigElement) > data + size)
+        const Uint8* rec = data + 8 + i * elemSize;
+        if (rec + elemSize > data + size)
         {
             break;
         }
 
-        DXBCSigElement el{};
-        std::memcpy(&el, rec, sizeof(DXBCSigElement));
-
         D3D11SW_ShaderSignatureElement e{};
-        const Char* namePtr = reinterpret_cast<const Char*>(data + el.nameOffset);
+        Uint32 nameOffset, semanticIndex, svType, registerIndex;
+        Uint8 mask;
+
+        if (osg5)
+        {
+            DXBCSigElement5 el{};
+            std::memcpy(&el, rec, sizeof(DXBCSigElement5));
+            nameOffset    = el.nameOffset;
+            semanticIndex = el.semanticIndex;
+            svType        = el.svType;
+            registerIndex = el.registerIndex;
+            mask          = el.mask;
+        }
+        else
+        {
+            DXBCSigElement el{};
+            std::memcpy(&el, rec, sizeof(DXBCSigElement));
+            nameOffset    = el.nameOffset;
+            semanticIndex = el.semanticIndex;
+            svType        = el.svType;
+            registerIndex = el.registerIndex;
+            mask          = el.mask;
+        }
+
+        const Char* namePtr = reinterpret_cast<const Char*>(data + nameOffset);
         Usize nameLen = 0;
         while (nameLen < 63 && namePtr[nameLen])
         {
@@ -38,10 +62,10 @@ static Bool ParseSignatureChunk(const Uint8* data, Usize size,
         }
         std::memcpy(e.name, namePtr, nameLen);
         e.name[nameLen] = '\0';
-        e.semanticIndex = el.semanticIndex;
-        e.reg           = el.registerIndex;
-        e.mask          = el.mask;
-        e.svType        = el.svType;
+        e.semanticIndex = semanticIndex;
+        e.reg           = registerIndex;
+        e.mask          = mask;
+        e.svType        = svType;
         out.push_back(e);
     }
 
@@ -130,17 +154,12 @@ static Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader
     const Uint32* tokens    = reinterpret_cast<const Uint32*>(data);
     Uint32        numDwords = static_cast<Uint32>(size / 4);
 
-    Uint32 threadGroup[3] = {1, 1, 1};
-    if (!SM4Decode(tokens, numDwords, out.instrs, out.numTemps, threadGroup,
-                   out.tgsm))
+    if (!SM4Decode(tokens, numDwords, out))
     {
         D3D11SW_ERROR("ParseShaderChunk: SM4Decode failed");
         return false;
     }
 
-    out.threadGroupX  = threadGroup[0];
-    out.threadGroupY  = threadGroup[1];
-    out.threadGroupZ  = threadGroup[2];
     for (const auto& instr : out.instrs)
     {
         if (instr.op == D3D10_SB_OPCODE_DISCARD)
@@ -225,7 +244,7 @@ Bool DXBCParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& 
         }
         else if (chdr.fourCC == FOURCC_OSGN || chdr.fourCC == FOURCC_OSG5)
         {
-            ParseSignatureChunk(cdata, csz, out.outputs);
+            ParseSignatureChunk(cdata, csz, out.outputs, chdr.fourCC == FOURCC_OSG5);
         }
         else if (chdr.fourCC == FOURCC_RDEF)
         {

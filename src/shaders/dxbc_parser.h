@@ -45,6 +45,13 @@ struct D3D11SW_TGSMDecl
     Uint32 stride;
 };
 
+struct D3D11SW_IndexableTempDecl
+{
+    Uint32 regIndex;
+    Uint32 numRegs;
+    Uint32 numComps;
+};
+
 struct D3D11SW_ParsedShader
 {
     D3D11SW_ShaderType                           type;
@@ -58,12 +65,17 @@ struct D3D11SW_ParsedShader
     Uint32                                       threadGroupY;
     Uint32                                       threadGroupZ;
     std::vector<D3D11SW_TGSMDecl>                tgsm;
+    std::vector<D3D11SW_IndexableTempDecl>       indexableTemps;
     Bool                                         usesDiscard    = false;
     Bool                                         writesSVDepth  = false;
     Bool                                         usesUAVs       = false;
     Bool                                         needsQuad      = false;
     Uint32                                       numClipDistances = 0;
     Uint32                                       numCullDistances = 0;
+    Uint32                                       gsInputPrimitive   = 0;
+    Uint32                                       gsOutputTopology   = 0;
+    Uint32                                       gsMaxOutputVertices = 0;
+    Uint32                                       gsInstanceCount    = 1;
 };
 
 D3D11SW_API Bool DXBCParse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out);

@@ -47,6 +47,8 @@ void D3D11SW_PIPELINE_STATE::ReleaseAll()
     rel(depthStencilView);
     rel(blendState);
     rel(depthStencilState);
+
+    for (auto& t : soTargets) { rel(t.buffer); }
 }
 
 void BuildStageResources(

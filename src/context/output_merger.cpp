@@ -72,6 +72,7 @@ OMState InitOM(D3D11SW_PIPELINE_STATE& state)
         info.fmt        = rtv->GetFormat();
         info.rowPitch   = rtv->GetLayout().RowPitch;
         info.pixStride  = rtv->GetLayout().PixelStride;
+        info.slicePitch = rtv->GetLayout().DepthPitch;
         info.blendDesc  = {};
         info.blendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
         if (haveBlendState)
@@ -81,6 +82,7 @@ OMState InitOM(D3D11SW_PIPELINE_STATE& state)
     }
 
     om.blendFactor = state.blendFactor;
+    om.rtArrayIndex = 0;
     return om;
 }
 

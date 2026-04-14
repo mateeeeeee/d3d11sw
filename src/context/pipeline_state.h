@@ -94,6 +94,15 @@ struct D3D11SW_PIPELINE_STATE
     D3D11DepthStencilStateSW* depthStencilState;
     Uint                      stencilRef;
 
+    //SO
+    struct SOTarget
+    {
+        D3D11BufferSW* buffer      = nullptr;
+        Uint32         writeOffset = 0;
+        Uint32         vertexCount = 0;
+    };
+    SOTarget soTargets[D3D11_SO_BUFFER_SLOT_COUNT];
+
     void ReleaseAll();
 };
 

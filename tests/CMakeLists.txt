@@ -61,7 +61,7 @@ macro(add_golden_test name file)
   add_gtest(${name} ${file})
   target_compile_definitions(${name} PRIVATE
       D3D11SW_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/reference"
-      D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
+      D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/shaders"
       D3D11SW_OUTPUT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/results"
       D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
       D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
@@ -124,6 +124,17 @@ add_golden_test(golden_draw_depth_clip     golden/test_draw_depth_clip.cpp)
 add_golden_test(golden_draw_derivatives   golden/test_draw_derivatives.cpp)
 add_golden_test(golden_draw_sample_auto_lod golden/test_draw_sample_auto_lod.cpp)
 add_golden_test(golden_draw_srgb           golden/test_draw_srgb.cpp)
+add_golden_test(golden_draw_geometry_shader golden/test_draw_geometry_shader.cpp)
+add_golden_test(golden_draw_gs_point_to_quad golden/test_draw_gs_point_to_quad.cpp)
+add_golden_test(golden_draw_gs_tri_to_wireframe golden/test_draw_gs_tri_to_wireframe.cpp)
+add_golden_test(golden_draw_gs_subdivide golden/test_draw_gs_subdivide.cpp)
+add_golden_test(golden_draw_gs_amplify golden/test_draw_gs_amplify.cpp)
+add_golden_test(golden_draw_gs_tri_adj golden/test_draw_gs_tri_adj.cpp)
+add_golden_test(golden_draw_gs_instanced golden/test_draw_gs_instanced.cpp)
+add_golden_test(golden_draw_gs_viewport_select golden/test_draw_gs_viewport_select.cpp)
+add_golden_test(golden_draw_gs_rt_array golden/test_draw_gs_rt_array.cpp)
+
+add_golden_test(test_stream_output unit/test_stream_output.cpp)
 
 add_gtest(test_check_feature_support  unit/test_check_feature_support.cpp)
 add_gtest(test_draw_pipeline   unit/test_draw_pipeline.cpp)
@@ -132,7 +143,7 @@ add_gtest(test_clear_uav       unit/test_clear_uav.cpp)
 add_gtest(test_vertex_formats  unit/test_vertex_formats.cpp)
 add_gtest(test_swapchain       unit/test_swapchain.cpp)
 target_compile_definitions(test_vertex_formats PRIVATE
-    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
+    D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/shaders"
     D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
     D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
 )
@@ -141,7 +152,7 @@ target_compile_definitions(test_vertex_formats PRIVATE
 macro(add_perf_test name file)
   add_gtest(${name} ${file})
   target_compile_definitions(${name} PRIVATE
-      D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden/shaders"
+      D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/shaders"
       D3D11SW_PERF_RESULTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/perf/results"
       D3D11SW_SRC_DIR="${CMAKE_SOURCE_DIR}/src"
       D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"

@@ -63,6 +63,20 @@ struct DXBCSigElement
 };
 static_assert(sizeof(DXBCSigElement) == 24, "DXBCSigElement must be 24 bytes");
 
+struct DXBCSigElement5
+{
+    UINT32 stream;
+    UINT32 nameOffset;
+    UINT32 semanticIndex;
+    UINT32 svType;
+    UINT32 componentType;
+    UINT32 registerIndex;
+    UINT8  mask;
+    UINT8  rwMask;
+    UINT8  pad[2];
+};
+static_assert(sizeof(DXBCSigElement5) == 28, "DXBCSigElement5 must be 28 bytes");
+
 // RDEF  chunk  (resource / constant-buffer definitions)
 // Payload layout:
 //   DXBCRdefHeader

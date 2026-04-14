@@ -4,14 +4,13 @@ A software implementation of the Direct3D 11 API.
 
 ## Missing Features
 
-- [ ] Geometry Shader, Stream output, Adjacency topologies
 - [ ] Tesselation: Hull Shader, Domain Shader
-- [ ] MSAA
 - [ ] Deferred contexts
 
 ## Implemented
 
 - [x] Vertex, Pixel, and Compute shaders (JIT: DXBC → C++ → clang++/MSVC)
+- [x] Geometry Shader, Stream output, Adjacency topologies, DrawAuto
 - [x] SM4.0/SM5.0 instruction set (arithmetic, integer, bitwise, control flow, atomics)
 - [x] Tiled rasterizer with 28.4 fixed-point edge functions
 - [x] 2x2 quad pixel shader execution (derivatives, auto-LOD)
@@ -23,7 +22,9 @@ A software implementation of the Direct3D 11 API.
 - [x] Depth/stencil with all comparison functions and stencil ops, HiZ
 - [x] Blending with all blend factors/ops, dual-source, logic ops
 - [x] Multi-render-target, write masks, clip/cull distances
+- [x] SV_ViewportArrayIndex, SV_RenderTargetArrayIndex
 - [x] Indexed/instanced/indirect draw and dispatch
+- [x] MSAA stubs (apps requesting MSAA should work, rendered as 1x)
 - [x] TGSM, barriers, thread pool for compute
 - [x] Append/consume buffers
 
