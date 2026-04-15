@@ -117,7 +117,8 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present(UINT SyncInterval, UINT Flags
     const Uint8* src = static_cast<const Uint8*>(tex->GetDataPtr()) + layout.Offset;
     Uint w = _desc.BufferDesc.Width;
     Uint h = _desc.BufferDesc.Height;
-    if (_desc.BufferDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM)
+    if (_desc.BufferDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM ||
+        _desc.BufferDesc.Format == DXGI_FORMAT_B8G8R8A8_UNORM_SRGB)
     {
         _presenter->Present(src, w, h, layout.RowPitch);
     }

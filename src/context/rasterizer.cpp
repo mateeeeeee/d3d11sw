@@ -973,7 +973,7 @@ void SWRasterizer::RasterizeTriangle(
         return;
     }
 
-    const Bool frontFace = rsDesc.FrontCounterClockwise ? (fixedArea2 > 0) : (fixedArea2 < 0);
+    const Bool frontFace = rsDesc.FrontCounterClockwise ? (fixedArea2 < 0) : (fixedArea2 > 0);
 
     if (rsDesc.CullMode == D3D11_CULL_BACK  && !frontFace)
     {
