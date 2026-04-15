@@ -187,8 +187,6 @@ inline GoldenResult CheckGolden(const char* testName, const float* actualRGBA,
     std::string refPath = refDir + "/" + testName + ".ppm";
 
     std::string outDir = D3D11SW_OUTPUT_DIR;
-    MkdirP(outDir.c_str());
-    WritePPM((outDir + "/" + testName + ".ppm").c_str(), actualRGBA, width, height);
 
     bool updateGolden = false;
     if (const char* env = std::getenv("D3D11SW_UPDATE_GOLDEN"))
@@ -243,12 +241,14 @@ inline GoldenResult CheckGolden(const char* testName, const float* actualRGBA,
         float maxErr = CompareWithTolerance(quantizedActual.data(), refData.data(), pixelCount);
 
         // Write failure artifacts
+        MkdirP(outDir.c_str());
+        WritePPM((outDir + "/" + testName + ".ppm").c_str(), actualRGBA, width, height);
         WriteDiffPPM((outDir + "/" + testName + "_diff.ppm").c_str(),
                      quantizedActual.data(), refData.data(), width, height);
 
         return {false, maxErr,
                 "Exact comparison failed (max error " + std::to_string(maxErr) +
-                "). Diff written to " + outDir + "/" + testName + "_diff.ppm"};
+                "). Actual + diff written to " + outDir + "/" + testName};
     }
 
     // Tolerance comparison: quantize actual to match PPM round-trip precision
@@ -270,11 +270,13 @@ inline GoldenResult CheckGolden(const char* testName, const float* actualRGBA,
     }
 
     // Write failure artifacts
+    MkdirP(outDir.c_str());
+    WritePPM((outDir + "/" + testName + ".ppm").c_str(), actualRGBA, width, height);
     WriteDiffPPM((outDir + "/" + testName + "_diff.ppm").c_str(),
                  quantizedActual.data(), refData.data(), width, height);
 
     return {false, maxErr,
             "Max error " + std::to_string(maxErr) + " exceeds tolerance " +
-            std::to_string(tolerance) + ". Diff written to " +
-            outDir + "/" + testName + "_diff.ppm"};
+            std::to_string(tolerance) + ". Actual + diff written to " +
+            outDir + "/" + testName};
 }

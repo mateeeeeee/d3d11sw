@@ -46,9 +46,9 @@ TEST_F(DrawGoldenTests, TriangleStrip64x64)
     context->ClearRenderTargetView(rtv, clearColor);
 
     float vertices[] = {
-        -0.8f, -0.8f, 0.5f,
         -0.8f,  0.8f, 0.5f,
          0.8f,  0.8f, 0.5f,
+        -0.8f, -0.8f, 0.5f,
          0.8f, -0.8f, 0.5f,
     };
 

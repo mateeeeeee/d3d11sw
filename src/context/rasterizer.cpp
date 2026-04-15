@@ -195,6 +195,7 @@ struct TileContext
     Bool useTiling;
     Bool frontFace;
     Bool earlyZ;
+    Uint primitiveID;
     SW_PSQuadFn psQuadFn;
 
     Float* hiZ;
@@ -444,6 +445,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         qin.pixels[q].v[ctx.svPosRegPS] = qin.pixels[q].pos;
                     }
                     qin.pixels[q].isFrontFace = ctx.frontFace ? 1u : 0u;
+                    qin.pixels[q].primitiveID = ctx.primitiveID;
 
                     for (Int vi = 0; vi < ctx.numVaryings; ++vi)
                     {

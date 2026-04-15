@@ -1914,6 +1914,10 @@ void EmitPSQuad(CodeWriter& w, const D3D11SW_ParsedShader& shader)
         {
             w.Line("for (int _q = 0; _q < 4; ++_q) {{ qin->pixels[_q].v[{}] = {{ sw_uint_bits(1u), 0.f, 0.f, 0.f }}; }}", e.reg);
         }
+        else if (e.svType == D3D_NAME_PRIMITIVE_ID)
+        {
+            w.Line("for (int _q = 0; _q < 4; ++_q) {{ qin->pixels[_q].v[{}] = {{ sw_uint_bits(qin->pixels[_q].primitiveID), 0.f, 0.f, 0.f }}; }}", e.reg);
+        }
     }
 
     EmitInstructionsQuad(w, shader);
@@ -2031,6 +2035,10 @@ void EmitPS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
         else if (e.svType == D3D_NAME_COVERAGE)
         {
             w.Line("in_ptr->v[{}] = {{ sw_uint_bits(1u), 0.f, 0.f, 0.f }};", e.reg);
+        }
+        else if (e.svType == D3D_NAME_PRIMITIVE_ID)
+        {
+            w.Line("in_ptr->v[{}] = {{ sw_uint_bits(in_ptr->primitiveID), 0.f, 0.f, 0.f }};", e.reg);
         }
     }
 
