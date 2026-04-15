@@ -307,10 +307,11 @@ void SWDispatcher::Dispatch(
     Uint32 threadGroupY = shader.threadGroupY > 0 ? shader.threadGroupY : 1;
     Uint32 threadGroupZ = shader.threadGroupZ > 0 ? shader.threadGroupZ : 1;
     const Uint32 numThreads   = threadGroupX * threadGroupY * threadGroupZ;
+    Uint32 totalGroups = groupCountX * groupCountY * groupCountZ;
+    state.stats.csInvocations += static_cast<Uint64>(totalGroups) * numThreads;
     const Bool useBarriers = !shader.tgsm.empty();
     if (!useBarriers)
     {
-        Uint32 totalGroups = groupCountX * groupCountY * groupCountZ;
         Uint32 totalWork   = totalGroups * numThreads;
 
         std::vector<SW_CSInput> inputs(totalWork);

@@ -197,6 +197,7 @@ struct TileContext
     Bool earlyZ;
     Uint primitiveID;
     SW_PSQuadFn psQuadFn;
+    D3D11SW_PIPELINE_STATISTICS* stats;
 
     Float* hiZ;
     Int hiZTilesX;
@@ -324,7 +325,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 Int qx[4] = { px, px+1, px, px+1 };
                 Int qy[4] = { py, py, py+1, py+1 };
 
-                unsigned activeMask;
+                Uint activeMask;
                 if (interiorTile)
                 {
                     activeMask = 0xFu;
@@ -364,7 +365,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     quadDepth[q] = std::clamp(quadDepth[q], ctx.vpMinDepth, ctx.vpMaxDepth);
                 }
 
-                unsigned depthPassMask = activeMask;
+                Uint depthPassMask = activeMask;
                 if (ctx.earlyZ)
                 {
                     depthPassMask = 0;
@@ -397,7 +398,6 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     }
                     if (depthPassMask == 0)
                     {
-                        // all active pixels failed — apply stencil fail ops, skip PS
                         if (om.stencilEnabled)
                         {
                             const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
@@ -458,7 +458,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
 
                 SW_PSQuadOutput qout{};
                 ctx.psQuadFn(&qin, &qout, ctx.psRes);
-
+                ctx.stats->psInvocations += std::popcount(qin.activeMask);
                 for (Int q = 0; q < 4; ++q)
                 {
                     if (!(activeMask & (1u << q)))
@@ -477,7 +477,6 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         }
                         if (!(depthPassMask & (1u << q)))
                         {
-                            // early-Z failed — apply stencil fail ops
                             if (om.stencilEnabled)
                             {
                                 Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
@@ -1247,6 +1246,8 @@ void SWRasterizer::RasterizeTriangle(
     tctx.numTilesX = numTilesX;
     tctx.useTiling = useTiling;
     tctx.frontFace = frontFace;
+    tctx.primitiveID = om.primitiveID;
+    tctx.stats = &state.stats;
     tctx.earlyZ    = !psReflection.usesDiscard && !psReflection.writesSVDepth && !psReflection.usesUAVs;
 
     D3D11PixelShaderSW* psSW = state.ps;
@@ -1369,6 +1370,7 @@ void SWRasterizer::RasterizeLine(
         Float t = static_cast<Float>(s) / static_cast<Float>(steps);
 
         SW_PSInput psIn{};
+        psIn.primitiveID = om.primitiveID;
         if (svPosRegPS >= 0)
         {
             psIn.v[svPosRegPS] = { fx + 0.5f, fy + 0.5f, 0.f, 1.f };
@@ -1452,6 +1454,7 @@ void SWRasterizer::RasterizePoint(
     Int svPosRegPS = FindSVPositionInput(psReflection);
 
     SW_PSInput psIn{};
+    psIn.primitiveID = om.primitiveID;
     if (svPosRegPS >= 0)
     {
         psIn.v[svPosRegPS] = { sx + 0.5f, sy + 0.5f, 0.f, 1.f };
@@ -1502,6 +1505,8 @@ void SWRasterizer::DrawInternal(
         return;
     }
 
+    state.stats.iaVertices += vertexCount;
+
     const D3D11SW_ParsedShader& vsRefl = *vs.vsReflection;
     const D3D11SW_ParsedShader& psRefl = state.ps->GetReflection();
 
@@ -1537,12 +1542,15 @@ void SWRasterizer::DrawInternal(
                 }
                 gsIn.vertexCount = vertCount;
                 gsIn.primitiveID = primID++;
+                state.stats.iaPrimitives++;
 
                 for (Uint32 inst = 0; inst < gsInstCount; ++inst)
                 {
                     gsIn.instanceID = inst;
                     SW_GSOutput gsOut{};
                     gsFn(&gsIn, &gsOut, &gsRes);
+                    state.stats.gsInvocations++;
+                    state.stats.gsPrimitives += gsOut.vertexCount >= 3 ? gsOut.vertexCount - 2 : 0;
                     if (state.gs->HasSO())
                     {
                         WriteSOVertices(gsOut, gsRefl, *state.gs, state);
@@ -1589,9 +1597,14 @@ void SWRasterizer::DrawInternal(
     }
     else
     {
+        Uint primID = 0;
         ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
             [&](const SW_VSOutput* v, Uint n)
             {
+                om.primitiveID = primID++;
+                state.stats.iaPrimitives++;
+                state.stats.cInvocations++;
+                state.stats.cPrimitives++;
                 switch (n)
                 {
                 case 1: RasterizePoint(v[0], vsRefl, psRefl, psFn, psRes, om, state); break;

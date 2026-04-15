@@ -189,13 +189,14 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const Uint8* src, SW_float4& ou
     }
 }
 
-VertexState InitVS(const D3D11SW_PIPELINE_STATE& state)
+VertexState InitVS(D3D11SW_PIPELINE_STATE& state)
 {
     VertexState vs{};
     vs.vsFn = state.vs ? state.vs->GetJitFn() : nullptr;
     vs.vsReflection = state.vs ? &state.vs->GetReflection() : nullptr;
     vs.vsRes = {};
     vs.state = &state;
+    vs.stats = &state.stats;
     vs.cacheEnabled = GetEnvBool("D3D11SW_VERTEX_CACHE", false);
     vs.instanceID = 0;
     if (state.vs)
@@ -275,6 +276,7 @@ SW_VSOutput RunVS(VertexState& vs, Uint vertIdx)
 
     SW_VSOutput vsOut{};
     vs.vsFn(&vsIn, &vsOut, &vs.vsRes);
+    vs.stats->vsInvocations++;
     if (vs.cacheEnabled)
     {
         vs.cache[vertIdx] = vsOut;

@@ -115,6 +115,7 @@ HRESULT D3D11QuerySW::Init(const D3D11_QUERY_DESC1* pDesc)
     case D3D11_QUERY_TIMESTAMP:
     case D3D11_QUERY_TIMESTAMP_DISJOINT:
     case D3D11_QUERY_EVENT:
+    case D3D11_QUERY_PIPELINE_STATISTICS:
         break;
     default:
         return E_NOTIMPL;
@@ -131,6 +132,7 @@ UINT STDMETHODCALLTYPE D3D11QuerySW::GetDataSize()
     case D3D11_QUERY_TIMESTAMP:          return sizeof(UINT64);
     case D3D11_QUERY_TIMESTAMP_DISJOINT: return sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT);
     case D3D11_QUERY_EVENT:              return sizeof(BOOL);
+    case D3D11_QUERY_PIPELINE_STATISTICS: return sizeof(D3D11_QUERY_DATA_PIPELINE_STATISTICS);
     default:                             return 0;
     }
 }
@@ -152,12 +154,16 @@ void STDMETHODCALLTYPE D3D11QuerySW::GetDesc1(D3D11_QUERY_DESC1* pDesc)
     }
 }
 
-void D3D11QuerySW::Begin()
+void D3D11QuerySW::Begin(const D3D11SW_PIPELINE_STATISTICS* stats)
 {
     _ended = false;
+    if (_desc.Query == D3D11_QUERY_PIPELINE_STATISTICS && stats)
+    {
+        _statsBegin = *stats;
+    }
 }
 
-void D3D11QuerySW::End()
+void D3D11QuerySW::End(const D3D11SW_PIPELINE_STATISTICS* stats)
 {
     if (_desc.Query == D3D11_QUERY_TIMESTAMP)
     {
@@ -165,6 +171,10 @@ void D3D11QuerySW::End()
         _timestamp = static_cast<Uint64>(now.time_since_epoch().count());
         using period = std::chrono::steady_clock::period;
         _timestamp = _timestamp * period::num * (1'000'000'000 / period::den);
+    }
+    else if (_desc.Query == D3D11_QUERY_PIPELINE_STATISTICS && stats)
+    {
+        _statsEnd = *stats;
     }
     _ended = true;
 }
@@ -212,6 +222,27 @@ HRESULT D3D11QuerySW::GetData(void* pData, UINT DataSize)
         }
         BOOL done = TRUE;
         std::memcpy(pData, &done, sizeof(BOOL));
+        return S_OK;
+    }
+    case D3D11_QUERY_PIPELINE_STATISTICS:
+    {
+        if (DataSize < sizeof(D3D11_QUERY_DATA_PIPELINE_STATISTICS))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_QUERY_DATA_PIPELINE_STATISTICS data{};
+        data.IAVertices    = _statsEnd.iaVertices    - _statsBegin.iaVertices;
+        data.IAPrimitives  = _statsEnd.iaPrimitives  - _statsBegin.iaPrimitives;
+        data.VSInvocations = _statsEnd.vsInvocations - _statsBegin.vsInvocations;
+        data.GSInvocations = _statsEnd.gsInvocations - _statsBegin.gsInvocations;
+        data.GSPrimitives  = _statsEnd.gsPrimitives  - _statsBegin.gsPrimitives;
+        data.CInvocations  = _statsEnd.cInvocations  - _statsBegin.cInvocations;
+        data.CPrimitives   = _statsEnd.cPrimitives   - _statsBegin.cPrimitives;
+        data.PSInvocations = _statsEnd.psInvocations - _statsBegin.psInvocations;
+        data.HSInvocations = _statsEnd.hsInvocations - _statsBegin.hsInvocations;
+        data.DSInvocations = _statsEnd.dsInvocations - _statsBegin.dsInvocations;
+        data.CSInvocations = _statsEnd.csInvocations - _statsBegin.csInvocations;
+        std::memcpy(pData, &data, sizeof(data));
         return S_OK;
     }
     default:

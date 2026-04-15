@@ -23,6 +23,21 @@ class D3D11BlendStateSW;
 class D3D11DepthStencilStateSW;
 
 
+struct D3D11SW_PIPELINE_STATISTICS
+{
+    Uint64 iaVertices      = 0;
+    Uint64 iaPrimitives    = 0;
+    Uint64 vsInvocations   = 0;
+    Uint64 gsInvocations   = 0;
+    Uint64 gsPrimitives    = 0;
+    Uint64 cInvocations    = 0;
+    Uint64 cPrimitives     = 0;
+    Uint64 psInvocations   = 0;
+    Uint64 hsInvocations   = 0;
+    Uint64 dsInvocations   = 0;
+    Uint64 csInvocations   = 0;
+};
+
 struct D3D11SW_PIPELINE_STATE
 {
     //IA
@@ -102,6 +117,8 @@ struct D3D11SW_PIPELINE_STATE
         Uint32         vertexCount = 0;
     };
     SOTarget soTargets[D3D11_SO_BUFFER_SLOT_COUNT];
+
+    D3D11SW_PIPELINE_STATISTICS stats;
 
     void ReleaseAll();
 };

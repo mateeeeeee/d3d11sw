@@ -4,6 +4,9 @@ macro(add_gtest name file)
   add_executable(${name} ${file})
   target_link_libraries(${name} PRIVATE d3d11 bc_decomp GTest::gtest_main)
   target_include_directories(${name} PRIVATE ${CMAKE_SOURCE_DIR}/src)
+  target_compile_definitions(${name} PRIVATE
+      D3D11SW_SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+  )
 
   if(WIN32)
     target_include_directories(${name} PRIVATE

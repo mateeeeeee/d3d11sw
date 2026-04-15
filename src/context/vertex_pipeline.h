@@ -12,12 +12,13 @@ struct VertexState
     const D3D11SW_ParsedShader* vsReflection;
     SW_Resources vsRes;
     const D3D11SW_PIPELINE_STATE* state;
+    D3D11SW_PIPELINE_STATISTICS* stats;
     std::unordered_map<Uint, SW_VSOutput> cache;
     Bool cacheEnabled;
     Uint instanceID;
 };
 
-VertexState InitVS(const D3D11SW_PIPELINE_STATE& state);
+VertexState InitVS(D3D11SW_PIPELINE_STATE& state);
 SW_VSOutput RunVS(VertexState& vs, Uint vertIdx);
 void FetchVertex(const VertexState& vs, SW_VSInput& vsIn, Uint vertexIndex);
 Uint FetchIndex(const VertexState& vs, Uint location);

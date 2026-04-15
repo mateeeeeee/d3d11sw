@@ -42,6 +42,7 @@ struct OMState
     Uint activeRTCount;
     const Float* blendFactor;
     Uint rtArrayIndex;
+    Uint primitiveID;
 };
 
 OMState InitOM(D3D11SW_PIPELINE_STATE& state);

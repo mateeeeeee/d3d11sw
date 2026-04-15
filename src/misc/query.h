@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/device_child_impl.h"
+#include "context/pipeline_state.h"
 
 namespace d3d11sw {
 
@@ -18,14 +19,16 @@ public:
     void STDMETHODCALLTYPE GetDesc(D3D11_QUERY_DESC* pDesc) override;
     void STDMETHODCALLTYPE GetDesc1(D3D11_QUERY_DESC1* pDesc) override;
 
-    void    Begin();
-    void    End();
+    void    Begin(const D3D11SW_PIPELINE_STATISTICS* stats = nullptr);
+    void    End(const D3D11SW_PIPELINE_STATISTICS* stats = nullptr);
     HRESULT GetData(void* pData, UINT DataSize);
 
 private:
     D3D11_QUERY_DESC1 _desc{};
     Uint64            _timestamp = 0;
     Bool              _ended = false;
+    D3D11SW_PIPELINE_STATISTICS _statsBegin{};
+    D3D11SW_PIPELINE_STATISTICS _statsEnd{};
 };
 
 class D3D11SW_API D3D11PredicateSW final : public DeviceChildImpl<ID3D11Predicate>

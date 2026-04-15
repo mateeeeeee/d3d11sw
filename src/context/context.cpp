@@ -855,7 +855,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Begin(ID3D11Asynchronous* pAsync)
     ID3D11Query* query = nullptr;
     if (SUCCEEDED(pAsync->QueryInterface(__uuidof(ID3D11Query), reinterpret_cast<void**>(&query))))
     {
-        static_cast<D3D11QuerySW*>(query)->Begin();
+        static_cast<D3D11QuerySW*>(query)->Begin(&_state.stats);
         query->Release();
     }
 }
@@ -870,7 +870,7 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::End(ID3D11Asynchronous* pAsync)
     ID3D11Query* query = nullptr;
     if (SUCCEEDED(pAsync->QueryInterface(__uuidof(ID3D11Query), reinterpret_cast<void**>(&query))))
     {
-        static_cast<D3D11QuerySW*>(query)->End();
+        static_cast<D3D11QuerySW*>(query)->End(&_state.stats);
         query->Release();
     }
 }
