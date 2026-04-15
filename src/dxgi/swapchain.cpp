@@ -1,4 +1,5 @@
 #include "dxgi/swapchain.h"
+#include "dxgi/presenter.h"
 #include "resources/texture2d.h"
 
 namespace d3d11sw {
@@ -10,6 +11,19 @@ DXGISwapChainSW::DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DES
     if (_device)
     {
         _device->AddRef();
+    }
+    if ((_desc.BufferDesc.Width == 0 || _desc.BufferDesc.Height == 0) && _desc.OutputWindow)
+    {
+        uint32_t w = 0, h = 0;
+        GetWindowClientSize((void*)_desc.OutputWindow, w, h);
+        if (_desc.BufferDesc.Width == 0)
+        {
+            _desc.BufferDesc.Width = w;
+        }
+        if (_desc.BufferDesc.Height == 0)
+        {
+            _desc.BufferDesc.Height = h;
+        }
     }
     CreateBackbuffer();
     _presenter = CreatePresenter((void*)_desc.OutputWindow);

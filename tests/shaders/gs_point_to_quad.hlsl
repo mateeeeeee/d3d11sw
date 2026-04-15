@@ -20,16 +20,16 @@ void main(point GSInput input[1], inout TriangleStream<GSOutput> output)
     GSOutput o;
     o.color = col;
 
-    o.pos = center + float4(-size, -size, 0, 0);
-    output.Append(o);
-
-    o.pos = center + float4( size, -size, 0, 0);
-    output.Append(o);
-
     o.pos = center + float4(-size,  size, 0, 0);
     output.Append(o);
 
     o.pos = center + float4( size,  size, 0, 0);
+    output.Append(o);
+
+    o.pos = center + float4(-size, -size, 0, 0);
+    output.Append(o);
+
+    o.pos = center + float4( size, -size, 0, 0);
     output.Append(o);
 
     output.RestartStrip();

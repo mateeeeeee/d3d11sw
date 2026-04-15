@@ -49,8 +49,8 @@ TEST_F(DrawGoldenTests, WriteMaskRedOnly64x64)
     // Full-screen triangle (white)
     float vertices[] = {
         -1.f,  3.f, 0.5f,
-        -1.f, -1.f, 0.5f,
          3.f, -1.f, 0.5f,
+        -1.f, -1.f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -195,8 +195,8 @@ TEST_F(DrawGoldenTests, WriteMaskGB64x64)
     // Full-screen triangle (green+blue)
     float vertices[] = {
         -1.f,  3.f, 0.5f,
-        -1.f, -1.f, 0.5f,
          3.f, -1.f, 0.5f,
+        -1.f, -1.f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

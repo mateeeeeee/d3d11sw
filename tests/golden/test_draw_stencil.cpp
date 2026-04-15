@@ -64,14 +64,14 @@ TEST_F(DrawStencilTests, StencilMask64x64)
 
     float triVerts[] = {
          0.0f,  0.7f, 0.5f,
-        -0.7f, -0.7f, 0.5f,
          0.7f, -0.7f, 0.5f,
+        -0.7f, -0.7f, 0.5f,
     };
 
     float fullscreenVerts[] = {
         -1.0f,  1.0f, 0.5f,
-        -1.0f, -3.0f, 0.5f,
          3.0f,  1.0f, 0.5f,
+        -1.0f, -3.0f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -284,14 +284,14 @@ TEST_F(DrawStencilTests, StencilIncrement64x64)
 
     float triVerts[] = {
          0.0f,  0.7f, 0.5f,
-        -0.7f, -0.7f, 0.5f,
          0.7f, -0.7f, 0.5f,
+        -0.7f, -0.7f, 0.5f,
     };
 
     float fullscreenVerts[] = {
         -1.0f,  1.0f, 0.5f,
-        -1.0f, -3.0f, 0.5f,
          3.0f,  1.0f, 0.5f,
+        -1.0f, -3.0f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

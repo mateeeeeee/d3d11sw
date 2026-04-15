@@ -71,8 +71,8 @@ TEST_F(DrawGoldenTests, SVDepth64x64)
 
     float triVerts[] = {
         -1.f, -1.f, 0.5f, 1.f,
-         3.f, -1.f, 0.5f, 1.f,
         -1.f,  3.f, 0.5f, 1.f,
+         3.f, -1.f, 0.5f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

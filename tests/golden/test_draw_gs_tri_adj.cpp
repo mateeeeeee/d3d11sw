@@ -53,15 +53,15 @@ TEST_F(DrawGoldenTests, GSTriAdj64x64)
         // v0: triangle top
          0.0f,  0.3f, 0.5f,   1.f, 1.f, 1.f, 1.f,
         // v1: adj - far upper-left (red)
-        -0.7f,  0.7f, 0.5f,   1.f, 0.f, 0.f, 1.f,
-        // v2: triangle bottom-left
         -0.2f, -0.1f, 0.5f,   1.f, 1.f, 1.f, 1.f,
+        // v2: triangle bottom-left
+        -0.7f,  0.7f, 0.5f,   1.f, 0.f, 0.f, 1.f,
         // v3: adj - far lower-center (green)
          0.0f, -0.7f, 0.5f,   0.f, 1.f, 0.f, 1.f,
         // v4: triangle bottom-right
-         0.2f, -0.1f, 0.5f,   1.f, 1.f, 1.f, 1.f,
-        // v5: adj - far upper-right (blue)
          0.7f,  0.7f, 0.5f,   0.f, 0.f, 1.f, 1.f,
+        // v5: adj - far upper-right (blue)
+         0.2f, -0.1f, 0.5f,   1.f, 1.f, 1.f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

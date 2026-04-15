@@ -140,8 +140,8 @@ struct VertexFormatTests : ::testing::Test
     struct V { float x, y, z; ColorType color; }; \
     V verts[3] = { \
         {-1.f,  3.f, 0.5f, colorVal}, \
-        {-1.f, -1.f, 0.5f, colorVal}, \
         { 3.f, -1.f, 0.5f, colorVal}, \
+        {-1.f, -1.f, 0.5f, colorVal}, \
     };
 
 TEST_F(VertexFormatTests, R32G32B32A32_FLOAT)

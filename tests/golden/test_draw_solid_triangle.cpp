@@ -47,8 +47,8 @@ TEST_F(DrawGoldenTests, SolidTriangle64x64)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
          0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

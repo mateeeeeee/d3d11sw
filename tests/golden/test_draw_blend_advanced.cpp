@@ -52,11 +52,11 @@ struct DrawGoldenTests : ::testing::Test
 
         float vertices[] = {
            -0.2f,  0.8f, 0.5f,
-           -0.8f, -0.8f, 0.5f,
             0.4f, -0.8f, 0.5f,
+           -0.8f, -0.8f, 0.5f,
             0.2f,  0.8f, 0.5f,
-           -0.4f, -0.8f, 0.5f,
             0.8f, -0.8f, 0.5f,
+           -0.4f, -0.8f, 0.5f,
         };
 
         D3D11_BUFFER_DESC vbDesc{};

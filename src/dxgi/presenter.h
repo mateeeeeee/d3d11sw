@@ -12,5 +12,6 @@ public:
 };
 
 std::unique_ptr<ISwapChainPresenter> CreatePresenter(void* hwnd);
+void GetWindowClientSize(void* nativeWindow, uint32_t& width, uint32_t& height);
 
 }

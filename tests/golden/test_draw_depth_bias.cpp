@@ -69,12 +69,12 @@ TEST_F(DrawGoldenTests, DepthBias64x64)
     float vertices[] = {
         // Triangle 1 (red)
          0.0f,  0.8f, 0.5f,
-        -0.8f, -0.8f, 0.5f,
          0.8f, -0.8f, 0.5f,
+        -0.8f, -0.8f, 0.5f,
         // Triangle 2 (green) — same geometry
          0.0f,  0.8f, 0.5f,
-        -0.8f, -0.8f, 0.5f,
          0.8f, -0.8f, 0.5f,
+        -0.8f, -0.8f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

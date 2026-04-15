@@ -75,8 +75,8 @@ void RunTriangle(void* nsWindow, uint32_t width, uint32_t height)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
          0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f,
     };
     D3D11_BUFFER_DESC vbDesc{};
     vbDesc.ByteWidth = sizeof(vertices);

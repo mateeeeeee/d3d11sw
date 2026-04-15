@@ -50,12 +50,12 @@ TEST_F(DrawGoldenTests, AlphaBlend64x64)
     float vertices[] = {
         // First triangle (left-ish)
         -0.2f,  0.8f, 0.5f,
-        -0.8f, -0.8f, 0.5f,
          0.4f, -0.8f, 0.5f,
+        -0.8f, -0.8f, 0.5f,
         // Second triangle (right-ish, overlapping)
          0.2f,  0.8f, 0.5f,
-        -0.4f, -0.8f, 0.5f,
          0.8f, -0.8f, 0.5f,
+        -0.4f, -0.8f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

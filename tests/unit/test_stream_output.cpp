@@ -41,8 +41,8 @@ TEST_F(SOTests, CaptureAndReadBack)
     float vertices[] = {
         // pos (x,y,z)          color (r,g,b,a)
          0.0f,  0.5f, 0.5f,    1.f, 0.f, 0.f, 1.f,
-        -0.5f, -0.5f, 0.5f,    0.f, 1.f, 0.f, 1.f,
          0.5f, -0.5f, 0.5f,    0.f, 0.f, 1.f, 1.f,
+        -0.5f, -0.5f, 0.5f,    0.f, 1.f, 0.f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -163,24 +163,24 @@ TEST_F(SOTests, CaptureAndReadBack)
     EXPECT_FLOAT_EQ(data[6],  0.0f);   // color.b
     EXPECT_FLOAT_EQ(data[7],  1.0f);   // color.a
 
-    // Vertex 1: pos=(-0.5, -0.5, 0.5, 1), color=(0, 1, 0, 1)
-    EXPECT_FLOAT_EQ(data[8],  -0.5f);
+    // Vertex 1: pos=(0.5, -0.5, 0.5, 1), color=(0, 0, 1, 1)
+    EXPECT_FLOAT_EQ(data[8],   0.5f);
     EXPECT_FLOAT_EQ(data[9],  -0.5f);
     EXPECT_FLOAT_EQ(data[10],  0.5f);
     EXPECT_FLOAT_EQ(data[11],  1.0f);
     EXPECT_FLOAT_EQ(data[12],  0.0f);
-    EXPECT_FLOAT_EQ(data[13],  1.0f);
-    EXPECT_FLOAT_EQ(data[14],  0.0f);
+    EXPECT_FLOAT_EQ(data[13],  0.0f);
+    EXPECT_FLOAT_EQ(data[14],  1.0f);
     EXPECT_FLOAT_EQ(data[15],  1.0f);
 
-    // Vertex 2: pos=(0.5, -0.5, 0.5, 1), color=(0, 0, 1, 1)
-    EXPECT_FLOAT_EQ(data[16],  0.5f);
+    // Vertex 2: pos=(-0.5, -0.5, 0.5, 1), color=(0, 1, 0, 1)
+    EXPECT_FLOAT_EQ(data[16], -0.5f);
     EXPECT_FLOAT_EQ(data[17], -0.5f);
     EXPECT_FLOAT_EQ(data[18],  0.5f);
     EXPECT_FLOAT_EQ(data[19],  1.0f);
     EXPECT_FLOAT_EQ(data[20],  0.0f);
-    EXPECT_FLOAT_EQ(data[21],  0.0f);
-    EXPECT_FLOAT_EQ(data[22],  1.0f);
+    EXPECT_FLOAT_EQ(data[21],  1.0f);
+    EXPECT_FLOAT_EQ(data[22],  0.0f);
     EXPECT_FLOAT_EQ(data[23],  1.0f);
 
     context->Unmap(staging, 0);
@@ -204,8 +204,8 @@ TEST_F(SOTests, DrawAuto)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,   1.f, 0.f, 0.f, 1.f,
-        -0.5f, -0.5f, 0.5f,   1.f, 0.f, 0.f, 1.f,
          0.5f, -0.5f, 0.5f,   1.f, 0.f, 0.f, 1.f,
+        -0.5f, -0.5f, 0.5f,   1.f, 0.f, 0.f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -389,8 +389,8 @@ TEST_F(SOTests, SOWithoutGS)
     // VS outputs pos+color directly to SO buffer, no GS shader bytecode
     float vertices[] = {
          0.0f,  0.5f, 0.5f,   1.f, 0.f, 0.f, 1.f,
-        -0.5f, -0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
          0.5f, -0.5f, 0.5f,   0.f, 0.f, 1.f, 1.f,
+        -0.5f, -0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -502,24 +502,24 @@ TEST_F(SOTests, SOWithoutGS)
     EXPECT_FLOAT_EQ(data[6],  0.0f);
     EXPECT_FLOAT_EQ(data[7],  1.0f);
 
-    // Vertex 1: pos=(-0.5, -0.5, 0.5, 1), color=(0, 1, 0, 1)
-    EXPECT_FLOAT_EQ(data[8],  -0.5f);
+    // Vertex 1: pos=(0.5, -0.5, 0.5, 1), color=(0, 0, 1, 1)
+    EXPECT_FLOAT_EQ(data[8],   0.5f);
     EXPECT_FLOAT_EQ(data[9],  -0.5f);
     EXPECT_FLOAT_EQ(data[10],  0.5f);
     EXPECT_FLOAT_EQ(data[11],  1.0f);
     EXPECT_FLOAT_EQ(data[12],  0.0f);
-    EXPECT_FLOAT_EQ(data[13],  1.0f);
-    EXPECT_FLOAT_EQ(data[14],  0.0f);
+    EXPECT_FLOAT_EQ(data[13],  0.0f);
+    EXPECT_FLOAT_EQ(data[14],  1.0f);
     EXPECT_FLOAT_EQ(data[15],  1.0f);
 
-    // Vertex 2: pos=(0.5, -0.5, 0.5, 1), color=(0, 0, 1, 1)
-    EXPECT_FLOAT_EQ(data[16],  0.5f);
+    // Vertex 2: pos=(-0.5, -0.5, 0.5, 1), color=(0, 1, 0, 1)
+    EXPECT_FLOAT_EQ(data[16], -0.5f);
     EXPECT_FLOAT_EQ(data[17], -0.5f);
     EXPECT_FLOAT_EQ(data[18],  0.5f);
     EXPECT_FLOAT_EQ(data[19],  1.0f);
     EXPECT_FLOAT_EQ(data[20],  0.0f);
-    EXPECT_FLOAT_EQ(data[21],  0.0f);
-    EXPECT_FLOAT_EQ(data[22],  1.0f);
+    EXPECT_FLOAT_EQ(data[21],  1.0f);
+    EXPECT_FLOAT_EQ(data[22],  0.0f);
     EXPECT_FLOAT_EQ(data[23],  1.0f);
 
     context->Unmap(staging, 0);
@@ -541,8 +541,8 @@ TEST_F(SOTests, SOWithoutGS_DrawAuto)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
-        -0.5f, -0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
          0.5f, -0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
+        -0.5f, -0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -699,8 +699,8 @@ TEST_F(SOTests, MultiStream)
 {
     float vertices[] = {
          0.0f,  0.5f, 0.5f,   1.f, 0.f, 0.f, 1.f,
-        -0.5f, -0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
          0.5f, -0.5f, 0.5f,   0.f, 0.f, 1.f, 1.f,
+        -0.5f, -0.5f, 0.5f,   0.f, 1.f, 0.f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -817,13 +817,13 @@ TEST_F(SOTests, MultiStream)
     EXPECT_FLOAT_EQ(pos[1],  0.5f);
     EXPECT_FLOAT_EQ(pos[2],  0.5f);
     EXPECT_FLOAT_EQ(pos[3],  1.0f);
-    // Stream 0, Vertex 1: pos=(-0.5, -0.5, 0.5, 1)
-    EXPECT_FLOAT_EQ(pos[4], -0.5f);
+    // Stream 0, Vertex 1: pos=(0.5, -0.5, 0.5, 1)
+    EXPECT_FLOAT_EQ(pos[4],  0.5f);
     EXPECT_FLOAT_EQ(pos[5], -0.5f);
     EXPECT_FLOAT_EQ(pos[6],  0.5f);
     EXPECT_FLOAT_EQ(pos[7],  1.0f);
-    // Stream 0, Vertex 2: pos=(0.5, -0.5, 0.5, 1)
-    EXPECT_FLOAT_EQ(pos[8],  0.5f);
+    // Stream 0, Vertex 2: pos=(-0.5, -0.5, 0.5, 1)
+    EXPECT_FLOAT_EQ(pos[8], -0.5f);
     EXPECT_FLOAT_EQ(pos[9], -0.5f);
     EXPECT_FLOAT_EQ(pos[10], 0.5f);
     EXPECT_FLOAT_EQ(pos[11], 1.0f);
@@ -844,15 +844,15 @@ TEST_F(SOTests, MultiStream)
     EXPECT_FLOAT_EQ(col[1], 0.0f);
     EXPECT_FLOAT_EQ(col[2], 0.0f);
     EXPECT_FLOAT_EQ(col[3], 1.0f);
-    // Stream 1, Vertex 1: color=(0, 1, 0, 1)
+    // Stream 1, Vertex 1: color=(0, 0, 1, 1)
     EXPECT_FLOAT_EQ(col[4], 0.0f);
-    EXPECT_FLOAT_EQ(col[5], 1.0f);
-    EXPECT_FLOAT_EQ(col[6], 0.0f);
+    EXPECT_FLOAT_EQ(col[5], 0.0f);
+    EXPECT_FLOAT_EQ(col[6], 1.0f);
     EXPECT_FLOAT_EQ(col[7], 1.0f);
-    // Stream 1, Vertex 2: color=(0, 0, 1, 1)
+    // Stream 1, Vertex 2: color=(0, 1, 0, 1)
     EXPECT_FLOAT_EQ(col[8],  0.0f);
-    EXPECT_FLOAT_EQ(col[9],  0.0f);
-    EXPECT_FLOAT_EQ(col[10], 1.0f);
+    EXPECT_FLOAT_EQ(col[9],  1.0f);
+    EXPECT_FLOAT_EQ(col[10], 0.0f);
     EXPECT_FLOAT_EQ(col[11], 1.0f);
 
     context->Unmap(staging1, 0);

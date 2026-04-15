@@ -44,8 +44,8 @@ TEST_F(DrawGoldenTests, DualSourceBlend)
 
     float vertices[] = {
          0.0f,  0.7f, 0.5f,
-        -0.7f, -0.7f, 0.5f,
          0.7f, -0.7f, 0.5f,
+        -0.7f, -0.7f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

@@ -49,8 +49,8 @@ TEST_F(DrawGoldenTests, GradientTriangle64x64)
     struct Vertex { float x, y, z; float r, g, b, a; };
     Vertex vertices[] = {
         { 0.0f,  0.8f, 0.5f,   1.f, 0.f, 0.f, 1.f },  // red
-        {-0.8f, -0.8f, 0.5f,   0.f, 1.f, 0.f, 1.f },  // green
         { 0.8f, -0.8f, 0.5f,   0.f, 0.f, 1.f, 1.f },  // blue
+        {-0.8f, -0.8f, 0.5f,   0.f, 1.f, 0.f, 1.f },  // green
     };
 
     D3D11_BUFFER_DESC vbDesc{};

@@ -49,8 +49,8 @@ TEST_F(DrawGoldenTests, Discard64x64)
     struct Vertex { float x, y, z; float r, g, b, a; };
     Vertex vertices[] = {
         { 0.0f,  0.8f, 0.5f,   1.f, 0.f, 0.f, 1.f },
-        {-0.8f, -0.8f, 0.5f,   0.f, 1.f, 0.f, 1.f },
         { 0.8f, -0.8f, 0.5f,   0.f, 0.f, 1.f, 1.f },
+        {-0.8f, -0.8f, 0.5f,   0.f, 1.f, 0.f, 1.f },
     };
 
     D3D11_BUFFER_DESC vbDesc{};

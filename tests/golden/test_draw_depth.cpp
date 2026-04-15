@@ -70,12 +70,12 @@ TEST_F(DrawGoldenTests, DepthOcclusion64x64)
     float vertices[] = {
         // Red triangle (far, z=0.7)
          0.0f,  0.7f, 0.7f,
-        -0.7f, -0.7f, 0.7f,
          0.7f, -0.7f, 0.7f,
+        -0.7f, -0.7f, 0.7f,
         // Green triangle (near, z=0.3)
          0.0f,  0.5f, 0.3f,
-        -0.5f, -0.3f, 0.3f,
          0.5f, -0.3f, 0.3f,
+        -0.5f, -0.3f, 0.3f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

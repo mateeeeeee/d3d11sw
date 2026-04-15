@@ -47,8 +47,8 @@ TEST_F(DrawIndirectGoldenTests, DrawInstancedIndirect64x64)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
          0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -196,8 +196,8 @@ TEST_F(DrawIndirectGoldenTests, DrawIndexedInstancedIndirect64x64)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
          0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -360,8 +360,8 @@ TEST_F(DrawIndirectGoldenTests, DrawInstancedIndirect_Instanced64x64)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
          0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -509,8 +509,8 @@ TEST_F(DrawIndirectGoldenTests, DrawInstanced_Instanced64x64)
 
     float vertices[] = {
          0.0f,  0.5f, 0.5f,
-        -0.5f, -0.5f, 0.5f,
          0.5f, -0.5f, 0.5f,
+        -0.5f, -0.5f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

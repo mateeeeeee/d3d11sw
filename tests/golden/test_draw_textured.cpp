@@ -97,8 +97,8 @@ TEST_F(DrawGoldenTests, TexturedTriangle64x64)
     struct Vertex { float x, y, z, u, v; };
     Vertex vertices[] = {
         { 0.0f,  0.8f, 0.5f,  0.5f, 0.0f },
-        {-0.8f, -0.8f, 0.5f,  0.0f, 1.0f },
         { 0.8f, -0.8f, 0.5f,  1.0f, 1.0f },
+        {-0.8f, -0.8f, 0.5f,  0.0f, 1.0f },
     };
 
     D3D11_BUFFER_DESC vbDesc{};

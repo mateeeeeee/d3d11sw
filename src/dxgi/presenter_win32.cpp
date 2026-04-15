@@ -55,6 +55,20 @@ std::unique_ptr<ISwapChainPresenter> CreatePresenter(void* hwnd)
     return std::make_unique<Win32Presenter>((HWND)hwnd);
 }
 
+void GetWindowClientSize(void* nativeWindow, uint32_t& width, uint32_t& height)
+{
+    width = 0;
+    height = 0;
+    HWND hwnd = static_cast<HWND>(nativeWindow);
+    if (hwnd)
+    {
+        RECT rc{};
+        GetClientRect(hwnd, &rc);
+        width  = static_cast<uint32_t>(rc.right - rc.left);
+        height = static_cast<uint32_t>(rc.bottom - rc.top);
+    }
+}
+
 }
 
 #endif

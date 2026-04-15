@@ -58,13 +58,13 @@ TEST_F(DrawGoldenTests, StencilDecrSat)
 
     float triVerts[] = {
          0.0f,  0.7f, 0.5f,
-        -0.7f, -0.7f, 0.5f,
          0.7f, -0.7f, 0.5f,
+        -0.7f, -0.7f, 0.5f,
     };
     float fullVerts[] = {
         -1.0f,  1.0f, 0.5f,
-        -1.0f, -3.0f, 0.5f,
          3.0f,  1.0f, 0.5f,
+        -1.0f, -3.0f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -241,13 +241,13 @@ TEST_F(DrawGoldenTests, StencilInvert)
 
     float triVerts[] = {
          0.0f,  0.7f, 0.5f,
-        -0.7f, -0.7f, 0.5f,
          0.7f, -0.7f, 0.5f,
+        -0.7f, -0.7f, 0.5f,
     };
     float fullVerts[] = {
         -1.0f,  1.0f, 0.5f,
-        -1.0f, -3.0f, 0.5f,
          3.0f,  1.0f, 0.5f,
+        -1.0f, -3.0f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

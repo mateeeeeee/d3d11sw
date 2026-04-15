@@ -47,8 +47,8 @@ TEST_F(DrawGoldenTests, GSSubdivide64x64)
 
     float vertices[] = {
          0.0f,  0.8f, 0.5f,   1.f, 0.f, 0.f, 1.f,
-        -0.8f, -0.6f, 0.5f,   0.f, 1.f, 0.f, 1.f,
          0.8f, -0.6f, 0.5f,   0.f, 0.f, 1.f, 1.f,
+        -0.8f, -0.6f, 0.5f,   0.f, 1.f, 0.f, 1.f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

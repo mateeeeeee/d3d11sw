@@ -48,8 +48,8 @@ TEST_F(DrawGoldenTests, ScissorClip64x64)
     // Large triangle covering most of the screen
     float vertices[] = {
          0.0f,  0.9f, 0.5f,
-        -0.9f, -0.9f, 0.5f,
          0.9f, -0.9f, 0.5f,
+        -0.9f, -0.9f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};

@@ -62,6 +62,20 @@ std::unique_ptr<ISwapChainPresenter> CreatePresenter(void* hwnd)
     return std::make_unique<MacOSPresenter>((__bridge NSWindow*)hwnd);
 }
 
+void GetWindowClientSize(void* nativeWindow, uint32_t& width, uint32_t& height)
+{
+    width = 0;
+    height = 0;
+    if (nativeWindow)
+    {
+        NSWindow* window = (__bridge NSWindow*)nativeWindow;
+        NSRect frame = [[window contentView] frame];
+        CGFloat scale = [window backingScaleFactor];
+        width  = static_cast<uint32_t>(frame.size.width * scale);
+        height = static_cast<uint32_t>(frame.size.height * scale);
+    }
+}
+
 }
 
 #endif

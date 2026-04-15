@@ -65,8 +65,8 @@ struct DrawGoldenTests : ::testing::Test
         // CW triangle covering roughly the center
         float vertices[] = {
              0.0f,  0.8f, 0.5f,
-            -0.8f, -0.8f, 0.5f,
              0.8f, -0.8f, 0.5f,
+            -0.8f, -0.8f, 0.5f,
         };
 
         D3D11_BUFFER_DESC vbDesc{};

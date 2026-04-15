@@ -47,8 +47,8 @@ TEST_F(DrawGoldenTests, SrgbRenderTarget64x64)
 
     float vertices[] = {
         -1.f,  3.f, 0.5f,
-        -1.f, -1.f, 0.5f,
          3.f, -1.f, 0.5f,
+        -1.f, -1.f, 0.5f,
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -224,8 +224,8 @@ TEST_F(DrawGoldenTests, SrgbTexture64x64)
     struct Vertex { float x, y, z, u, v; };
     Vertex vertices[] = {
         {-1.f,  3.f, 0.5f, 0.5f, -1.f},
-        {-1.f, -1.f, 0.5f, 0.5f,  1.f},
         { 3.f, -1.f, 0.5f, 1.5f,  1.f},
+        {-1.f, -1.f, 0.5f, 0.5f,  1.f},
     };
 
     D3D11_BUFFER_DESC vbDesc{};

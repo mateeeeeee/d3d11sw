@@ -62,12 +62,12 @@ struct DrawGoldenTests : ::testing::Test
         float vertices[] = {
             // First triangle (large)
             0.0f,  0.8f, firstZ,
-           -0.8f, -0.8f, firstZ,
             0.8f, -0.8f, firstZ,
+           -0.8f, -0.8f, firstZ,
             // Second triangle (smaller, centered)
             0.0f,  0.5f, secondZ,
-           -0.5f, -0.3f, secondZ,
             0.5f, -0.3f, secondZ,
+           -0.5f, -0.3f, secondZ,
         };
 
         D3D11_BUFFER_DESC vbDesc{};
