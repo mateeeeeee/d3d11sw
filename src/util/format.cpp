@@ -85,7 +85,7 @@ HRESULT ValidateTextureBindFlags(DXGI_FORMAT format, UINT bindFlags, Bool depthS
         return E_INVALIDARG;
     }
 
-    if (!isDepth && (bindFlags & D3D11_BIND_DEPTH_STENCIL))
+    if (!isDepth && !IsDepthCompatible(format) && (bindFlags & D3D11_BIND_DEPTH_STENCIL))
     {
         return E_INVALIDARG;
     }

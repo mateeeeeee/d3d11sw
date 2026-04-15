@@ -133,7 +133,14 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
     {
 		EnsureMSVCEnvironment();
 		cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
-			<< " /nologo /LD /MD /std:c++20 /O3 /fp:fast /EHsc"
+			<< " /nologo /LD"
+			// JIT-compiled shaders must link against the same CRT as the host to avoid _ITERATOR_DEBUG_LEVEL mismatch
+#ifdef _DEBUG
+			<< " /MDd"
+#else
+			<< " /MD"
+#endif
+			<< " /std:c++20 /O3 /fp:fast /EHsc"
 			<< " /I\"" << D3D11SW_SRC_DIR << "\""
 			<< " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
 			<< " \"" << srcPath << "\""
