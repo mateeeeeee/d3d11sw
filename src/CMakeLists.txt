@@ -126,11 +126,40 @@ elseif(APPLE)
     list(APPEND D3D11SW_SOURCES dxgi/presenter_macos.mm)
 endif()
 
-add_library(d3d11 SHARED ${D3D11SW_SOURCES})
+#Object library with all shared code
+add_library(d3d11sw_core OBJECT ${D3D11SW_SOURCES})
 
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${D3D11SW_SOURCES})
+target_include_directories(d3d11sw_core PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_include_directories(d3d11 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+if(WIN32)
+    target_include_directories(d3d11sw_core PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party
+    )
+else()
+    target_include_directories(d3d11sw_core PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party
+        ${CMAKE_SOURCE_DIR}/third_party/native-windows
+    )
+    target_include_directories(d3d11sw_core SYSTEM PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party/directx-headers
+    )
+endif()
+
+target_compile_options(d3d11sw_core PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/FIcommon/types.h /FIcommon/macros.h>
+    $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/common/types.h -include ${CMAKE_CURRENT_SOURCE_DIR}/common/macros.h>
+)
+
+target_compile_definitions(d3d11sw_core PRIVATE
+    D3D11SW_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    D3D11SW_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
+    D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
+    D3D11SW_BC_DECOMP_LIB="$<TARGET_FILE:bc_decomp>"
+    $<$<BOOL:${WIN32}>:D3D11SW_BUILDING_DLL>
+)
+
+# d3d11.dll
+add_library(d3d11 SHARED $<TARGET_OBJECTS:d3d11sw_core>)
 
 if(WIN32)
     target_link_libraries(d3d11 PRIVATE dxguid)
@@ -138,17 +167,7 @@ if(WIN32)
         OUTPUT_NAME "d3d11"
         MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/d3d11sw.def"
     )
-    target_include_directories(d3d11 PRIVATE
-        ${CMAKE_SOURCE_DIR}/third_party
-    )
 else()
-    target_include_directories(d3d11 PRIVATE
-        ${CMAKE_SOURCE_DIR}/third_party
-        ${CMAKE_SOURCE_DIR}/third_party/native-windows
-    )
-    target_include_directories(d3d11 SYSTEM PRIVATE
-        ${CMAKE_SOURCE_DIR}/third_party/directx-headers
-    )
     set_target_properties(d3d11 PROPERTIES
         OUTPUT_NAME "d3d11"
     )
@@ -160,12 +179,50 @@ if(APPLE)
     target_link_libraries(d3d11 PRIVATE "-framework AppKit" "-framework QuartzCore")
 endif()
 
-target_compile_options(d3d11 PRIVATE
+# dxgi.dll
+set(DXGI_SOURCES exports/dxgi_exports.cpp)
+if(WIN32)
+    list(APPEND DXGI_SOURCES exports/dxgi.def)
+endif()
+
+add_library(dxgi SHARED ${DXGI_SOURCES} $<TARGET_OBJECTS:d3d11sw_core>)
+
+target_include_directories(dxgi PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(WIN32)
+    target_link_libraries(dxgi PRIVATE dxguid)
+    target_include_directories(dxgi PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party
+    )
+    set_target_properties(dxgi PROPERTIES
+        OUTPUT_NAME "dxgi"
+        MODULE_DEFINITION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/exports/dxgi.def"
+    )
+else()
+    target_include_directories(dxgi PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party
+        ${CMAKE_SOURCE_DIR}/third_party/native-windows
+    )
+    target_include_directories(dxgi SYSTEM PRIVATE
+        ${CMAKE_SOURCE_DIR}/third_party/directx-headers
+    )
+    set_target_properties(dxgi PROPERTIES
+        OUTPUT_NAME "dxgi"
+    )
+endif()
+
+target_link_libraries(dxgi PRIVATE bc_decomp)
+
+if(APPLE)
+    target_link_libraries(dxgi PRIVATE "-framework AppKit" "-framework QuartzCore")
+endif()
+
+target_compile_options(dxgi PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/FIcommon/types.h /FIcommon/macros.h>
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/common/types.h -include ${CMAKE_CURRENT_SOURCE_DIR}/common/macros.h>
 )
 
-target_compile_definitions(d3d11 PRIVATE
+target_compile_definitions(dxgi PRIVATE
     D3D11SW_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
     D3D11SW_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
     D3D11SW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
