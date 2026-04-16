@@ -12,7 +12,7 @@ namespace d3d11sw {
 
 static void UnpackVertexElement(DXGI_FORMAT fmt, const Uint8* src, SW_float4& out)
 {
-    out = {0.f, 0.f, 0.f, 0.f};
+    out = {0.f, 0.f, 0.f, 1.f};
     switch (fmt)
     {
         case DXGI_FORMAT_R32G32B32A32_FLOAT:
@@ -20,7 +20,6 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const Uint8* src, SW_float4& ou
             break;
         case DXGI_FORMAT_R32G32B32_FLOAT:
             std::memcpy(&out, src, 12);
-            out.w = 0.f;
             break;
         case DXGI_FORMAT_R32G32_FLOAT:
             std::memcpy(&out, src, 8);
@@ -89,7 +88,7 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const Uint8* src, SW_float4& ou
             };
             Uint16 v[2];
             std::memcpy(v, src, 4);
-            out = { toF(v[0]), toF(v[1]), 0.f, 0.f };
+            out = { toF(v[0]), toF(v[1]), 0.f, 1.f };
             break;
         }
         case DXGI_FORMAT_R8G8B8A8_UNORM:
@@ -152,14 +151,14 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const Uint8* src, SW_float4& ou
         {
             Int16 v[2];
             std::memcpy(v, src, 4);
-            out = { std::max(v[0] / 32767.f, -1.f), std::max(v[1] / 32767.f, -1.f), 0.f, 0.f };
+            out = { std::max(v[0] / 32767.f, -1.f), std::max(v[1] / 32767.f, -1.f), 0.f, 1.f };
             break;
         }
         case DXGI_FORMAT_R16G16_UNORM:
         {
             Uint16 v[2];
             std::memcpy(v, src, 4);
-            out = { v[0] / 65535.f, v[1] / 65535.f, 0.f, 0.f };
+            out = { v[0] / 65535.f, v[1] / 65535.f, 0.f, 1.f };
             break;
         }
         case DXGI_FORMAT_R16G16_UINT:
@@ -169,7 +168,7 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const Uint8* src, SW_float4& ou
             out = {
                 std::bit_cast<Float>(static_cast<Uint32>(v[0])),
                 std::bit_cast<Float>(static_cast<Uint32>(v[1])),
-                0.f, 0.f
+                0.f, std::bit_cast<Float>(1u)
             };
             break;
         }
@@ -180,7 +179,7 @@ static void UnpackVertexElement(DXGI_FORMAT fmt, const Uint8* src, SW_float4& ou
             out = {
                 std::bit_cast<Float>(static_cast<Uint32>(static_cast<Int32>(v[0]))),
                 std::bit_cast<Float>(static_cast<Uint32>(static_cast<Int32>(v[1]))),
-                0.f, 0.f
+                0.f, std::bit_cast<Float>(1u)
             };
             break;
         }

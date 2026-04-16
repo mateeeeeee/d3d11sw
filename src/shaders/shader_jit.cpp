@@ -22,6 +22,7 @@ const Char* GetJITCompiler()
     return D3D11SW_CXX_COMPILER;
 }
 
+#ifdef D3D11SW_PLATFORM_WINDOWS
 Bool IsMSVCCompiler(const Char* compiler)
 {
     std::string_view sv(compiler);
@@ -81,11 +82,10 @@ void EnsureMSVCEnvironment()
     D3D11SW_INFO("ShaderJIT: INCLUDE={}", inc);
     D3D11SW_INFO("ShaderJIT: LIB={}", lib);
 
-#if defined(D3D11SW_PLATFORM_WINDOWS)
     _putenv_s("INCLUDE", inc.c_str());
     _putenv_s("LIB", lib.c_str());
-#endif
 }
+#endif
 
 }
 
@@ -129,31 +129,32 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
     std::string logPath = libPath + ".log";
     std::ostringstream cmd;
     const Char* compiler = GetJITCompiler();
+#ifdef D3D11SW_PLATFORM_WINDOWS
     if (IsMSVCCompiler(compiler))
     {
-		EnsureMSVCEnvironment();
-		cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
-			<< " /nologo /LD"
-			// JIT-compiled shaders must link against the same CRT as the host to avoid _ITERATOR_DEBUG_LEVEL mismatch
+        EnsureMSVCEnvironment();
+        cmd << "\"\"" << D3D11SW_CXX_COMPILER << "\""
+            << " /nologo /LD"
 #ifdef _DEBUG
-			<< " /MDd"
+            << " /MDd"
 #else
-			<< " /MD"
+            << " /MD"
 #endif
-			<< " /std:c++20 /O3 /fp:fast /EHsc"
-			<< " /I\"" << D3D11SW_SRC_DIR << "\""
-			<< " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
-			<< " \"" << srcPath << "\""
-			<< " \"" << D3D11SW_BC_DECOMP_LIB << "\""
-			<< " /Fe\"" << libPath << "\""
-			<< " /Fo\"" << libPath << ".obj\""
-			<< " /link /NOIMPLIB"
-			<< " > \"" << logPath << "\" 2>&1\"";
+            << " /std:c++20 /O2 /fp:fast /EHsc"
+            << " /I\"" << D3D11SW_SRC_DIR << "\""
+            << " /I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
+            << " \"" << srcPath << "\""
+            << " \"" << D3D11SW_BC_DECOMP_LIB << "\""
+            << " /Fe\"" << libPath << "\""
+            << " /Fo\"" << libPath << ".obj\""
+            << " /link /NOIMPLIB"
+            << " > \"" << logPath << "\" 2>&1\"";
     }
     else
+#endif
     {
         cmd << compiler
-            << " -std=c++20 -O3 -ffast-math -march=native"
+            << " -std=c++20 -O2 -ffast-math -march=native"
             << " -fPIC -shared"
             << " -I\"" << D3D11SW_SRC_DIR << "\""
             << " -I\"" << D3D11SW_THIRD_PARTY_DIR << "\""
@@ -164,7 +165,29 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
     }
     D3D11SW_INFO("ShaderJIT: {}", srcPath.c_str());
     D3D11SW_INFO("ShaderJIT: cmd {}", cmd.str());
-    Int rc = std::system(cmd.str().c_str());
+    Int rc;
+#ifdef D3D11SW_PLATFORM_WINDOWS
+    {
+        STARTUPINFOA si = {};
+        si.cb = sizeof(si);
+        PROCESS_INFORMATION pi = {};
+        std::string cmdStr = cmd.str();
+        BOOL ok = CreateProcessA(nullptr, cmdStr.data(), nullptr, nullptr, FALSE,
+                                 CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
+        rc = -1;
+        if (ok)
+        {
+            WaitForSingleObject(pi.hProcess, INFINITE);
+            DWORD exitCode = 1;
+            GetExitCodeProcess(pi.hProcess, &exitCode);
+            rc = static_cast<Int>(exitCode);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        }
+    }
+#else
+    rc = std::system(cmd.str().c_str());
+#endif
     if (rc != 0)
     {
         D3D11SW_ERROR("ShaderJIT: compile failed (rc={}) for {}", rc, srcPath.c_str());
