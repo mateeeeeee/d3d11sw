@@ -122,7 +122,6 @@ set(D3D11SW_SOURCES
 )
 
 if(WIN32)
-    list(APPEND D3D11SW_SOURCES exports/d3d11sw.def)
     list(APPEND D3D11SW_SOURCES dxgi/presenter_win32.cpp)
 elseif(APPLE)
     list(APPEND D3D11SW_SOURCES dxgi/presenter_macos.mm)
@@ -161,7 +160,11 @@ target_compile_definitions(d3d11sw_core PRIVATE
 )
 
 # d3d11.dll
-add_library(d3d11 SHARED $<TARGET_OBJECTS:d3d11sw_core>)
+if(WIN32)
+    add_library(d3d11 SHARED $<TARGET_OBJECTS:d3d11sw_core> exports/d3d11sw.def)
+else()
+    add_library(d3d11 SHARED $<TARGET_OBJECTS:d3d11sw_core>)
+endif()
 
 if(WIN32)
     target_link_libraries(d3d11 PRIVATE dxguid)
