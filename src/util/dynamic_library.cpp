@@ -21,6 +21,7 @@ DynamicLibrary::~DynamicLibrary()
 
 Bool DynamicLibrary::Open(const Char* filename)
 {
+    _path = filename;
 #ifdef D3D11SW_PLATFORM_WINDOWS
     _handle = reinterpret_cast<void*>(LoadLibraryA(filename));
 #else

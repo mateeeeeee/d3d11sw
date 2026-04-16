@@ -301,13 +301,11 @@ void* ShaderJIT::FindSymbol(const void* bytecode, Usize len, const Char* name)
     hashStr << std::hex << hash;
     std::string stem    = CacheDir() + hashStr.str();
     std::string libPath = DynamicLibrary::GetFilename(stem.c_str());
-
     for (const auto& lib : _handles)
     {
-        void* fn = lib->GetSymbolAddress(name);
-        if (fn)
+        if (lib->GetPath() == libPath)
         {
-            return fn;
+            return lib->GetSymbolAddress(name);
         }
     }
     return nullptr;

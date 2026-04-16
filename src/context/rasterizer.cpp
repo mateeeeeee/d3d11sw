@@ -1250,8 +1250,7 @@ void SWRasterizer::RasterizeTriangle(
     tctx.stats = &state.stats;
     tctx.earlyZ    = !psReflection.usesDiscard && !psReflection.writesSVDepth && !psReflection.usesUAVs;
 
-    D3D11PixelShaderSW* psSW = state.ps;
-    tctx.psQuadFn  = psSW ? psSW->GetQuadFn() : nullptr;
+    tctx.psQuadFn  = psFn;
 
     tctx.hiZ        = _hiZ.Matches(om.dsvData) ? _hiZ.data.data() : nullptr;
     tctx.hiZTilesX  = _hiZ.tilesX;

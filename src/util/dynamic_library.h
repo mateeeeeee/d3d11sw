@@ -17,6 +17,7 @@ public:
     void Close();
 
     void* GetSymbolAddress(const Char* name) const;
+    const std::string& GetPath() const { return _path; }
 
     template<typename T>
     Bool GetSymbol(const Char* name, T** ptr) const
@@ -29,6 +30,7 @@ public:
 
 private:
     void* _handle = nullptr;
+    std::string _path;
 };
 
 }
