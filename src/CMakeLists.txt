@@ -107,6 +107,8 @@ set(D3D11SW_SOURCES
     dxgi/presenter.h
     dxgi/device.cpp
     dxgi/device.h
+    dxgi/output.cpp
+    dxgi/output.h
 
     util/align.h
     util/enum.h

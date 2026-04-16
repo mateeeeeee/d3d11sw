@@ -1,5 +1,6 @@
 #include "dxgi/adapter.h"
 #include "dxgi/factory.h"
+#include "dxgi/output.h"
 #include <cstring>
 
 namespace d3d11sw {
@@ -59,7 +60,16 @@ HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetParent(REFIID riid, void** ppParent)
 
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::EnumOutputs(UINT Output, IDXGIOutput** ppOutput)
 {
-    return DXGI_ERROR_NOT_FOUND;
+    if (!ppOutput)
+    {
+        return E_INVALIDARG;
+    }
+    if (Output > 0)
+    {
+        return DXGI_ERROR_NOT_FOUND;
+    }
+    *ppOutput = new DXGIOutputSW();
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetDesc(DXGI_ADAPTER_DESC* pDesc)

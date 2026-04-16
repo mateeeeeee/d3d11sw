@@ -1,4 +1,5 @@
 #include "dxgi/factory.h"
+#include "dxgi/adapter.h"
 #include "dxgi/swapchain.h"
 
 namespace d3d11sw {
@@ -65,12 +66,21 @@ HRESULT STDMETHODCALLTYPE DXGIFactorySW::GetParent(REFIID riid, void** ppParent)
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::EnumAdapters(UINT Adapter, IDXGIAdapter** ppAdapter)
 {
-    return E_NOTIMPL;
+    if (!ppAdapter)
+    {
+        return DXGI_ERROR_INVALID_CALL;
+    }
+    if (Adapter > 0)
+    {
+        return DXGI_ERROR_NOT_FOUND;
+    }
+    *ppAdapter = new DXGIAdapterSW();
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::MakeWindowAssociation(HWND WindowHandle, UINT Flags)
 {
-    return E_NOTIMPL;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::GetWindowAssociation(HWND* pWindowHandle)
@@ -107,7 +117,16 @@ HRESULT STDMETHODCALLTYPE DXGIFactorySW::CreateSoftwareAdapter(HMODULE Module, I
 
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::EnumAdapters1(UINT Adapter, IDXGIAdapter1** ppAdapter)
 {
-    return E_NOTIMPL;
+    if (!ppAdapter)
+    {
+        return DXGI_ERROR_INVALID_CALL;
+    }
+    if (Adapter > 0)
+    {
+        return DXGI_ERROR_NOT_FOUND;
+    }
+    *ppAdapter = new DXGIAdapterSW();
+    return S_OK;
 }
 
 BOOL STDMETHODCALLTYPE DXGIFactorySW::IsCurrent()
