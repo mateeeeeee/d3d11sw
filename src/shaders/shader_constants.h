@@ -57,7 +57,9 @@ static constexpr unsigned SW_FORMAT_R8_UINT               = 62;
 static constexpr unsigned SW_FORMAT_R8_SNORM              = 63;
 static constexpr unsigned SW_FORMAT_R8_SINT               = 64;
 static constexpr unsigned SW_FORMAT_B8G8R8A8_UNORM        = 87;
+static constexpr unsigned SW_FORMAT_B8G8R8X8_UNORM        = 88;
 static constexpr unsigned SW_FORMAT_B8G8R8A8_UNORM_SRGB   = 91;
+static constexpr unsigned SW_FORMAT_B8G8R8X8_UNORM_SRGB   = 93;
 
 static constexpr unsigned SW_FORMAT_BC1_UNORM             = 71;
 static constexpr unsigned SW_FORMAT_BC1_UNORM_SRGB        = 72;

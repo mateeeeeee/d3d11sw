@@ -136,6 +136,7 @@ add_golden_test(golden_draw_gs_tri_adj golden/test_draw_gs_tri_adj.cpp)
 add_golden_test(golden_draw_gs_instanced golden/test_draw_gs_instanced.cpp)
 add_golden_test(golden_draw_gs_viewport_select golden/test_draw_gs_viewport_select.cpp)
 add_golden_test(golden_draw_gs_rt_array golden/test_draw_gs_rt_array.cpp)
+add_golden_test(golden_draw_multi_cbuf golden/test_draw_multi_cbuf.cpp)
 
 add_golden_test(test_stream_output unit/test_stream_output.cpp)
 
