@@ -171,7 +171,7 @@ Bool ShaderJIT::Compile(const std::string& srcPath, const std::string& libPath) 
         STARTUPINFOA si = {};
         si.cb = sizeof(si);
         PROCESS_INFORMATION pi = {};
-        std::string cmdStr = cmd.str();
+        std::string cmdStr = "cmd.exe /c " + cmd.str();
         BOOL ok = CreateProcessA(nullptr, cmdStr.data(), nullptr, nullptr, FALSE,
                                  CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
         rc = -1;
