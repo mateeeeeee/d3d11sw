@@ -518,6 +518,27 @@ static void RunOnSWResource(ID3D11Resource* pResource, Fn&& fn)
     }
 }
 
+static D3D11_USAGE GetSWResourceUsage(ID3D11Resource* pResource)
+{
+    D3D11_USAGE usage = D3D11_USAGE_DEFAULT;
+    RunOnSWResource(pResource, [&](auto* res) { usage = res->GetUsage(); });
+    return usage;
+}
+
+static UINT GetSWResourceCPUAccessFlags(ID3D11Resource* pResource)
+{
+    UINT flags = 0;
+    RunOnSWResource(pResource, [&](auto* res) { flags = res->GetCPUAccessFlags(); });
+    return flags;
+}
+
+static UINT GetSWResourceBindFlags(ID3D11Resource* pResource)
+{
+    UINT flags = 0;
+    RunOnSWResource(pResource, [&](auto* res) { flags = res->GetBindFlags(); });
+    return flags;
+}
+
 inline void CopySubresourceData(
     Uint8* dstBase, Uint dstRowPitch, Uint dstDepthPitch,
     const Uint8* srcBase, Uint srcRowPitch, Uint srcDepthPitch,

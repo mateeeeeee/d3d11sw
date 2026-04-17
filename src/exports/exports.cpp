@@ -8,31 +8,30 @@
 
 using namespace d3d11sw;
 
-extern "C" 
+static HRESULT CreateDeviceAndContext(UINT Flags, ID3D11Device** ppDevice, D3D_FEATURE_LEVEL* pFeatureLevel, ID3D11DeviceContext** ppImmediateContext)
 {
+    Bool debug = (Flags & D3D11_CREATE_DEVICE_DEBUG) != 0;
 
-HRESULT WINAPI D3D11CreateDevice(
-    IDXGIAdapter* pAdapter,
-    D3D_DRIVER_TYPE DriverType,
-    HMODULE Software,
-    UINT Flags,
-    const D3D_FEATURE_LEVEL* pFeatureLevels,
-    UINT FeatureLevels,
-    UINT SDKVersion,
-    ID3D11Device** ppDevice,
-    D3D_FEATURE_LEVEL* pFeatureLevel,
-    ID3D11DeviceContext** ppImmediateContext)
-{
-    D3D11SW_INFO("D3D11CreateDevice called");
+    ID3D11Device* device = nullptr;
+    ID3D11DeviceContext* context = nullptr;
 
-    if (!ppDevice && !ppImmediateContext) 
+    if (debug)
     {
-        return S_FALSE;
+        auto* dev = new D3D11DebugDeviceSW();
+        auto* ctx = new D3D11DebugDeviceContextSW(dev);
+        dev->SetImmediateContext(ctx);
+        device = dev;
+        context = ctx;
+        D3D11SW_INFO("D3D11CreateDevice: debug layer enabled");
     }
-
-    D3D11DeviceSW* device = new D3D11DeviceSW();
-    D3D11DeviceContextSW* context = new D3D11DeviceContextSW(device);
-    device->SetImmediateContext(context);
+    else
+    {
+        auto* dev = new D3D11DeviceSW();
+        auto* ctx = new D3D11DeviceContextSW(dev);
+        dev->SetImmediateContext(ctx);
+        device = dev;
+        context = ctx;
+    }
 
     if (pFeatureLevel)
     {
@@ -60,6 +59,31 @@ HRESULT WINAPI D3D11CreateDevice(
     return S_OK;
 }
 
+extern "C"
+{
+
+HRESULT WINAPI D3D11CreateDevice(
+    IDXGIAdapter* pAdapter,
+    D3D_DRIVER_TYPE DriverType,
+    HMODULE Software,
+    UINT Flags,
+    const D3D_FEATURE_LEVEL* pFeatureLevels,
+    UINT FeatureLevels,
+    UINT SDKVersion,
+    ID3D11Device** ppDevice,
+    D3D_FEATURE_LEVEL* pFeatureLevel,
+    ID3D11DeviceContext** ppImmediateContext)
+{
+    D3D11SW_INFO("D3D11CreateDevice called");
+
+    if (!ppDevice && !ppImmediateContext)
+    {
+        return S_FALSE;
+    }
+
+    return CreateDeviceAndContext(Flags, ppDevice, pFeatureLevel, ppImmediateContext);
+}
+
 HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
     IDXGIAdapter* pAdapter,
     D3D_DRIVER_TYPE DriverType,
@@ -76,18 +100,17 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
 {
     D3D11SW_INFO("D3D11CreateDeviceAndSwapChain called");
 
-    D3D11DeviceSW* device = new D3D11DeviceSW();
-    D3D11DeviceContextSW* context = new D3D11DeviceContextSW(device);
-    device->SetImmediateContext(context);
-
-    if (pFeatureLevel) 
+    ID3D11Device* device = nullptr;
+    ID3D11DeviceContext* context = nullptr;
+    HRESULT hr = CreateDeviceAndContext(Flags, &device, pFeatureLevel, &context);
+    if (FAILED(hr))
     {
-        *pFeatureLevel = D3D_FEATURE_LEVEL_11_1;
+        return hr;
     }
 
-    if (ppSwapChain) 
+    if (ppSwapChain)
     {
-        if (!pSwapChainDesc) 
+        if (!pSwapChainDesc)
         {
             device->Release();
             context->Release();
@@ -97,16 +120,16 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
         *ppSwapChain = swapChain;
     }
 
-    if (ppDevice) 
+    if (ppDevice)
     {
         *ppDevice = device;
-    } 
+    }
     else
     {
         device->Release();
     }
 
-    if (ppImmediateContext) 
+    if (ppImmediateContext)
     {
         *ppImmediateContext = context;
     }
@@ -117,4 +140,4 @@ HRESULT WINAPI D3D11CreateDeviceAndSwapChain(
     return S_OK;
 }
 
-} 
+}

@@ -24,6 +24,18 @@ struct MapModeTests : ::testing::Test
         if (context) { context->Release(); context = nullptr; }
         if (device)  { device->Release();  device  = nullptr; }
     }
+
+    ID3D11Buffer* CreateStagingCopy(ID3D11Buffer* src, UINT byteWidth)
+    {
+        D3D11_BUFFER_DESC stagingDesc = {};
+        stagingDesc.ByteWidth      = byteWidth;
+        stagingDesc.Usage          = D3D11_USAGE_STAGING;
+        stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        ID3D11Buffer* staging = nullptr;
+        device->CreateBuffer(&stagingDesc, nullptr, &staging);
+        context->CopyResource(staging, src);
+        return staging;
+    }
 };
 
 TEST_F(MapModeTests, Buffer_WriteDiscard)
@@ -46,15 +58,17 @@ TEST_F(MapModeTests, Buffer_WriteDiscard)
     for (int i = 0; i < 16; ++i) { data[i] = static_cast<float>(i); }
     context->Unmap(buf, 0);
 
-    hr = context->Map(buf, 0, D3D11_MAP_READ, 0, &mapped);
+    ID3D11Buffer* staging = CreateStagingCopy(buf, 64);
+    hr = context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
     ASSERT_TRUE(SUCCEEDED(hr));
     const float* readBack = static_cast<const float*>(mapped.pData);
     for (int i = 0; i < 16; ++i)
     {
         EXPECT_FLOAT_EQ(readBack[i], static_cast<float>(i));
     }
-    context->Unmap(buf, 0);
+    context->Unmap(staging, 0);
 
+    staging->Release();
     buf->Release();
 }
 
@@ -82,14 +96,16 @@ TEST_F(MapModeTests, Buffer_WriteDiscardOverwrites)
     for (int i = 0; i < 32; ++i) { ptr[i] = 0xBB; }
     context->Unmap(buf, 0);
 
-    ASSERT_TRUE(SUCCEEDED(context->Map(buf, 0, D3D11_MAP_READ, 0, &mapped)));
+    ID3D11Buffer* staging = CreateStagingCopy(buf, 32);
+    ASSERT_TRUE(SUCCEEDED(context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped)));
     const UINT8* result = static_cast<const UINT8*>(mapped.pData);
     for (int i = 0; i < 32; ++i)
     {
         EXPECT_EQ(result[i], 0xBBu);
     }
-    context->Unmap(buf, 0);
+    context->Unmap(staging, 0);
 
+    staging->Release();
     buf->Release();
 }
 
@@ -190,14 +206,16 @@ TEST_F(MapModeTests, Dynamic_ConstantBuffer_WriteDiscard)
     data[0] = 10.f; data[1] = 20.f; data[2] = 30.f; data[3] = 40.f;
     context->Unmap(buf, 0);
 
-    ASSERT_TRUE(SUCCEEDED(context->Map(buf, 0, D3D11_MAP_READ, 0, &mapped)));
+    ID3D11Buffer* staging = CreateStagingCopy(buf, 16);
+    ASSERT_TRUE(SUCCEEDED(context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped)));
     const float* result = static_cast<const float*>(mapped.pData);
     EXPECT_FLOAT_EQ(result[0], 10.f);
     EXPECT_FLOAT_EQ(result[1], 20.f);
     EXPECT_FLOAT_EQ(result[2], 30.f);
     EXPECT_FLOAT_EQ(result[3], 40.f);
-    context->Unmap(buf, 0);
+    context->Unmap(staging, 0);
 
+    staging->Release();
     buf->Release();
 }
 
@@ -220,13 +238,15 @@ TEST_F(MapModeTests, Buffer_MultipleMapCycles)
         for (int i = 0; i < 4; ++i) { data[i] = static_cast<UINT32>(cycle * 100 + i); }
         context->Unmap(buf, 0);
 
-        ASSERT_TRUE(SUCCEEDED(context->Map(buf, 0, D3D11_MAP_READ, 0, &mapped)));
+        ID3D11Buffer* staging = CreateStagingCopy(buf, 16);
+        ASSERT_TRUE(SUCCEEDED(context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped)));
         const UINT32* result = static_cast<const UINT32*>(mapped.pData);
         for (int i = 0; i < 4; ++i)
         {
             EXPECT_EQ(result[i], static_cast<UINT32>(cycle * 100 + i));
         }
-        context->Unmap(buf, 0);
+        context->Unmap(staging, 0);
+        staging->Release();
     }
 
     buf->Release();

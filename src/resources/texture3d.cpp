@@ -43,11 +43,6 @@ HRESULT D3D11Texture3DSW::Init(
     const D3D11_TEXTURE3D_DESC1*  pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData)
 {
-    if (!pDesc || pDesc->Width == 0 || pDesc->Height == 0 || pDesc->Depth == 0)
-    {
-        return E_INVALIDARG;
-    }
-
     _desc = *pDesc;
     if (_desc.MipLevels == 0)
     {

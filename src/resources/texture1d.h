@@ -23,6 +23,8 @@ public:
     void*                       GetDataPtr()                                 { return _data.data(); }
     UINT64                      GetDataSize()                           const { return _data.size(); }
     D3D11_USAGE                 GetUsage()                              const { return _desc.Usage; }
+    UINT                        GetCPUAccessFlags()                     const { return _desc.CPUAccessFlags; }
+    UINT                        GetBindFlags()                          const { return _desc.BindFlags; }
     UINT                        GetSubresourceCount()                   const { return (UINT)_layouts.size(); }
     D3D11SW_API D3D11SW_SUBRESOURCE_LAYOUT GetSubresourceLayout(UINT Subresource) const;
 

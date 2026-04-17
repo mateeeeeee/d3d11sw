@@ -1,4 +1,5 @@
 #include "context.h"
+#include "common/log.h"
 #include "context/depth_stencil_util.h"
 #include "resources/subresource_layout.h"
 #include "resources/buffer.h"
@@ -29,7 +30,8 @@
 namespace d3d11sw {
 
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::QueryInterface(REFIID riid, void** ppv)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::QueryInterface(REFIID riid, void** ppv)
 {
     if (!ppv)
     {
@@ -70,7 +72,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::QueryInterface(REFIID riid, void
     return S_OK;
 }
 
-D3D11DeviceContextSW::D3D11DeviceContextSW(ID3D11Device* device)
+template<Bool IsDebug>
+D3D11DeviceContextSWImpl<IsDebug>::D3D11DeviceContextSWImpl(ID3D11Device* device)
     : DeviceChildImpl(device)
 {
     _state.blendFactor[0] = _state.blendFactor[1] =
@@ -78,12 +81,14 @@ D3D11DeviceContextSW::D3D11DeviceContextSW(ID3D11Device* device)
     _state.sampleMask = 0xFFFFFFFF;
 }
 
-D3D11DeviceContextSW::~D3D11DeviceContextSW()
+template<Bool IsDebug>
+D3D11DeviceContextSWImpl<IsDebug>::~D3D11DeviceContextSWImpl()
 {
     _state.ReleaseAll();
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.vsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -92,27 +97,32 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetConstantBuffers(UINT StartSlot
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
 {
     SetSlots(_state.psSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW*const*>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetShader(ID3D11PixelShader* pPixelShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSSetShader(ID3D11PixelShader* pPixelShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
 {
     SetSlot(_state.ps, static_cast<D3D11PixelShaderSW*>(pPixelShader));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
 {
     SetSlots(_state.psSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW*const*>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetShader(ID3D11VertexShader* pVertexShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSSetShader(ID3D11VertexShader* pVertexShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
 {
     SetSlot(_state.vs, static_cast<D3D11VertexShaderSW*>(pVertexShader));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.psCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -121,12 +131,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetConstantBuffers(UINT StartSlot
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetInputLayout(ID3D11InputLayout* pInputLayout)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IASetInputLayout(ID3D11InputLayout* pInputLayout)
 {
     SetSlot(_state.inputLayout, static_cast<D3D11InputLayoutSW*>(pInputLayout));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetVertexBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppVertexBuffers, const UINT* pStrides, const UINT* pOffsets)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IASetVertexBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppVertexBuffers, const UINT* pStrides, const UINT* pOffsets)
 {
     for (Uint i = 0; i < NumBuffers; i++)
     {
@@ -136,19 +148,22 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetVertexBuffers(UINT StartSlot, 
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetIndexBuffer(ID3D11Buffer* pIndexBuffer, DXGI_FORMAT Format, UINT Offset)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IASetIndexBuffer(ID3D11Buffer* pIndexBuffer, DXGI_FORMAT Format, UINT Offset)
 {
     SetSlot(_state.indexBuffer, static_cast<D3D11BufferSW*>(pIndexBuffer));
     _state.indexFormat = Format;
     _state.indexOffset = Offset;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY Topology)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY Topology)
 {
     _state.topology = Topology;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.gsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -157,37 +172,49 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetConstantBuffers(UINT StartSlot
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetShader(ID3D11GeometryShader* pShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSSetShader(ID3D11GeometryShader* pShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
 {
     SetSlot(_state.gs, static_cast<D3D11GeometryShaderSW*>(pShader));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
 {
     SetSlots(_state.vsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW*const*>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
 {
     SetSlots(_state.vsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW*const*>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::SetPredication(ID3D11Predicate* pPredicate, BOOL PredicateValue)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::SetPredication(ID3D11Predicate* pPredicate, BOOL PredicateValue)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
 {
     SetSlots(_state.gsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW*const*>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
 {
     SetSlots(_state.gsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW*const*>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargets(UINT NumViews, ID3D11RenderTargetView*const* ppRenderTargetViews, ID3D11DepthStencilView* pDepthStencilView)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMSetRenderTargets(UINT NumViews, ID3D11RenderTargetView*const* ppRenderTargetViews, ID3D11DepthStencilView* pDepthStencilView)
 {
+    if (NumViews > D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT)
+    {
+        DebugMsg("OMSetRenderTargets: NumViews ({}) exceeds D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT ({})", NumViews, D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT);
+        return;
+    }
     for (Uint i = NumViews; i < _state.numRenderTargets; i++)
     {
         SetSlot(_state.renderTargets[i], static_cast<D3D11RenderTargetViewSW*>(nullptr));
@@ -200,7 +227,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargets(UINT NumViews, I
     SetSlot(_state.depthStencilView, static_cast<D3D11DepthStencilViewSW*>(pDepthStencilView));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargetsAndUnorderedAccessViews(UINT NumRTVs, ID3D11RenderTargetView*const* ppRenderTargetViews, ID3D11DepthStencilView* pDepthStencilView, UINT UAVStartSlot, UINT NumUAVs, ID3D11UnorderedAccessView*const* ppUnorderedAccessViews, const UINT* pUAVInitialCounts)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMSetRenderTargetsAndUnorderedAccessViews(UINT NumRTVs, ID3D11RenderTargetView*const* ppRenderTargetViews, ID3D11DepthStencilView* pDepthStencilView, UINT UAVStartSlot, UINT NumUAVs, ID3D11UnorderedAccessView*const* ppUnorderedAccessViews, const UINT* pUAVInitialCounts)
 {
     if (NumRTVs != D3D11_KEEP_RENDER_TARGETS_AND_DEPTH_STENCIL)
     {
@@ -243,7 +271,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetRenderTargetsAndUnorderedAcces
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetBlendState(ID3D11BlendState* pBlendState, const FLOAT BlendFactor[4], UINT SampleMask)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMSetBlendState(ID3D11BlendState* pBlendState, const FLOAT BlendFactor[4], UINT SampleMask)
 {
     SetSlot(_state.blendState, static_cast<D3D11BlendStateSW*>(pBlendState));
     if (BlendFactor)
@@ -258,13 +287,15 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetBlendState(ID3D11BlendState* p
     _state.sampleMask = SampleMask;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMSetDepthStencilState(ID3D11DepthStencilState* pDepthStencilState, UINT StencilRef)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMSetDepthStencilState(ID3D11DepthStencilState* pDepthStencilState, UINT StencilRef)
 {
     SetSlot(_state.depthStencilState, static_cast<D3D11DepthStencilStateSW*>(pDepthStencilState));
     _state.stencilRef = StencilRef;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::SOSetTargets(UINT NumBuffers, ID3D11Buffer*const* ppSOTargets, const UINT* pOffsets)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::SOSetTargets(UINT NumBuffers, ID3D11Buffer*const* ppSOTargets, const UINT* pOffsets)
 {
     for (Uint i = 0; i < D3D11_SO_BUFFER_SLOT_COUNT; ++i)
     {
@@ -286,12 +317,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::SOSetTargets(UINT NumBuffers, ID3D1
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::RSSetState(ID3D11RasterizerState* pRasterizerState)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::RSSetState(ID3D11RasterizerState* pRasterizerState)
 {
     SetSlot(_state.rsState, static_cast<D3D11RasterizerStateSW*>(pRasterizerState));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::RSSetViewports(UINT NumViewports, const D3D11_VIEWPORT* pViewports)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::RSSetViewports(UINT NumViewports, const D3D11_VIEWPORT* pViewports)
 {
     _state.numViewports = NumViewports;
     if (pViewports)
@@ -300,7 +333,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::RSSetViewports(UINT NumViewports, c
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::RSSetScissorRects(UINT NumRects, const D3D11_RECT* pRects)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::RSSetScissorRects(UINT NumRects, const D3D11_RECT* pRects)
 {
     _state.numScissorRects = NumRects;
     if (pRects)
@@ -309,22 +343,26 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::RSSetScissorRects(UINT NumRects, co
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
 {
     SetSlots(_state.hsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW*const*>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetShader(ID3D11HullShader* pHullShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSSetShader(ID3D11HullShader* pHullShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
 {
     SetSlot(_state.hs, static_cast<D3D11HullShaderSW*>(pHullShader));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
 {
     SetSlots(_state.hsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW*const*>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.hsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -333,22 +371,26 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetConstantBuffers(UINT StartSlot
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
 {
     SetSlots(_state.dsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW*const*>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetShader(ID3D11DomainShader* pDomainShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSSetShader(ID3D11DomainShader* pDomainShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
 {
     SetSlot(_state.ds, static_cast<D3D11DomainShaderSW*>(pDomainShader));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
 {
     SetSlots(_state.dsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW*const*>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.dsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -357,12 +399,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetConstantBuffers(UINT StartSlot
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSSetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView*const* ppShaderResourceViews)
 {
     SetSlots(_state.csSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW*const*>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetUnorderedAccessViews(UINT StartSlot, UINT NumUAVs, ID3D11UnorderedAccessView*const* ppUnorderedAccessViews, const UINT* pUAVInitialCounts)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSSetUnorderedAccessViews(UINT StartSlot, UINT NumUAVs, ID3D11UnorderedAccessView*const* ppUnorderedAccessViews, const UINT* pUAVInitialCounts)
 {
     SetSlots(_state.csUAVs, StartSlot, NumUAVs, reinterpret_cast<D3D11UnorderedAccessViewSW*const*>(ppUnorderedAccessViews));
     if (pUAVInitialCounts)
@@ -381,17 +425,20 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetUnorderedAccessViews(UINT Star
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetShader(ID3D11ComputeShader* pComputeShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSSetShader(ID3D11ComputeShader* pComputeShader, ID3D11ClassInstance*const* ppClassInstances, UINT NumClassInstances)
 {
     SetSlot(_state.cs, static_cast<D3D11ComputeShaderSW*>(pComputeShader));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSSetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState*const* ppSamplers)
 {
     SetSlots(_state.csSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW*const*>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSSetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers)
 {
     SetSlots(_state.csCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -400,31 +447,37 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetConstantBuffers(UINT StartSlot
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::SetResourceMinLOD(ID3D11Resource* pResource, FLOAT MinLOD)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::SetResourceMinLOD(ID3D11Resource* pResource, FLOAT MinLOD)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexed(UINT IndexCount, UINT StartIndexLocation, INT BaseVertexLocation)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DrawIndexed(UINT IndexCount, UINT StartIndexLocation, INT BaseVertexLocation)
 {
     _rasterizer.DrawIndexed(IndexCount, StartIndexLocation, BaseVertexLocation, 1, 0, _state);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::Draw(UINT VertexCount, UINT StartVertexLocation)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Draw(UINT VertexCount, UINT StartVertexLocation)
 {
     _rasterizer.Draw(VertexCount, StartVertexLocation, 1, 0, _state);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstanced(UINT IndexCountPerInstance, UINT InstanceCount, UINT StartIndexLocation, INT BaseVertexLocation, UINT StartInstanceLocation)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DrawIndexedInstanced(UINT IndexCountPerInstance, UINT InstanceCount, UINT StartIndexLocation, INT BaseVertexLocation, UINT StartInstanceLocation)
 {
     _rasterizer.DrawIndexed(IndexCountPerInstance, StartIndexLocation, BaseVertexLocation, InstanceCount, StartInstanceLocation, _state);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstanced(UINT VertexCountPerInstance, UINT InstanceCount, UINT StartVertexLocation, UINT StartInstanceLocation)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DrawInstanced(UINT VertexCountPerInstance, UINT InstanceCount, UINT StartVertexLocation, UINT StartInstanceLocation)
 {
     _rasterizer.Draw(VertexCountPerInstance, StartVertexLocation, InstanceCount, StartInstanceLocation, _state);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawAuto()
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DrawAuto()
 {
     Uint32 vertexCount = _state.soTargets[0].vertexCount;
     if (vertexCount > 0)
@@ -433,7 +486,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawAuto()
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DrawIndexedInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
     D3D11_DRAW_INDEXED_INSTANCED_INDIRECT_ARGS args{};
@@ -441,7 +495,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawIndexedInstancedIndirect(ID3D11
     _rasterizer.DrawIndexed(args.IndexCountPerInstance, args.StartIndexLocation, args.BaseVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DrawInstancedIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
     D3D11_DRAW_INSTANCED_INDIRECT_ARGS args{};
@@ -449,12 +504,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DrawInstancedIndirect(ID3D11Buffer*
     _rasterizer.Draw(args.VertexCountPerInstance, args.StartVertexLocation, args.InstanceCount, args.StartInstanceLocation, _state);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::Dispatch(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Dispatch(UINT ThreadGroupCountX, UINT ThreadGroupCountY, UINT ThreadGroupCountZ)
 {
     _dispatcher.Dispatch(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ, _state);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DispatchIndirect(ID3D11Buffer* pBufferForArgs, UINT AlignedByteOffsetForArgs)
 {
     D3D11BufferSW* buf = static_cast<D3D11BufferSW*>(pBufferForArgs);
     Uint8* ptr = static_cast<Uint8*>(buf->GetDataPtr()) + AlignedByteOffsetForArgs;
@@ -463,29 +520,51 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DispatchIndirect(ID3D11Buffer* pBuf
     _dispatcher.Dispatch(counts[0], counts[1], counts[2], _state);
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::Map(ID3D11Resource* pResource, UINT Subresource, D3D11_MAP MapType, UINT MapFlags, D3D11_MAPPED_SUBRESOURCE* pMappedResource)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Map(ID3D11Resource* pResource, UINT Subresource, D3D11_MAP MapType, UINT MapFlags, D3D11_MAPPED_SUBRESOURCE* pMappedResource)
 {
     if (!pResource)
     {
+        DebugMsg("Map: pResource is null");
         return E_INVALIDARG;
     }
 
-    HRESULT hr = E_NOTIMPL;
-    RunOnSWResource(pResource, [&](auto* res) 
-    {
-        if (!pMappedResource)
-        {
-            D3D11_RESOURCE_DIMENSION dim = D3D11_RESOURCE_DIMENSION_UNKNOWN;
-            res->GetType(&dim);
-            if (dim == D3D11_RESOURCE_DIMENSION_BUFFER || res->GetUsage() != D3D11_USAGE_DEFAULT)
-            {
-                hr = E_INVALIDARG;
-                return;
-            }
-            hr = S_OK;
-            return;
-        }
+    D3D11_USAGE usage = GetSWResourceUsage(pResource);
+    UINT cpuFlags = GetSWResourceCPUAccessFlags(pResource);
 
+    if (usage == D3D11_USAGE_DEFAULT)
+    {
+        DebugMsg("Map: cannot map a resource with D3D11_USAGE_DEFAULT");
+        return E_INVALIDARG;
+    }
+
+    if ((MapType == D3D11_MAP_READ || MapType == D3D11_MAP_READ_WRITE) && !(cpuFlags & D3D11_CPU_ACCESS_READ))
+    {
+        DebugMsg("Map: MAP_READ/READ_WRITE requires D3D11_CPU_ACCESS_READ");
+        return E_INVALIDARG;
+    }
+
+    if ((MapType == D3D11_MAP_WRITE || MapType == D3D11_MAP_READ_WRITE ||
+         MapType == D3D11_MAP_WRITE_DISCARD || MapType == D3D11_MAP_WRITE_NO_OVERWRITE) && !(cpuFlags & D3D11_CPU_ACCESS_WRITE))
+    {
+        DebugMsg("Map: write map types require D3D11_CPU_ACCESS_WRITE");
+        return E_INVALIDARG;
+    }
+
+    if ((MapType == D3D11_MAP_WRITE_DISCARD || MapType == D3D11_MAP_WRITE_NO_OVERWRITE) && usage != D3D11_USAGE_DYNAMIC)
+    {
+        DebugMsg("Map: MAP_WRITE_DISCARD/NO_OVERWRITE requires D3D11_USAGE_DYNAMIC");
+        return E_INVALIDARG;
+    }
+
+    if (!pMappedResource)
+    {
+        return S_OK;
+    }
+
+    HRESULT hr = E_FAIL;
+    RunOnSWResource(pResource, [&](auto* res)
+    {
         auto layout                 = res->GetSubresourceLayout(Subresource);
         pMappedResource->pData      = static_cast<Uint8*>(res->GetDataPtr()) + layout.Offset;
         pMappedResource->RowPitch   = layout.RowPitch;
@@ -495,11 +574,13 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::Map(ID3D11Resource* pResource, U
     return hr;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::Unmap(ID3D11Resource* pResource, UINT Subresource)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Unmap(ID3D11Resource* pResource, UINT Subresource)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CopySubresourceRegion(ID3D11Resource* pDstResource, UINT DstSubresource, UINT DstX, UINT DstY, UINT DstZ, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CopySubresourceRegion(ID3D11Resource* pDstResource, UINT DstSubresource, UINT DstX, UINT DstY, UINT DstZ, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox)
 {
     RunOnSWResource(pSrcResource, [&](auto* src) 
     {
@@ -535,7 +616,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CopySubresourceRegion(ID3D11Resourc
     });
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyResource(ID3D11Resource* pDstResource, ID3D11Resource* pSrcResource)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CopyResource(ID3D11Resource* pDstResource, ID3D11Resource* pSrcResource)
 {
     RunOnSWResource(pSrcResource, [&](auto* src) 
     {
@@ -549,10 +631,25 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyResource(ID3D11Resource* pDstRe
     });
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::UpdateSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
 {
-    if (!pSrcData) 
+    if (!pSrcData)
     {
+        DebugMsg("UpdateSubresource: pSrcData is null");
+        return;
+    }
+
+    if (!pDstResource)
+    {
+        DebugMsg("UpdateSubresource: pDstResource is null");
+        return;
+    }
+
+    D3D11_USAGE usage = GetSWResourceUsage(pDstResource);
+    if (usage == D3D11_USAGE_IMMUTABLE)
+    {
+        DebugMsg("UpdateSubresource: cannot update a resource with D3D11_USAGE_IMMUTABLE");
         return;
     }
 
@@ -567,7 +664,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource(ID3D11Resource* p
     });
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyStructureCount(ID3D11Buffer* pDstBuffer, UINT DstAlignedByteOffset, ID3D11UnorderedAccessView* pSrcView)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CopyStructureCount(ID3D11Buffer* pDstBuffer, UINT DstAlignedByteOffset, ID3D11UnorderedAccessView* pSrcView)
 {
     if (!pDstBuffer || !pSrcView)
     {
@@ -579,7 +677,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyStructureCount(ID3D11Buffer* pD
     std::memcpy(static_cast<Uint8*>(buf->GetDataPtr()) + DstAlignedByteOffset, &count, sizeof(Uint));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearRenderTargetView(ID3D11RenderTargetView* pRenderTargetView, const FLOAT ColorRGBA[4])
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ClearRenderTargetView(ID3D11RenderTargetView* pRenderTargetView, const FLOAT ColorRGBA[4])
 {
     if (!pRenderTargetView)
     {
@@ -597,7 +696,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearRenderTargetView(ID3D11RenderT
     });
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewUint(ID3D11UnorderedAccessView* pUnorderedAccessView, const UINT Values[4])
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ClearUnorderedAccessViewUint(ID3D11UnorderedAccessView* pUnorderedAccessView, const UINT Values[4])
 {
     if (!pUnorderedAccessView)
     {
@@ -615,7 +715,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewUint(ID3D11
     });
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewFloat(ID3D11UnorderedAccessView* pUnorderedAccessView, const FLOAT Values[4])
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ClearUnorderedAccessViewFloat(ID3D11UnorderedAccessView* pUnorderedAccessView, const FLOAT Values[4])
 {
     if (!pUnorderedAccessView)
     {
@@ -633,7 +734,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearUnorderedAccessViewFloat(ID3D1
     });
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthStencilView* pDepthStencilView, UINT ClearFlags, FLOAT Depth, UINT8 Stencil)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ClearDepthStencilView(ID3D11DepthStencilView* pDepthStencilView, UINT ClearFlags, FLOAT Depth, UINT8 Stencil)
 {
     if (!pDepthStencilView)
     {
@@ -736,7 +838,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearDepthStencilView(ID3D11DepthSt
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GenerateMips(ID3D11ShaderResourceView* pShaderResourceView)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GenerateMips(ID3D11ShaderResourceView* pShaderResourceView)
 {
     if (!pShaderResourceView)
     {
@@ -833,19 +936,22 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::GenerateMips(ID3D11ShaderResourceVi
     resource->Release();
 }
 
-FLOAT STDMETHODCALLTYPE D3D11DeviceContextSW::GetResourceMinLOD(ID3D11Resource* pResource)
+template<Bool IsDebug>
+FLOAT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GetResourceMinLOD(ID3D11Resource* pResource)
 {
     return 0.0f;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ResolveSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, ID3D11Resource* pSrcResource, UINT SrcSubresource, DXGI_FORMAT Format)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ResolveSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, ID3D11Resource* pSrcResource, UINT SrcSubresource, DXGI_FORMAT Format)
 {
     //Atm, all MS Textures are forced to have 1 sample, 
     //this implementation should change once we have proper implementation
     CopySubresourceRegion(pDstResource, DstSubresource, 0, 0, 0, pSrcResource, SrcSubresource, nullptr);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::Begin(ID3D11Asynchronous* pAsync)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Begin(ID3D11Asynchronous* pAsync)
 {
     if (!pAsync)
     {
@@ -860,7 +966,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::Begin(ID3D11Asynchronous* pAsync)
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::End(ID3D11Asynchronous* pAsync)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::End(ID3D11Asynchronous* pAsync)
 {
     if (!pAsync)
     {
@@ -875,7 +982,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::End(ID3D11Asynchronous* pAsync)
     }
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::GetData(ID3D11Asynchronous* pAsync, void* pData, UINT DataSize, UINT GetDataFlags)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GetData(ID3D11Asynchronous* pAsync, void* pData, UINT DataSize, UINT GetDataFlags)
 {
     if (!pAsync)
     {
@@ -893,11 +1001,13 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::GetData(ID3D11Asynchronous* pAsy
     return E_INVALIDARG;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ExecuteCommandList(ID3D11CommandList* pCommandList, BOOL RestoreContextState)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ExecuteCommandList(ID3D11CommandList* pCommandList, BOOL RestoreContextState)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearState()
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ClearState()
 {
     _state.ReleaseAll();
     _state = {};
@@ -906,36 +1016,43 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearState()
     _state.sampleMask = 0xFFFFFFFF;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::Flush()
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Flush()
 {
 }
 
-D3D11_DEVICE_CONTEXT_TYPE STDMETHODCALLTYPE D3D11DeviceContextSW::GetType()
+template<Bool IsDebug>
+D3D11_DEVICE_CONTEXT_TYPE STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GetType()
 {
     return D3D11_DEVICE_CONTEXT_IMMEDIATE;
 }
 
-UINT STDMETHODCALLTYPE D3D11DeviceContextSW::GetContextFlags()
+template<Bool IsDebug>
+UINT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GetContextFlags()
 {
     return 0;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::FinishCommandList(BOOL RestoreDeferredContextState, ID3D11CommandList** ppCommandList)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::FinishCommandList(BOOL RestoreDeferredContextState, ID3D11CommandList** ppCommandList)
 {
     return DXGI_ERROR_INVALID_CALL;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
 {
     GetSlots(_state.vsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
 {
     GetSlots(_state.psSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW**>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSGetShader(ID3D11PixelShader** ppPixelShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSGetShader(ID3D11PixelShader** ppPixelShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
 {
     if (ppPixelShader)
     {
@@ -951,12 +1068,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::PSGetShader(ID3D11PixelShader** ppP
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
 {
     GetSlots(_state.psSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW**>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetShader(ID3D11VertexShader** ppVertexShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSGetShader(ID3D11VertexShader** ppVertexShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
 {
     if (ppVertexShader)
     {
@@ -972,12 +1091,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetShader(ID3D11VertexShader** pp
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
 {
     GetSlots(_state.psCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetInputLayout(ID3D11InputLayout** ppInputLayout)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IAGetInputLayout(ID3D11InputLayout** ppInputLayout)
 {
     if (ppInputLayout)
     {
@@ -989,7 +1110,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetInputLayout(ID3D11InputLayout*
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetVertexBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppVertexBuffers, UINT* pStrides, UINT* pOffsets)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IAGetVertexBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppVertexBuffers, UINT* pStrides, UINT* pOffsets)
 {
     for (Uint i = 0; i < NumBuffers; i++)
     {
@@ -1012,7 +1134,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetVertexBuffers(UINT StartSlot, 
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetIndexBuffer(ID3D11Buffer** pIndexBuffer, DXGI_FORMAT* Format, UINT* Offset)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IAGetIndexBuffer(ID3D11Buffer** pIndexBuffer, DXGI_FORMAT* Format, UINT* Offset)
 {
     if (pIndexBuffer)
     {
@@ -1032,7 +1155,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetIndexBuffer(ID3D11Buffer** pIn
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY* pTopology)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IAGetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY* pTopology)
 {
     if (pTopology)
     {
@@ -1040,12 +1164,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::IAGetPrimitiveTopology(D3D11_PRIMIT
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
 {
     GetSlots(_state.gsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSGetShader(ID3D11GeometryShader** ppGeometryShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSGetShader(ID3D11GeometryShader** ppGeometryShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
 {
     if (ppGeometryShader)
     {
@@ -1061,31 +1187,37 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::GSGetShader(ID3D11GeometryShader** 
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
 {
     GetSlots(_state.vsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW**>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
 {
     GetSlots(_state.vsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW**>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GetPredication(ID3D11Predicate** ppPredicate, BOOL* pPredicateValue)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GetPredication(ID3D11Predicate** ppPredicate, BOOL* pPredicateValue)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
 {
     GetSlots(_state.gsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW**>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
 {
     GetSlots(_state.gsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW**>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargets(UINT NumViews, ID3D11RenderTargetView** ppRenderTargetViews, ID3D11DepthStencilView** ppDepthStencilView)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMGetRenderTargets(UINT NumViews, ID3D11RenderTargetView** ppRenderTargetViews, ID3D11DepthStencilView** ppDepthStencilView)
 {
     if (ppRenderTargetViews)
     {
@@ -1108,7 +1240,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargets(UINT NumViews, I
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargetsAndUnorderedAccessViews(UINT NumRTVs, ID3D11RenderTargetView** ppRenderTargetViews, ID3D11DepthStencilView** ppDepthStencilView, UINT UAVStartSlot, UINT NumUAVs, ID3D11UnorderedAccessView** ppUnorderedAccessViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMGetRenderTargetsAndUnorderedAccessViews(UINT NumRTVs, ID3D11RenderTargetView** ppRenderTargetViews, ID3D11DepthStencilView** ppDepthStencilView, UINT UAVStartSlot, UINT NumUAVs, ID3D11UnorderedAccessView** ppUnorderedAccessViews)
 {
     if (ppRenderTargetViews)
     {
@@ -1143,7 +1276,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetRenderTargetsAndUnorderedAcces
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetBlendState(ID3D11BlendState** ppBlendState, FLOAT BlendFactor[4], UINT* pSampleMask)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMGetBlendState(ID3D11BlendState** ppBlendState, FLOAT BlendFactor[4], UINT* pSampleMask)
 {
     if (ppBlendState)
     {
@@ -1163,7 +1297,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetBlendState(ID3D11BlendState** 
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetDepthStencilState(ID3D11DepthStencilState** ppDepthStencilState, UINT* pStencilRef)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::OMGetDepthStencilState(ID3D11DepthStencilState** ppDepthStencilState, UINT* pStencilRef)
 {
     if (ppDepthStencilState)
     {
@@ -1179,7 +1314,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::OMGetDepthStencilState(ID3D11DepthS
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::SOGetTargets(UINT NumBuffers, ID3D11Buffer** ppSOTargets)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::SOGetTargets(UINT NumBuffers, ID3D11Buffer** ppSOTargets)
 {
     if (!ppSOTargets)
     {
@@ -1196,7 +1332,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::SOGetTargets(UINT NumBuffers, ID3D1
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetState(ID3D11RasterizerState** ppRasterizerState)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::RSGetState(ID3D11RasterizerState** ppRasterizerState)
 {
     if (ppRasterizerState)
     {
@@ -1208,7 +1345,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetState(ID3D11RasterizerState** 
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetViewports(UINT* pNumViewports, D3D11_VIEWPORT* pViewports)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::RSGetViewports(UINT* pNumViewports, D3D11_VIEWPORT* pViewports)
 {
     if (pNumViewports)
     {
@@ -1221,7 +1359,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetViewports(UINT* pNumViewports,
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetScissorRects(UINT* pNumRects, D3D11_RECT* pRects)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::RSGetScissorRects(UINT* pNumRects, D3D11_RECT* pRects)
 {
     if (pNumRects)
     {
@@ -1234,12 +1373,14 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::RSGetScissorRects(UINT* pNumRects, 
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
 {
     GetSlots(_state.hsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW**>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSGetShader(ID3D11HullShader** ppHullShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSGetShader(ID3D11HullShader** ppHullShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
 {
     if (ppHullShader)
     {
@@ -1255,22 +1396,26 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::HSGetShader(ID3D11HullShader** ppHu
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
 {
     GetSlots(_state.hsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW**>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
 {
     GetSlots(_state.hsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
 {
     GetSlots(_state.dsSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW**>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSGetShader(ID3D11DomainShader** ppDomainShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSGetShader(ID3D11DomainShader** ppDomainShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
 {
     if (ppDomainShader)
     {
@@ -1286,26 +1431,31 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DSGetShader(ID3D11DomainShader** pp
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
 {
     GetSlots(_state.dsSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW**>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
 {
     GetSlots(_state.dsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSGetShaderResources(UINT StartSlot, UINT NumViews, ID3D11ShaderResourceView** ppShaderResourceViews)
 {
     GetSlots(_state.csSRVs, StartSlot, NumViews, reinterpret_cast<D3D11ShaderResourceViewSW**>(ppShaderResourceViews));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetUnorderedAccessViews(UINT StartSlot, UINT NumUAVs, ID3D11UnorderedAccessView** ppUnorderedAccessViews)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSGetUnorderedAccessViews(UINT StartSlot, UINT NumUAVs, ID3D11UnorderedAccessView** ppUnorderedAccessViews)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetShader(ID3D11ComputeShader** ppComputeShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSGetShader(ID3D11ComputeShader** ppComputeShader, ID3D11ClassInstance** ppClassInstances, UINT* pNumClassInstances)
 {
     if (ppComputeShader)
     {
@@ -1321,37 +1471,44 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetShader(ID3D11ComputeShader** p
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSGetSamplers(UINT StartSlot, UINT NumSamplers, ID3D11SamplerState** ppSamplers)
 {
     GetSlots(_state.csSamplers, StartSlot, NumSamplers, reinterpret_cast<D3D11SamplerStateSW**>(ppSamplers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSGetConstantBuffers(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers)
 {
     GetSlots(_state.csCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
 // ---- ID3D11DeviceContext1 ----
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CopySubresourceRegion1(ID3D11Resource* pDstResource, UINT DstSubresource, UINT DstX, UINT DstY, UINT DstZ, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox, UINT CopyFlags)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CopySubresourceRegion1(ID3D11Resource* pDstResource, UINT DstSubresource, UINT DstX, UINT DstY, UINT DstZ, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox, UINT CopyFlags)
 {
     CopySubresourceRegion(pDstResource, DstSubresource, DstX, DstY, DstZ, pSrcResource, SrcSubresource, pSrcBox);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource1(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch, UINT CopyFlags)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::UpdateSubresource1(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch, UINT CopyFlags)
 {
     UpdateSubresource(pDstResource, DstSubresource, pDstBox, pSrcData, SrcRowPitch, SrcDepthPitch);
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DiscardResource(ID3D11Resource* pResource)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DiscardResource(ID3D11Resource* pResource)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DiscardView(ID3D11View* pResourceView)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DiscardView(ID3D11View* pResourceView)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
     SetSlots(_state.vsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -1360,7 +1517,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::VSSetConstantBuffers1(UINT StartSlo
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
     SetSlots(_state.hsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -1369,7 +1527,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::HSSetConstantBuffers1(UINT StartSlo
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
     SetSlots(_state.dsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -1378,7 +1537,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::DSSetConstantBuffers1(UINT StartSlo
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
     SetSlots(_state.gsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -1387,7 +1547,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::GSSetConstantBuffers1(UINT StartSlo
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
     SetSlots(_state.psCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -1396,7 +1557,8 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::PSSetConstantBuffers1(UINT StartSlo
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSSetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer*const* ppConstantBuffers, const UINT* pFirstConstant, const UINT* pNumConstants)
 {
     SetSlots(_state.csCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW*const*>(ppConstantBuffers));
     for (Uint i = 0; i < NumBuffers; ++i)
@@ -1405,118 +1567,152 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CSSetConstantBuffers1(UINT StartSlo
     }
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::VSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::VSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
 {
     GetSlots(_state.vsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::HSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::HSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
 {
     GetSlots(_state.hsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
 {
     GetSlots(_state.dsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
 {
     GetSlots(_state.gsCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::PSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::PSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
 {
     GetSlots(_state.psCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CSGetConstantBuffers1(UINT StartSlot, UINT NumBuffers, ID3D11Buffer** ppConstantBuffers, UINT* pFirstConstant, UINT* pNumConstants)
 {
     GetSlots(_state.csCBs, StartSlot, NumBuffers, reinterpret_cast<D3D11BufferSW**>(ppConstantBuffers));
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::SwapDeviceContextState(ID3DDeviceContextState* pState, ID3DDeviceContextState** ppPreviousState)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::SwapDeviceContextState(ID3DDeviceContextState* pState, ID3DDeviceContextState** ppPreviousState)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::ClearView(ID3D11View* pView, const FLOAT Color[4], const D3D11_RECT* pRect, UINT NumRects)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ClearView(ID3D11View* pView, const FLOAT Color[4], const D3D11_RECT* pRect, UINT NumRects)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::DiscardView1(ID3D11View* pResourceView, const D3D11_RECT* pRects, UINT NumRects)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::DiscardView1(ID3D11View* pResourceView, const D3D11_RECT* pRects, UINT NumRects)
 {
 }
 
 // ---- ID3D11DeviceContext2 ----
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateTileMappings(ID3D11Resource* pTiledResource, UINT NumTiledResourceRegions, const D3D11_TILED_RESOURCE_COORDINATE* pTiledResourceRegionStartCoordinates, const D3D11_TILE_REGION_SIZE* pTiledResourceRegionSizes, ID3D11Buffer* pTilePool, UINT NumRanges, const UINT* pRangeFlags, const UINT* pTilePoolStartOffsets, const UINT* pRangeTileCounts, UINT Flags)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::UpdateTileMappings(ID3D11Resource* pTiledResource, UINT NumTiledResourceRegions, const D3D11_TILED_RESOURCE_COORDINATE* pTiledResourceRegionStartCoordinates, const D3D11_TILE_REGION_SIZE* pTiledResourceRegionSizes, ID3D11Buffer* pTilePool, UINT NumRanges, const UINT* pRangeFlags, const UINT* pTilePoolStartOffsets, const UINT* pRangeTileCounts, UINT Flags)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::CopyTileMappings(ID3D11Resource* pDestTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pDestRegionStartCoordinate, ID3D11Resource* pSourceTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pSourceRegionStartCoordinate, const D3D11_TILE_REGION_SIZE* pTileRegionSize, UINT Flags)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CopyTileMappings(ID3D11Resource* pDestTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pDestRegionStartCoordinate, ID3D11Resource* pSourceTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pSourceRegionStartCoordinate, const D3D11_TILE_REGION_SIZE* pTileRegionSize, UINT Flags)
 {
     return E_NOTIMPL;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::CopyTiles(ID3D11Resource* pTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pTileRegionStartCoordinate, const D3D11_TILE_REGION_SIZE* pTileRegionSize, ID3D11Buffer* pBuffer, UINT64 BufferStartOffsetInBytes, UINT Flags)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::CopyTiles(ID3D11Resource* pTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pTileRegionStartCoordinate, const D3D11_TILE_REGION_SIZE* pTileRegionSize, ID3D11Buffer* pBuffer, UINT64 BufferStartOffsetInBytes, UINT Flags)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateTiles(ID3D11Resource* pDestTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pDestTileRegionStartCoordinate, const D3D11_TILE_REGION_SIZE* pDestTileRegionSize, const void* pSourceTileData, UINT Flags)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::UpdateTiles(ID3D11Resource* pDestTiledResource, const D3D11_TILED_RESOURCE_COORDINATE* pDestTileRegionStartCoordinate, const D3D11_TILE_REGION_SIZE* pDestTileRegionSize, const void* pSourceTileData, UINT Flags)
 {
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::ResizeTilePool(ID3D11Buffer* pTilePool, UINT64 NewSizeInBytes)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ResizeTilePool(ID3D11Buffer* pTilePool, UINT64 NewSizeInBytes)
 {
     return E_NOTIMPL;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::TiledResourceBarrier(ID3D11DeviceChild* pTiledResourceOrViewAccessBeforeBarrier, ID3D11DeviceChild* pTiledResourceOrViewAccessAfterBarrier)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::TiledResourceBarrier(ID3D11DeviceChild* pTiledResourceOrViewAccessBeforeBarrier, ID3D11DeviceChild* pTiledResourceOrViewAccessAfterBarrier)
 {
 }
 
-BOOL STDMETHODCALLTYPE D3D11DeviceContextSW::IsAnnotationEnabled()
+template<Bool IsDebug>
+BOOL STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::IsAnnotationEnabled()
 {
     return FALSE;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::SetMarkerInt(LPCWSTR pLabel, INT Data)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::SetMarkerInt(LPCWSTR pLabel, INT Data)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::BeginEventInt(LPCWSTR pLabel, INT Data)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::BeginEventInt(LPCWSTR pLabel, INT Data)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::EndEvent()
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::EndEvent()
 {
 }
 
 // ---- ID3D11DeviceContext3 ----
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::Flush1(D3D11_CONTEXT_TYPE ContextType, HANDLE hEvent)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Flush1(D3D11_CONTEXT_TYPE ContextType, HANDLE hEvent)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::SetHardwareProtectionState(BOOL HwProtectionEnable)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::SetHardwareProtectionState(BOOL HwProtectionEnable)
 {
 }
 
-void STDMETHODCALLTYPE D3D11DeviceContextSW::GetHardwareProtectionState(BOOL* pHwProtectionEnable)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GetHardwareProtectionState(BOOL* pHwProtectionEnable)
 {
 }
 
 // ---- ID3D11DeviceContext4 ----
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::Signal(ID3D11Fence* pFence, UINT64 Value)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Signal(ID3D11Fence* pFence, UINT64 Value)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceContextSW::Wait(ID3D11Fence* pFence, UINT64 Value)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::Wait(ID3D11Fence* pFence, UINT64 Value)
 {
     return E_NOTIMPL;
 }
+
+template<Bool IsDebug>
+template<typename... ArgsT>
+void D3D11DeviceContextSWImpl<IsDebug>::DebugMsg(const Char* fmt, ArgsT&&... args) const
+{
+    if constexpr (IsDebug) { D3D11SW_WARN(fmt, std::forward<ArgsT>(args)...); }
+}
+
+template class D3D11DeviceContextSWImpl<false>;
+template class D3D11DeviceContextSWImpl<true>;
 
 }

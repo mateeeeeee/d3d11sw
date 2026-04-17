@@ -574,14 +574,23 @@ TEST_F(ContextStateTests, CopyStructureCount_WritesZero)
 
     context->CopyStructureCount(dst, 0, uav);
 
+    D3D11_BUFFER_DESC stagingDesc = {};
+    stagingDesc.ByteWidth      = 256;
+    stagingDesc.Usage          = D3D11_USAGE_STAGING;
+    stagingDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    ID3D11Buffer* staging = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&stagingDesc, nullptr, &staging)));
+    context->CopyResource(staging, dst);
+
     D3D11_MAPPED_SUBRESOURCE mapped{};
-    ASSERT_TRUE(SUCCEEDED(context->Map(dst, 0, D3D11_MAP_READ, 0, &mapped)));
+    ASSERT_TRUE(SUCCEEDED(context->Map(staging, 0, D3D11_MAP_READ, 0, &mapped)));
     UINT result = 0;
     std::memcpy(&result, mapped.pData, sizeof(UINT));
-    context->Unmap(dst, 0);
+    context->Unmap(staging, 0);
 
     EXPECT_EQ(result, 0u);
 
+    staging->Release();
     uav->Release();
     dst->Release();
 }

@@ -6,19 +6,18 @@
 namespace d3d11sw {
 
 
-class D3D11DeviceContextSW;
-
-class D3D11DeviceSW final : public ID3D11Device5, private UnknownBase
+template<Bool IsDebug>
+class D3D11DeviceSWImpl final : public ID3D11Device5, private UnknownBase
 {
 public:
-    D3D11DeviceSW();
-    ~D3D11DeviceSW() override;
+    D3D11DeviceSWImpl();
+    ~D3D11DeviceSWImpl() override;
 
     ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
     ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
-    void SetImmediateContext(D3D11DeviceContextSW* ctx);
+    void SetImmediateContext(ID3D11DeviceContext* ctx);
 
     // ID3D11Device
     HRESULT STDMETHODCALLTYPE CreateBuffer(const D3D11_BUFFER_DESC* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Buffer** ppBuffer) override;
@@ -99,11 +98,17 @@ public:
     HRESULT STDMETHODCALLTYPE CreateFence(UINT64 InitialValue, D3D11_FENCE_FLAG Flags, REFIID ReturnedInterface, void** ppFence) override;
 
 private:
-    D3D11DeviceContextSW* _immediateContext = nullptr;
+    ID3D11DeviceContext* _immediateContext = nullptr;
 
 private:
+    template<typename... ArgsT>
+    void DebugMsg(const Char* fmt, ArgsT&&... args) const;
+
     template<typename T, typename... ArgsT>
     HRESULT CreateAndInit(T** ppOut, ArgsT&&... args);
 };
+
+using D3D11DeviceSW      = D3D11DeviceSWImpl<false>;
+using D3D11DebugDeviceSW = D3D11DeviceSWImpl<true>;
 
 }

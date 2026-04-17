@@ -61,9 +61,10 @@ TEST_F(BufferTests, CreationWithInitialData)
     UINT8 data[16] = { 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 };
 
     D3D11_BUFFER_DESC desc = {};
-    desc.ByteWidth = sizeof(data);
-    desc.Usage     = D3D11_USAGE_DYNAMIC;
-    desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+    desc.ByteWidth      = sizeof(data);
+    desc.Usage          = D3D11_USAGE_DYNAMIC;
+    desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 
     D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = data;
@@ -83,9 +84,8 @@ TEST_F(BufferTests, MapUnmapRoundtrip)
 
     D3D11_BUFFER_DESC desc = {};
     desc.ByteWidth      = sizeof(data);
-    desc.Usage          = D3D11_USAGE_DYNAMIC;
-    desc.BindFlags      = D3D11_BIND_VERTEX_BUFFER;
-    desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    desc.Usage          = D3D11_USAGE_STAGING;
+    desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE | D3D11_CPU_ACCESS_READ;
 
     D3D11_SUBRESOURCE_DATA initData = {};
     initData.pSysMem = data;
@@ -95,7 +95,7 @@ TEST_F(BufferTests, MapUnmapRoundtrip)
     ASSERT_TRUE(SUCCEEDED(hr));
 
     D3D11_MAPPED_SUBRESOURCE mapped = {};
-    hr = context->Map(buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+    hr = context->Map(buffer, 0, D3D11_MAP_WRITE, 0, &mapped);
     ASSERT_TRUE(SUCCEEDED(hr));
     ASSERT_NE(mapped.pData, nullptr);
 

@@ -9,11 +9,12 @@
 namespace d3d11sw {
 
 
-class D3D11SW_API D3D11DeviceContextSW final : public DeviceChildImpl<ID3D11DeviceContext4>
+template<Bool IsDebug>
+class D3D11SW_API D3D11DeviceContextSWImpl final : public DeviceChildImpl<ID3D11DeviceContext4>
 {
 public:
-    explicit D3D11DeviceContextSW(ID3D11Device* device);
-    ~D3D11DeviceContextSW();
+    explicit D3D11DeviceContextSWImpl(ID3D11Device* device);
+    ~D3D11DeviceContextSWImpl();
 
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
@@ -176,6 +177,13 @@ private:
     D3D11SW_PIPELINE_STATE  _state{};
     SWDispatcher            _dispatcher;
     SWRasterizer            _rasterizer;
+
+private:
+    template<typename... ArgsT>
+    void DebugMsg(const Char* fmt, ArgsT&&... args) const;
 };
+
+using D3D11DeviceContextSW      = D3D11DeviceContextSWImpl<false>;
+using D3D11DebugDeviceContextSW = D3D11DeviceContextSWImpl<true>;
 
 }

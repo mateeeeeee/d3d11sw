@@ -1,5 +1,6 @@
 #include <new>
 #include "device.h"
+#include "common/log.h"
 #include "context/context.h"
 #include "resources/buffer.h"
 #include "resources/texture1d.h"
@@ -27,8 +28,9 @@
 namespace d3d11sw {
 
 
+template<Bool IsDebug>
 template<typename T, typename... ArgsT>
-HRESULT D3D11DeviceSW::CreateAndInit(T** ppOut, ArgsT&&... args)
+HRESULT D3D11DeviceSWImpl<IsDebug>::CreateAndInit(T** ppOut, ArgsT&&... args)
 {
 	try
 	{
@@ -42,7 +44,8 @@ HRESULT D3D11DeviceSW::CreateAndInit(T** ppOut, ArgsT&&... args)
 	catch (...) { return E_FAIL; }
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::QueryInterface(REFIID riid, void** ppv)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::QueryInterface(REFIID riid, void** ppv)
 {
     if (!ppv)
     {
@@ -89,36 +92,85 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::QueryInterface(REFIID riid, void** ppv)
     return S_OK;
 }
 
-D3D11DeviceSW::D3D11DeviceSW()
+template<Bool IsDebug>
+D3D11DeviceSWImpl<IsDebug>::D3D11DeviceSWImpl()
 {
 }
 
-D3D11DeviceSW::~D3D11DeviceSW()
+template<Bool IsDebug>
+D3D11DeviceSWImpl<IsDebug>::~D3D11DeviceSWImpl()
 {
 }
 
-void D3D11DeviceSW::SetImmediateContext(D3D11DeviceContextSW* ctx)
+template<Bool IsDebug>
+void D3D11DeviceSWImpl<IsDebug>::SetImmediateContext(ID3D11DeviceContext* ctx)
 {
     _immediateContext = ctx;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBuffer(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateBuffer(
     const D3D11_BUFFER_DESC*      pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Buffer**                ppBuffer)
 {
     if (!pDesc)
     {
+        DebugMsg("CreateBuffer: pDesc is null");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->ByteWidth == 0)
+    {
+        DebugMsg("CreateBuffer: ByteWidth is 0");
         return E_INVALIDARG;
     }
 
     if (pDesc->BindFlags & D3D11_BIND_DEPTH_STENCIL)
     {
+        DebugMsg("CreateBuffer: BIND_DEPTH_STENCIL is not valid for buffers");
+        return E_INVALIDARG;
+    }
+
+    if ((pDesc->BindFlags & D3D11_BIND_CONSTANT_BUFFER) && (pDesc->ByteWidth % 16 != 0))
+    {
+        DebugMsg("CreateBuffer: constant buffer ByteWidth ({}) must be a multiple of 16", pDesc->ByteWidth);
         return E_INVALIDARG;
     }
 
     if ((pDesc->MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED) && pDesc->StructureByteStride == 0)
     {
+        DebugMsg("CreateBuffer: structured buffer requires StructureByteStride > 0");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
+    {
+        DebugMsg("CreateBuffer: IMMUTABLE usage requires pInitialData");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_DEFAULT && pDesc->CPUAccessFlags != 0)
+    {
+        DebugMsg("CreateBuffer: DEFAULT usage cannot have CPUAccessFlags");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && pDesc->CPUAccessFlags != 0)
+    {
+        DebugMsg("CreateBuffer: IMMUTABLE usage cannot have CPUAccessFlags");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_DYNAMIC && pDesc->CPUAccessFlags != D3D11_CPU_ACCESS_WRITE)
+    {
+        DebugMsg("CreateBuffer: DYNAMIC usage requires CPUAccessFlags = D3D11_CPU_ACCESS_WRITE");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_STAGING && pDesc->BindFlags != 0)
+    {
+        DebugMsg("CreateBuffer: STAGING usage cannot be bound to the pipeline (BindFlags must be 0)");
         return E_INVALIDARG;
     }
 
@@ -141,7 +193,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBuffer(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture1D(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture1D(
     const D3D11_TEXTURE1D_DESC* pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture1D** ppTexture1D)
@@ -162,8 +215,6 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture1D(
         return flagsHr;
     }
 
-    //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture1d
-    //Applications can't specify NULL for pInitialData when creating IMMUTABLE resources
     if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
     {
         return E_INVALIDARG;
@@ -186,37 +237,91 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture1D(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture2D(
     const D3D11_TEXTURE2D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture2D**             ppTexture2D)
 {
     if (!pDesc)
     {
+        DebugMsg("CreateTexture2D: pDesc is null");
         return E_INVALIDARG;
+    }
+
+    if (pDesc->Width == 0 || pDesc->Width > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION)
+    {
+        DebugMsg("CreateTexture2D: Width ({}) must be in range [1, {}]", pDesc->Width, D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION);
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Height == 0 || pDesc->Height > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION)
+    {
+        DebugMsg("CreateTexture2D: Height ({}) must be in range [1, {}]", pDesc->Height, D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION);
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->ArraySize == 0 || pDesc->ArraySize > D3D11_REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION)
+    {
+        DebugMsg("CreateTexture2D: ArraySize ({}) must be in range [1, {}]", pDesc->ArraySize, D3D11_REQ_TEXTURE2D_ARRAY_AXIS_DIMENSION);
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->MiscFlags & D3D11_RESOURCE_MISC_TEXTURECUBE)
+    {
+        if (pDesc->ArraySize < 6 || pDesc->ArraySize % 6 != 0 || pDesc->ArraySize > 2046)
+        {
+            DebugMsg("CreateTexture2D: cube map ArraySize ({}) must be a multiple of 6 in range [6, 2046]", pDesc->ArraySize);
+            return E_INVALIDARG;
+        }
     }
 
     if (pDesc->Format == DXGI_FORMAT_UNKNOWN)
     {
+        DebugMsg("CreateTexture2D: Format is DXGI_FORMAT_UNKNOWN");
         return E_INVALIDARG;
     }
 
     HRESULT flagsHr = ValidateTextureBindFlags(pDesc->Format, pDesc->BindFlags, /*depthStencilAllowed=*/true);
     if (FAILED(flagsHr))
     {
+        DebugMsg("CreateTexture2D: invalid bind flags for format");
         return flagsHr;
     }
 
-    //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture2d
-    //Applications can't specify NULL for pInitialData when creating IMMUTABLE resources
     if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
     {
+        DebugMsg("CreateTexture2D: IMMUTABLE usage requires pInitialData");
         return E_INVALIDARG;
     }
 
-    //Multisampled resources cannot be initialized with data when they are created
+    if (pDesc->Usage == D3D11_USAGE_DEFAULT && pDesc->CPUAccessFlags != 0)
+    {
+        DebugMsg("CreateTexture2D: DEFAULT usage cannot have CPUAccessFlags");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && pDesc->CPUAccessFlags != 0)
+    {
+        DebugMsg("CreateTexture2D: IMMUTABLE usage cannot have CPUAccessFlags");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_DYNAMIC && pDesc->CPUAccessFlags != D3D11_CPU_ACCESS_WRITE)
+    {
+        DebugMsg("CreateTexture2D: DYNAMIC usage requires CPUAccessFlags = D3D11_CPU_ACCESS_WRITE");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_STAGING && pDesc->BindFlags != 0)
+    {
+        DebugMsg("CreateTexture2D: STAGING usage cannot be bound to the pipeline (BindFlags must be 0)");
+        return E_INVALIDARG;
+    }
+
     if (pDesc->SampleDesc.Count > 1 && pInitialData)
     {
+        DebugMsg("CreateTexture2D: multisampled resources cannot have pInitialData");
         return E_INVALIDARG;
     }
 
@@ -245,31 +350,76 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture3D(
     const D3D11_TEXTURE3D_DESC*   pDesc,
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture3D**             ppTexture3D)
 {
     if (!pDesc)
     {
+        DebugMsg("CreateTexture3D: pDesc is null");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Width == 0 || pDesc->Width > D3D11_REQ_TEXTURE3D_U_V_OR_W_DIMENSION)
+    {
+        DebugMsg("CreateTexture3D: Width ({}) must be in range [1, {}]", pDesc->Width, D3D11_REQ_TEXTURE3D_U_V_OR_W_DIMENSION);
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Height == 0 || pDesc->Height > D3D11_REQ_TEXTURE3D_U_V_OR_W_DIMENSION)
+    {
+        DebugMsg("CreateTexture3D: Height ({}) must be in range [1, {}]", pDesc->Height, D3D11_REQ_TEXTURE3D_U_V_OR_W_DIMENSION);
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Depth == 0 || pDesc->Depth > D3D11_REQ_TEXTURE3D_U_V_OR_W_DIMENSION)
+    {
+        DebugMsg("CreateTexture3D: Depth ({}) must be in range [1, {}]", pDesc->Depth, D3D11_REQ_TEXTURE3D_U_V_OR_W_DIMENSION);
         return E_INVALIDARG;
     }
 
     if (pDesc->Format == DXGI_FORMAT_UNKNOWN)
     {
+        DebugMsg("CreateTexture3D: Format is DXGI_FORMAT_UNKNOWN");
         return E_INVALIDARG;
     }
 
     HRESULT flagsHr = ValidateTextureBindFlags(pDesc->Format, pDesc->BindFlags, /*depthStencilAllowed=*/false);
     if (FAILED(flagsHr))
     {
+        DebugMsg("CreateTexture3D: invalid bind flags for format");
         return flagsHr;
     }
 
-    //https://learn.microsoft.com/en-us/windows/win32/api/d3d11/nf-d3d11-id3d11device-createtexture3d
-    //Applications cannot specify NULL for pInitialData when creating IMMUTABLE resources
     if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && !pInitialData)
     {
+        DebugMsg("CreateTexture3D: IMMUTABLE usage requires pInitialData");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_DEFAULT && pDesc->CPUAccessFlags != 0)
+    {
+        DebugMsg("CreateTexture3D: DEFAULT usage cannot have CPUAccessFlags");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_IMMUTABLE && pDesc->CPUAccessFlags != 0)
+    {
+        DebugMsg("CreateTexture3D: IMMUTABLE usage cannot have CPUAccessFlags");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_DYNAMIC && pDesc->CPUAccessFlags != D3D11_CPU_ACCESS_WRITE)
+    {
+        DebugMsg("CreateTexture3D: DYNAMIC usage requires CPUAccessFlags = D3D11_CPU_ACCESS_WRITE");
+        return E_INVALIDARG;
+    }
+
+    if (pDesc->Usage == D3D11_USAGE_STAGING && pDesc->BindFlags != 0)
+    {
+        DebugMsg("CreateTexture3D: STAGING usage cannot be bound to the pipeline (BindFlags must be 0)");
         return E_INVALIDARG;
     }
 
@@ -294,13 +444,21 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateShaderResourceView(
     ID3D11Resource* pResource,
     const D3D11_SHADER_RESOURCE_VIEW_DESC* pDesc,
     ID3D11ShaderResourceView** ppSRView)
 {
     if (!pResource)
     {
+        DebugMsg("CreateShaderResourceView: pResource is null");
+        return E_INVALIDARG;
+    }
+
+    if (!(GetSWResourceBindFlags(pResource) & D3D11_BIND_SHADER_RESOURCE))
+    {
+        DebugMsg("CreateShaderResourceView: resource was not created with D3D11_BIND_SHADER_RESOURCE");
         return E_INVALIDARG;
     }
 
@@ -327,13 +485,21 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateUnorderedAccessView(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateUnorderedAccessView(
     ID3D11Resource* pResource,
     const D3D11_UNORDERED_ACCESS_VIEW_DESC* pDesc,
     ID3D11UnorderedAccessView** ppUAView)
 {
     if (!pResource)
     {
+        DebugMsg("CreateUnorderedAccessView: pResource is null");
+        return E_INVALIDARG;
+    }
+
+    if (!(GetSWResourceBindFlags(pResource) & D3D11_BIND_UNORDERED_ACCESS))
+    {
+        DebugMsg("CreateUnorderedAccessView: resource was not created with D3D11_BIND_UNORDERED_ACCESS");
         return E_INVALIDARG;
     }
 
@@ -360,13 +526,21 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateUnorderedAccessView(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRenderTargetView(
     ID3D11Resource* pResource,
     const D3D11_RENDER_TARGET_VIEW_DESC* pDesc,
     ID3D11RenderTargetView** ppRTView)
 {
     if (!pResource)
     {
+        DebugMsg("CreateRenderTargetView: pResource is null");
+        return E_INVALIDARG;
+    }
+
+    if (!(GetSWResourceBindFlags(pResource) & D3D11_BIND_RENDER_TARGET))
+    {
+        DebugMsg("CreateRenderTargetView: resource was not created with D3D11_BIND_RENDER_TARGET");
         return E_INVALIDARG;
     }
 
@@ -393,13 +567,21 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDepthStencilView(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDepthStencilView(
     ID3D11Resource* pResource,
     const D3D11_DEPTH_STENCIL_VIEW_DESC* pDesc,
     ID3D11DepthStencilView** ppDepthStencilView)
 {
     if (!pResource)
     {
+        DebugMsg("CreateDepthStencilView: pResource is null");
+        return E_INVALIDARG;
+    }
+
+    if (!(GetSWResourceBindFlags(pResource) & D3D11_BIND_DEPTH_STENCIL))
+    {
+        DebugMsg("CreateDepthStencilView: resource was not created with D3D11_BIND_DEPTH_STENCIL");
         return E_INVALIDARG;
     }
 
@@ -420,7 +602,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDepthStencilView(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateInputLayout(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateInputLayout(
     const D3D11_INPUT_ELEMENT_DESC* pInputElementDescs,
     UINT NumElements,
     const void* pShaderBytecodeWithInputSignature,
@@ -449,7 +632,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateInputLayout(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateVertexShader(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateVertexShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -470,7 +654,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateVertexShader(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShader(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateGeometryShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -491,7 +676,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShader(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShaderWithStreamOutput(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateGeometryShaderWithStreamOutput(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     const D3D11_SO_DECLARATION_ENTRY* pSODeclaration,
@@ -527,7 +713,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateGeometryShaderWithStreamOutput(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreatePixelShader(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreatePixelShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -548,7 +735,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreatePixelShader(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateHullShader(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateHullShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -557,7 +745,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateHullShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDomainShader(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDomainShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -566,7 +755,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDomainShader(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateComputeShader(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateComputeShader(
     const void* pShaderBytecode,
     SIZE_T BytecodeLength,
     ID3D11ClassLinkage* pClassLinkage,
@@ -587,18 +777,21 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateComputeShader(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateClassLinkage(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateClassLinkage(
     ID3D11ClassLinkage** ppLinkage)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBlendState(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateBlendState(
     const D3D11_BLEND_DESC* pBlendStateDesc,
     ID3D11BlendState** ppBlendState)
 {
     if (!pBlendStateDesc)
     {
+        DebugMsg("CreateBlendState: pBlendStateDesc is null");
         return E_INVALIDARG;
     }
 
@@ -636,12 +829,20 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBlendState(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDepthStencilState(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDepthStencilState(
     const D3D11_DEPTH_STENCIL_DESC* pDepthStencilDesc,
     ID3D11DepthStencilState** ppDepthStencilState)
 {
     if (!pDepthStencilDesc)
     {
+        DebugMsg("CreateDepthStencilState: pDepthStencilDesc is null");
+        return E_INVALIDARG;
+    }
+
+    if (pDepthStencilDesc->DepthWriteMask > D3D11_DEPTH_WRITE_MASK_ALL)
+    {
+        DebugMsg("CreateDepthStencilState: DepthWriteMask ({}) must be ZERO (0) or ALL (1)", (unsigned)pDepthStencilDesc->DepthWriteMask);
         return E_INVALIDARG;
     }
 
@@ -662,12 +863,26 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDepthStencilState(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRasterizerState(
     const D3D11_RASTERIZER_DESC* pRasterizerDesc,
     ID3D11RasterizerState** ppRasterizerState)
 {
     if (!pRasterizerDesc)
     {
+        DebugMsg("CreateRasterizerState: pRasterizerDesc is null");
+        return E_INVALIDARG;
+    }
+
+    if (pRasterizerDesc->FillMode != D3D11_FILL_WIREFRAME && pRasterizerDesc->FillMode != D3D11_FILL_SOLID)
+    {
+        DebugMsg("CreateRasterizerState: FillMode ({}) must be WIREFRAME (2) or SOLID (3)", (unsigned)pRasterizerDesc->FillMode);
+        return E_INVALIDARG;
+    }
+
+    if (pRasterizerDesc->CullMode < D3D11_CULL_NONE || pRasterizerDesc->CullMode > D3D11_CULL_BACK)
+    {
+        DebugMsg("CreateRasterizerState: CullMode ({}) must be NONE (1), FRONT (2), or BACK (3)", (unsigned)pRasterizerDesc->CullMode);
         return E_INVALIDARG;
     }
 
@@ -691,7 +906,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateSamplerState(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateSamplerState(
     const D3D11_SAMPLER_DESC* pSamplerDesc,
     ID3D11SamplerState** ppSamplerState)
 {
@@ -717,7 +933,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateSamplerState(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateQuery(
     const D3D11_QUERY_DESC* pQueryDesc,
     ID3D11Query** ppQuery)
 {
@@ -747,28 +964,32 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreatePredicate(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreatePredicate(
     const D3D11_QUERY_DESC* pPredicateDesc,
     ID3D11Predicate** ppPredicate)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateCounter(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateCounter(
     const D3D11_COUNTER_DESC* pCounterDesc,
     ID3D11Counter** ppCounter)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeferredContext(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDeferredContext(
     UINT ContextFlags,
     ID3D11DeviceContext** ppDeferredContext)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::OpenSharedResource(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::OpenSharedResource(
     HANDLE hResource,
     REFIID ReturnedInterface,
     void** ppResource)
@@ -776,7 +997,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::OpenSharedResource(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckFormatSupport(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CheckFormatSupport(
     DXGI_FORMAT Format,
     UINT* pFormatSupport)
 {
@@ -788,7 +1010,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckFormatSupport(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckMultisampleQualityLevels(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CheckMultisampleQualityLevels(
     DXGI_FORMAT Format,
     UINT SampleCount,
     UINT* pNumQualityLevels)
@@ -801,12 +1024,14 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckMultisampleQualityLevels(
     return S_OK;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceSW::CheckCounterInfo(
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CheckCounterInfo(
     D3D11_COUNTER_INFO* pCounterInfo)
 {
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckCounter(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CheckCounter(
     const D3D11_COUNTER_DESC* pDesc,
     D3D11_COUNTER_TYPE* pType,
     UINT* pActiveCounters,
@@ -820,7 +1045,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckCounter(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckFeatureSupport(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CheckFeatureSupport(
     D3D11_FEATURE Feature,
     void* pFeatureSupportData,
     UINT FeatureSupportDataSize)
@@ -1002,7 +1228,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckFeatureSupport(
     }
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::GetPrivateData(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetPrivateData(
     REFGUID guid,
     UINT* pDataSize,
     void* pData)
@@ -1010,7 +1237,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::GetPrivateData(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::SetPrivateData(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::SetPrivateData(
     REFGUID guid,
     UINT DataSize,
     const void* pData)
@@ -1018,29 +1246,34 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::SetPrivateData(
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::SetPrivateDataInterface(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::SetPrivateDataInterface(
     REFGUID guid,
     const IUnknown* pData)
 {
     return E_NOTIMPL;
 }
 
-D3D_FEATURE_LEVEL STDMETHODCALLTYPE D3D11DeviceSW::GetFeatureLevel()
+template<Bool IsDebug>
+D3D_FEATURE_LEVEL STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetFeatureLevel()
 {
     return D3D_FEATURE_LEVEL_11_1;
 }
 
-UINT STDMETHODCALLTYPE D3D11DeviceSW::GetCreationFlags()
+template<Bool IsDebug>
+UINT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetCreationFlags()
 {
     return 0;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::GetDeviceRemovedReason()
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetDeviceRemovedReason()
 {
     return S_OK;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext(
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetImmediateContext(
     ID3D11DeviceContext** ppImmediateContext)
 {
     if (ppImmediateContext && _immediateContext)
@@ -1050,20 +1283,23 @@ void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext(
     }
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::SetExceptionMode(
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::SetExceptionMode(
     UINT RaiseFlags)
 {
     return S_OK;
 }
 
-UINT STDMETHODCALLTYPE D3D11DeviceSW::GetExceptionMode()
+template<Bool IsDebug>
+UINT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetExceptionMode()
 {
     return 0;
 }
 
 // ---- ID3D11Device1 ----
 
-void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext1(ID3D11DeviceContext1** ppImmediateContext)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetImmediateContext1(ID3D11DeviceContext1** ppImmediateContext)
 {
     if (ppImmediateContext && _immediateContext)
     {
@@ -1072,12 +1308,14 @@ void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext1(ID3D11DeviceContext1*
     }
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeferredContext1(UINT ContextFlags, ID3D11DeviceContext1** ppDeferredContext)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDeferredContext1(UINT ContextFlags, ID3D11DeviceContext1** ppDeferredContext)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBlendState1(const D3D11_BLEND_DESC1* pBlendStateDesc, ID3D11BlendState1** ppBlendState)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateBlendState1(const D3D11_BLEND_DESC1* pBlendStateDesc, ID3D11BlendState1** ppBlendState)
 {
     if (!pBlendStateDesc)
     {
@@ -1101,7 +1339,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateBlendState1(const D3D11_BLEND_DES
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState1(const D3D11_RASTERIZER_DESC1* pRasterizerDesc, ID3D11RasterizerState1** ppRasterizerState)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRasterizerState1(const D3D11_RASTERIZER_DESC1* pRasterizerDesc, ID3D11RasterizerState1** ppRasterizerState)
 {
     if (!pRasterizerDesc)
     {
@@ -1128,24 +1367,28 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState1(const D3D11_RAST
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeviceContextState(UINT Flags, const D3D_FEATURE_LEVEL* pFeatureLevels, UINT FeatureLevels, UINT SDKVersion, REFIID EmulatedInterface, D3D_FEATURE_LEVEL* pChosenFeatureLevel, ID3DDeviceContextState** ppContextState)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDeviceContextState(UINT Flags, const D3D_FEATURE_LEVEL* pFeatureLevels, UINT FeatureLevels, UINT SDKVersion, REFIID EmulatedInterface, D3D_FEATURE_LEVEL* pChosenFeatureLevel, ID3DDeviceContextState** ppContextState)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::OpenSharedResource1(HANDLE hResource, REFIID returnedInterface, void** ppResource)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::OpenSharedResource1(HANDLE hResource, REFIID returnedInterface, void** ppResource)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::OpenSharedResourceByName(LPCWSTR lpName, DWORD dwDesiredAccess, REFIID returnedInterface, void** ppResource)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::OpenSharedResourceByName(LPCWSTR lpName, DWORD dwDesiredAccess, REFIID returnedInterface, void** ppResource)
 {
     return E_NOTIMPL;
 }
 
 // ---- ID3D11Device2 ----
 
-void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext2(ID3D11DeviceContext2** ppImmediateContext)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetImmediateContext2(ID3D11DeviceContext2** ppImmediateContext)
 {
     if (ppImmediateContext && _immediateContext)
     {
@@ -1154,23 +1397,27 @@ void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext2(ID3D11DeviceContext2*
     }
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeferredContext2(UINT ContextFlags, ID3D11DeviceContext2** ppDeferredContext)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDeferredContext2(UINT ContextFlags, ID3D11DeviceContext2** ppDeferredContext)
 {
     return E_NOTIMPL;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceSW::GetResourceTiling(ID3D11Resource* pTiledResource, UINT* pNumTilesForEntireResource, D3D11_PACKED_MIP_DESC* pPackedMipDesc, D3D11_TILE_SHAPE* pStandardTileShapeForNonPackedMips, UINT* pNumSubresourceTilings, UINT FirstSubresourceTilingToGet, D3D11_SUBRESOURCE_TILING* pSubresourceTilingsForNonPackedMips)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetResourceTiling(ID3D11Resource* pTiledResource, UINT* pNumTilesForEntireResource, D3D11_PACKED_MIP_DESC* pPackedMipDesc, D3D11_TILE_SHAPE* pStandardTileShapeForNonPackedMips, UINT* pNumSubresourceTilings, UINT FirstSubresourceTilingToGet, D3D11_SUBRESOURCE_TILING* pSubresourceTilingsForNonPackedMips)
 {
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CheckMultisampleQualityLevels1(DXGI_FORMAT Format, UINT SampleCount, UINT Flags, UINT* pNumQualityLevels)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CheckMultisampleQualityLevels1(DXGI_FORMAT Format, UINT SampleCount, UINT Flags, UINT* pNumQualityLevels)
 {
     return CheckMultisampleQualityLevels(Format, SampleCount, pNumQualityLevels);
 }
 
 // ---- ID3D11Device3 ----
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D1(const D3D11_TEXTURE2D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture2D1** ppTexture2D)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture2D1(const D3D11_TEXTURE2D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture2D1** ppTexture2D)
 {
     if (!pDesc)
     {
@@ -1220,7 +1467,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture2D1(const D3D11_TEXTURE2D_
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D1(const D3D11_TEXTURE3D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture3D1** ppTexture3D)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture3D1(const D3D11_TEXTURE3D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture3D1** ppTexture3D)
 {
     if (!pDesc)
     {
@@ -1260,7 +1508,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateTexture3D1(const D3D11_TEXTURE3D_
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState2(const D3D11_RASTERIZER_DESC2* pRasterizerDesc, ID3D11RasterizerState2** ppRasterizerState)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRasterizerState2(const D3D11_RASTERIZER_DESC2* pRasterizerDesc, ID3D11RasterizerState2** ppRasterizerState)
 {
     if (!pRasterizerDesc)
     {
@@ -1284,7 +1533,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRasterizerState2(const D3D11_RAST
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView1(ID3D11Resource* pResource, const D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc, ID3D11ShaderResourceView1** ppSRView)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateShaderResourceView1(ID3D11Resource* pResource, const D3D11_SHADER_RESOURCE_VIEW_DESC1* pDesc, ID3D11ShaderResourceView1** ppSRView)
 {
     if (!pResource)
     {
@@ -1308,7 +1558,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateShaderResourceView1(ID3D11Resourc
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateUnorderedAccessView1(ID3D11Resource* pResource, const D3D11_UNORDERED_ACCESS_VIEW_DESC1* pDesc, ID3D11UnorderedAccessView1** ppUAView)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateUnorderedAccessView1(ID3D11Resource* pResource, const D3D11_UNORDERED_ACCESS_VIEW_DESC1* pDesc, ID3D11UnorderedAccessView1** ppUAView)
 {
     if (!pResource)
     {
@@ -1332,7 +1583,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateUnorderedAccessView1(ID3D11Resour
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView1(ID3D11Resource* pResource, const D3D11_RENDER_TARGET_VIEW_DESC1* pDesc, ID3D11RenderTargetView1** ppRTView)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRenderTargetView1(ID3D11Resource* pResource, const D3D11_RENDER_TARGET_VIEW_DESC1* pDesc, ID3D11RenderTargetView1** ppRTView)
 {
     if (!pResource)
     {
@@ -1356,7 +1608,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateRenderTargetView1(ID3D11Resource*
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery1(const D3D11_QUERY_DESC1* pQueryDesc, ID3D11Query1** ppQuery)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateQuery1(const D3D11_QUERY_DESC1* pQueryDesc, ID3D11Query1** ppQuery)
 {
     if (!pQueryDesc)
     {
@@ -1380,7 +1633,8 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateQuery1(const D3D11_QUERY_DESC1* p
     return S_OK;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext3(ID3D11DeviceContext3** ppImmediateContext)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetImmediateContext3(ID3D11DeviceContext3** ppImmediateContext)
 {
     if (ppImmediateContext && _immediateContext)
     {
@@ -1389,12 +1643,14 @@ void STDMETHODCALLTYPE D3D11DeviceSW::GetImmediateContext3(ID3D11DeviceContext3*
     }
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateDeferredContext3(UINT ContextFlags, ID3D11DeviceContext3** ppDeferredContext)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDeferredContext3(UINT ContextFlags, ID3D11DeviceContext3** ppDeferredContext)
 {
     return E_NOTIMPL;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceSW::WriteToSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::WriteToSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch)
 {
     if (!pDstResource || !pSrcData)
     {
@@ -1412,7 +1668,8 @@ void STDMETHODCALLTYPE D3D11DeviceSW::WriteToSubresource(ID3D11Resource* pDstRes
     });
 }
 
-void STDMETHODCALLTYPE D3D11DeviceSW::ReadFromSubresource(void* pDstData, UINT DstRowPitch, UINT DstDepthPitch, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::ReadFromSubresource(void* pDstData, UINT DstRowPitch, UINT DstDepthPitch, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox)
 {
     if (!pDstData || !pSrcResource)
     {
@@ -1432,25 +1689,42 @@ void STDMETHODCALLTYPE D3D11DeviceSW::ReadFromSubresource(void* pDstData, UINT D
 
 // ---- ID3D11Device4 ----
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::RegisterDeviceRemovedEvent(HANDLE hEvent, DWORD* pdwCookie)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::RegisterDeviceRemovedEvent(HANDLE hEvent, DWORD* pdwCookie)
 {
     return E_NOTIMPL;
 }
 
-void STDMETHODCALLTYPE D3D11DeviceSW::UnregisterDeviceRemoved(DWORD dwCookie)
+template<Bool IsDebug>
+void STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::UnregisterDeviceRemoved(DWORD dwCookie)
 {
 }
 
 // ---- ID3D11Device5 ----
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::OpenSharedFence(HANDLE hFence, REFIID ReturnedInterface, void** ppFence)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::OpenSharedFence(HANDLE hFence, REFIID ReturnedInterface, void** ppFence)
 {
     return E_NOTIMPL;
 }
 
-HRESULT STDMETHODCALLTYPE D3D11DeviceSW::CreateFence(UINT64 InitialValue, D3D11_FENCE_FLAG Flags, REFIID ReturnedInterface, void** ppFence)
+template<Bool IsDebug>
+HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateFence(UINT64 InitialValue, D3D11_FENCE_FLAG Flags, REFIID ReturnedInterface, void** ppFence)
 {
     return E_NOTIMPL;
 }
+
+template<Bool IsDebug>
+template<typename... ArgsT>
+void D3D11DeviceSWImpl<IsDebug>::DebugMsg(const Char* fmt, ArgsT&&... args) const
+{
+    if constexpr (IsDebug) 
+    { 
+        D3D11SW_ERROR(fmt, std::forward<ArgsT>(args)...); 
+    }
+}
+
+template class D3D11DeviceSWImpl<false>;
+template class D3D11DeviceSWImpl<true>;
 
 }

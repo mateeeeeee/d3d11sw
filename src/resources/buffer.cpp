@@ -40,11 +40,6 @@ HRESULT D3D11BufferSW::Init(
     const D3D11_BUFFER_DESC*        pDesc,
     const D3D11_SUBRESOURCE_DATA*   pInitialData)
 {
-    if (!pDesc || pDesc->ByteWidth == 0)
-    {
-        return E_INVALIDARG;
-    }
-
     _desc = *pDesc;
     _data.resize(pDesc->ByteWidth, 0); 
     if (pInitialData && pInitialData->pSysMem)
