@@ -56,6 +56,11 @@ A software implementation of the Direct3D 11 API.
     <img width="49%" src="examples/screenshots/AntialiasedFloor.png" alt="Mipmapped Floor"/>
 </p>
 
+**DirectX SDK Samples — Tutorial 10**
+<p align="center">
+    <img width="49%" src="examples/screenshots/DirectX-SDK-Samples-Tutorial10.png" alt="DirectX SDK Samples Tutorial 10"/>
+</p>
+
 </details>
 
 ## Tests

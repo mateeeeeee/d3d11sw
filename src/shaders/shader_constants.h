@@ -74,6 +74,11 @@ static constexpr unsigned SW_FORMAT_BC5_SNORM             = 84;
 static constexpr unsigned SW_FORMAT_BC7_UNORM             = 98;
 static constexpr unsigned SW_FORMAT_BC7_UNORM_SRGB        = 99;
 
+static constexpr unsigned SW_FORMAT_D32_FLOAT             = 40;
+static constexpr unsigned SW_FORMAT_D16_UNORM             = 55;
+static constexpr unsigned SW_FORMAT_D24_UNORM_S8_UINT     = 45;
+static constexpr unsigned SW_FORMAT_D32_FLOAT_S8X24_UINT  = 20;
+
 static constexpr unsigned SW_TEXTURE_ADDRESS_WRAP        = 1;
 static constexpr unsigned SW_TEXTURE_ADDRESS_MIRROR      = 2;
 static constexpr unsigned SW_TEXTURE_ADDRESS_CLAMP       = 3;

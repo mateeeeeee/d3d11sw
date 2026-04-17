@@ -25,6 +25,10 @@ public:
     HRESULT STDMETHODCALLTYPE CheckInterfaceSupport(REFGUID InterfaceName, LARGE_INTEGER* pUMDVersion) override;
 
     HRESULT STDMETHODCALLTYPE GetDesc1(DXGI_ADAPTER_DESC1* pDesc) override;
+
+private:
+    IDXGIFactory* _factory = nullptr;
+    IDXGIOutput*  _output  = nullptr;
 };
 
 }

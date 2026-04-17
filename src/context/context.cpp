@@ -1335,10 +1335,12 @@ void STDMETHODCALLTYPE D3D11DeviceContextSW::CSGetConstantBuffers(UINT StartSlot
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::CopySubresourceRegion1(ID3D11Resource* pDstResource, UINT DstSubresource, UINT DstX, UINT DstY, UINT DstZ, ID3D11Resource* pSrcResource, UINT SrcSubresource, const D3D11_BOX* pSrcBox, UINT CopyFlags)
 {
+    CopySubresourceRegion(pDstResource, DstSubresource, DstX, DstY, DstZ, pSrcResource, SrcSubresource, pSrcBox);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::UpdateSubresource1(ID3D11Resource* pDstResource, UINT DstSubresource, const D3D11_BOX* pDstBox, const void* pSrcData, UINT SrcRowPitch, UINT SrcDepthPitch, UINT CopyFlags)
 {
+    UpdateSubresource(pDstResource, DstSubresource, pDstBox, pSrcData, SrcRowPitch, SrcDepthPitch);
 }
 
 void STDMETHODCALLTYPE D3D11DeviceContextSW::DiscardResource(ID3D11Resource* pResource)

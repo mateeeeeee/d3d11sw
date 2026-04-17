@@ -30,6 +30,7 @@ public:
 
 private:
     ID3D11Device* _device;
+    IDXGIAdapter* _adapter = nullptr;
 };
 
 }

@@ -7,7 +7,17 @@ namespace d3d11sw {
 
 
 DXGIAdapterSW::DXGIAdapterSW() {}
-DXGIAdapterSW::~DXGIAdapterSW() {}
+DXGIAdapterSW::~DXGIAdapterSW()
+{
+    if (_factory)
+    {
+        _factory->Release();
+    }
+    if (_output)
+    {
+        _output->Release();
+    }
+}
 
 
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::QueryInterface(REFIID riid, void** ppv)
@@ -52,10 +62,11 @@ HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetParent(REFIID riid, void** ppParent)
     {
         return E_POINTER;
     }
-    DXGIFactorySW* factory = new DXGIFactorySW();
-    HRESULT hr = factory->QueryInterface(riid, ppParent);
-    factory->Release();
-    return hr;
+    if (!_factory)
+    {
+        _factory = new DXGIFactorySW();
+    }
+    return _factory->QueryInterface(riid, ppParent);
 }
 
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::EnumOutputs(UINT Output, IDXGIOutput** ppOutput)
@@ -68,7 +79,12 @@ HRESULT STDMETHODCALLTYPE DXGIAdapterSW::EnumOutputs(UINT Output, IDXGIOutput** 
     {
         return DXGI_ERROR_NOT_FOUND;
     }
-    *ppOutput = new DXGIOutputSW();
+    if (!_output)
+    {
+        _output = new DXGIOutputSW();
+    }
+    _output->AddRef();
+    *ppOutput = _output;
     return S_OK;
 }
 

@@ -15,6 +15,10 @@ DXGIDeviceSW::DXGIDeviceSW(ID3D11Device* device)
 
 DXGIDeviceSW::~DXGIDeviceSW()
 {
+    if (_adapter)
+    {
+        _adapter->Release();
+    }
     if (_device)
     {
         _device->Release();
@@ -79,8 +83,12 @@ HRESULT STDMETHODCALLTYPE DXGIDeviceSW::GetAdapter(IDXGIAdapter** pAdapter)
     {
         return E_INVALIDARG;
     }
-    DXGIAdapterSW* adapter = new DXGIAdapterSW();
-    *pAdapter = adapter;
+    if (!_adapter)
+    {
+        _adapter = new DXGIAdapterSW();
+    }
+    _adapter->AddRef();
+    *pAdapter = _adapter;
     return S_OK;
 }
 

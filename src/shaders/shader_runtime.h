@@ -231,7 +231,8 @@ static inline unsigned sw_format_stride(unsigned fmt)
         case SW_FORMAT_R16G16B16A16_SINT:
         case SW_FORMAT_R32G32_FLOAT:
         case SW_FORMAT_R32G32_UINT:
-        case SW_FORMAT_R32G32_SINT:        return 8;
+        case SW_FORMAT_R32G32_SINT:
+        case SW_FORMAT_D32_FLOAT_S8X24_UINT: return 8;
         case SW_FORMAT_R8G8B8A8_UNORM:
         case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
         case SW_FORMAT_R8G8B8A8_SNORM:
@@ -247,6 +248,8 @@ static inline unsigned sw_format_stride(unsigned fmt)
         case SW_FORMAT_R32_FLOAT:
         case SW_FORMAT_R32_UINT:
         case SW_FORMAT_R32_SINT:
+        case SW_FORMAT_D32_FLOAT:
+        case SW_FORMAT_D24_UNORM_S8_UINT:
         case SW_FORMAT_R16G16_FLOAT:
         case SW_FORMAT_R16G16_UNORM:
         case SW_FORMAT_R16G16_SNORM:
@@ -260,7 +263,8 @@ static inline unsigned sw_format_stride(unsigned fmt)
         case SW_FORMAT_R16_UNORM:
         case SW_FORMAT_R16_SNORM:
         case SW_FORMAT_R16_UINT:
-        case SW_FORMAT_R16_SINT:           return 2;
+        case SW_FORMAT_R16_SINT:
+        case SW_FORMAT_D16_UNORM:              return 2;
         case SW_FORMAT_R8_UNORM:
         case SW_FORMAT_R8_SNORM:
         case SW_FORMAT_R8_UINT:
@@ -480,9 +484,25 @@ static inline SW_float4 sw_fetch_texel_at(const unsigned char* data, unsigned fm
             return { v[0], v[1], 0.f, 0.f };
         }
         case SW_FORMAT_R32_FLOAT:
+        case SW_FORMAT_D32_FLOAT:
         {
             float v; std::memcpy(&v, p, 4);
             return { v, 0.f, 0.f, 1.f };
+        }
+        case SW_FORMAT_D32_FLOAT_S8X24_UINT:
+        {
+            float v; std::memcpy(&v, p, 4);
+            return { v, 0.f, 0.f, 1.f };
+        }
+        case SW_FORMAT_D24_UNORM_S8_UINT:
+        {
+            unsigned u; std::memcpy(&u, p, 4);
+            return { (u & 0x00FFFFFFu) / 16777215.f, 0.f, 0.f, 1.f };
+        }
+        case SW_FORMAT_D16_UNORM:
+        {
+            unsigned short u; std::memcpy(&u, p, 2);
+            return { u / 65535.f, 0.f, 0.f, 1.f };
         }
         case SW_FORMAT_R32G32B32A32_UINT:
         case SW_FORMAT_R32G32B32A32_SINT:
@@ -668,9 +688,30 @@ static inline SW_float4 sw_fetch_texel_3d(const SW_SRV& t, unsigned x, unsigned 
             return { sw_srgb_to_linear(p[0]/255.f), sw_srgb_to_linear(p[1]/255.f), sw_srgb_to_linear(p[2]/255.f), p[3]/255.f };
         }
         case SW_FORMAT_R32_FLOAT:
+        case SW_FORMAT_D32_FLOAT:
         {
             float v;
             std::memcpy(&v, base + x * 4u, 4);
+            return { v, v, v, v };
+        }
+        case SW_FORMAT_D32_FLOAT_S8X24_UINT:
+        {
+            float v;
+            std::memcpy(&v, base + x * 8u, 4);
+            return { v, v, v, v };
+        }
+        case SW_FORMAT_D24_UNORM_S8_UINT:
+        {
+            unsigned u;
+            std::memcpy(&u, base + x * 4u, 4);
+            float v = (u & 0x00FFFFFFu) / 16777215.f;
+            return { v, v, v, v };
+        }
+        case SW_FORMAT_D16_UNORM:
+        {
+            unsigned short u;
+            std::memcpy(&u, base + x * 2u, 2);
+            float v = u / 65535.f;
             return { v, v, v, v };
         }
         case SW_FORMAT_R32G32B32A32_FLOAT:
