@@ -246,6 +246,10 @@ Bool DXBCParseReflection(const void* bytecode, Usize len, D3D11SW_ParsedShader& 
         {
             ParseSignatureChunk(cdata, csz, out.outputs, chdr.fourCC == FOURCC_OSG5);
         }
+        else if (chdr.fourCC == FOURCC_PCSG)
+        {
+            ParseSignatureChunk(cdata, csz, out.patchConstants);
+        }
         else if (chdr.fourCC == FOURCC_RDEF)
         {
             ParseRdefChunk(cdata, csz, out);

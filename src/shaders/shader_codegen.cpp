@@ -54,6 +54,14 @@ void EmitIndexableTemps(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     }
 }
 
+void EmitIndexableTempsFromList(CodeWriter& w, const std::vector<D3D11SW_IndexableTempDecl>& temps)
+{
+    for (const D3D11SW_IndexableTempDecl& it : temps)
+    {
+        w.Line("SW_float4 x{}[{}] = {{}};", it.regIndex, it.numRegs);
+    }
+}
+
 Uint32 FindTexDimension(const D3D11SW_ParsedShader& shader, Uint32 slot)
 {
     for (const auto& t : shader.textures)
@@ -82,10 +90,31 @@ std::string EmitDstBase(const SM4Operand& op)
         }
         return std::format("x{}[{}]", op.indices[0], op.indices[1]);
     }
-    case D3D10_SB_OPERAND_TYPE_OUTPUT:                      return std::format("out_v[{}]{}", op.indices[0], qSuffix);
+    case D3D10_SB_OPERAND_TYPE_OUTPUT:
+    {
+        if (op.relativeReg >= 0)
+        {
+            static const Char* cn[] = {"x","y","z","w"};
+            return std::format("out_v[{} + sw_bits_uint(r[{}]{}.{})]{}",
+                                op.indices[0], op.relativeReg, qSuffix, cn[op.relativeComp], qSuffix);
+        }
+        return std::format("out_v[{}]{}", op.indices[0], qSuffix);
+    }
     case D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH:
         if constexpr (Quad) { return "qout->pixels[_q].oDepth"; }
         else                { return "out_ptr->oDepth"; }
+    case D3D11_SB_OPERAND_TYPE_OUTPUT_CONTROL_POINT:
+        if constexpr (Type == D3D11SW_ShaderType::Hull)
+        {
+            static const Char* cn[] = {"x","y","z","w"};
+            if (op.relativeReg >= 0)
+            {
+                return std::format("out_ptr->controlPoints[{} + sw_bits_uint(r[{}].{})].o[{}]",
+                                   op.indices[0], op.relativeReg, cn[op.relativeComp], op.indices[1]);
+            }
+            return std::format("out_ptr->controlPoints[{}].o[{}]", op.indices[0], op.indices[1]);
+        }
+        return std::format("r[0]{}", qSuffix);
     case D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW:       return std::format("res->uav[{}]", op.indices[0]);
     case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:  return std::format("tgsm[{}]", op.indices[0]);
     default:                                                return std::format("r[0]{}", qSuffix);
@@ -118,16 +147,47 @@ std::string EmitSrc(const SM4Operand& op)
     case D3D10_SB_OPERAND_TYPE_INPUT:
         if constexpr (Type == D3D11SW_ShaderType::Geometry)
         {
-            static const Char* cn[] = {"x","y","z","w"};
-            if (op.relativeReg >= 0)
+            if (op.indexDim >= 2)
             {
-                base = std::format("in_ptr->vertices[{} + sw_bits_uint(r[{}].{})].o[{}]",
-                    op.indices[0], op.relativeReg, cn[op.relativeComp], op.indices[1]);
+                static const Char* cn[] = {"x","y","z","w"};
+                if (op.relativeReg >= 0)
+                {
+                    base = std::format("in_ptr->vertices[{} + sw_bits_uint(r[{}].{})].o[{}]",
+                        op.indices[0], op.relativeReg, cn[op.relativeComp], op.indices[1]);
+                }
+                else
+                {
+                    base = std::format("in_ptr->vertices[{}].o[{}]", op.indices[0], op.indices[1]);
+                }
             }
             else
             {
-                base = std::format("in_ptr->vertices[{}].o[{}]", op.indices[0], op.indices[1]);
+                base = std::format("in_ptr->vertices[0].o[{}]", op.indices[0]);
             }
+        }
+        else if constexpr (Type == D3D11SW_ShaderType::Hull)
+        {
+            if (op.indexDim >= 2)
+            {
+                static const Char* cn[] = {"x","y","z","w"};
+                if (op.relativeReg >= 0)
+                {
+                    base = std::format("in_ptr->controlPoints[{} + sw_bits_uint(r[{}].{})].o[{}]",
+                        op.indices[0], op.relativeReg, cn[op.relativeComp], op.indices[1]);
+                }
+                else
+                {
+                    base = std::format("in_ptr->controlPoints[{}].o[{}]", op.indices[0], op.indices[1]);
+                }
+            }
+            else
+            {
+                base = std::format("in_ptr->controlPoints[0].o[{}]", op.indices[0]);
+            }
+        }
+        else if constexpr (Type == D3D11SW_ShaderType::Domain)
+        {
+            base = std::format("in_ptr->patchConstants[{}]", op.indices[0]);
         }
         else if constexpr (Quad)
         {
@@ -170,6 +230,44 @@ std::string EmitSrc(const SM4Operand& op)
         break;
     case D3D11_SB_OPERAND_TYPE_INPUT_GS_INSTANCE_ID:
         base = "SW_float4{sw_uint_bits(in_ptr->instanceID), 0.f, 0.f, 0.f}";
+        break;
+    case D3D11_SB_OPERAND_TYPE_OUTPUT_CONTROL_POINT_ID:
+        base = "SW_float4{sw_uint_bits(_cpID), 0.f, 0.f, 0.f}";
+        break;
+    case D3D11_SB_OPERAND_TYPE_INPUT_FORK_INSTANCE_ID:
+    case D3D11_SB_OPERAND_TYPE_INPUT_JOIN_INSTANCE_ID:
+        base = "SW_float4{sw_uint_bits(_instanceID), 0.f, 0.f, 0.f}";
+        break;
+    case D3D11_SB_OPERAND_TYPE_INPUT_CONTROL_POINT:
+    {
+        static const Char* cn[] = {"x","y","z","w"};
+        if (op.relativeReg >= 0)
+        {
+            base = std::format("in_ptr->controlPoints[{} + sw_bits_uint(r[{}].{})].o[{}]",
+                op.indices[0], op.relativeReg, cn[op.relativeComp], op.indices[1]);
+        }
+        else
+        {
+            base = std::format("in_ptr->controlPoints[{}].o[{}]", op.indices[0], op.indices[1]);
+        }
+        break;
+    }
+    case D3D11_SB_OPERAND_TYPE_OUTPUT_CONTROL_POINT:
+    {
+        static const Char* cn[] = {"x","y","z","w"};
+        if (op.relativeReg >= 0)
+        {
+            base = std::format("out_ptr->controlPoints[{} + sw_bits_uint(r[{}].{})].o[{}]",
+                op.indices[0], op.relativeReg, cn[op.relativeComp], op.indices[1]);
+        }
+        else
+        {
+            base = std::format("out_ptr->controlPoints[{}].o[{}]", op.indices[0], op.indices[1]);
+        }
+        break;
+    }
+    case D3D11_SB_OPERAND_TYPE_INPUT_DOMAIN_POINT:
+        base = "in_ptr->domainLocation";
         break;
     case D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY:
         base = std::format("tgsm[{}]", op.indices[0]);
@@ -1629,6 +1727,15 @@ void EmitInstructions(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     }
 }
 
+template<D3D11SW_ShaderType Type, Bool Quad = false>
+void EmitInstructionsFromList(CodeWriter& w, const std::vector<SM4Instruction>& instrs, const D3D11SW_ParsedShader& shader)
+{
+    for (const auto& instr : instrs)
+    {
+        EmitInstr<Type, Quad>(w, instr, shader);
+    }
+}
+
 Bool IsControlFlow(D3D10_SB_OPCODE_TYPE op)
 {
     switch (op)
@@ -1938,24 +2045,8 @@ void EmitPSQuad(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     w.Line("}}");
 }
 
-void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
+void EmitVSOutputEpilogue(CodeWriter& w, const D3D11SW_ParsedShader& shader)
 {
-    Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
-    Uint8 svPosReg = FindSVPositionReg(shader);
-
-    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain(const SW_VSInput* in_ptr, SW_VSOutput* out_ptr,"
-           " const SW_Resources* res)");
-    w.Line("{{");
-    w.Indent();
-    w.Line("SW_float4 r[{}] = {{}};", numTemps);
-    EmitIndexableTemps(w, shader);
-    w.Line("SW_float4 out_v[{}] = {{}};", (Int)D3D11_VS_OUTPUT_REGISTER_COUNT);
-    w.Newline();
-
-    EmitInstructions<D3D11SW_ShaderType::Vertex>(w, shader);
-
-    w.Newline();
-    w.Line("_sw_end:;");
     for (const auto& e : shader.outputs)
     {
         if (e.svType == D3D_NAME_POSITION)
@@ -1998,10 +2089,32 @@ void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
         }
     }
 
+    Uint8 svPosReg = FindSVPositionReg(shader);
     if (svPosReg == 0xFF && !shader.outputs.empty())
     {
         w.Line("out_ptr->pos = out_v[0];");
     }
+}
+
+void EmitVS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
+{
+    Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
+    Uint8 svPosReg = FindSVPositionReg(shader);
+
+    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain(const SW_VSInput* in_ptr, SW_VSOutput* out_ptr,"
+           " const SW_Resources* res)");
+    w.Line("{{");
+    w.Indent();
+    w.Line("SW_float4 r[{}] = {{}};", numTemps);
+    EmitIndexableTemps(w, shader);
+    w.Line("SW_float4 out_v[{}] = {{}};", (Int)D3D11_VS_OUTPUT_REGISTER_COUNT);
+    w.Newline();
+
+    EmitInstructions<D3D11SW_ShaderType::Vertex>(w, shader);
+
+    w.Newline();
+    w.Line("_sw_end:;");
+    EmitVSOutputEpilogue(w, shader);
 
     w.Dedent();
     w.Line("}}");
@@ -2110,6 +2223,117 @@ void EmitGS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
     w.Line("}}");
 }
 
+void EmitDS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
+{
+    Uint32 numTemps = shader.numTemps > 0 ? shader.numTemps : 1;
+
+    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain(const SW_DSInput* in_ptr, SW_VSOutput* out_ptr,"
+           " const SW_Resources* res)");
+    w.Line("{{");
+    w.Indent();
+    w.Line("SW_float4 r[{}] = {{}};", numTemps);
+    EmitIndexableTemps(w, shader);
+    w.Line("SW_float4 out_v[{}] = {{}};", (Int)D3D11_VS_OUTPUT_REGISTER_COUNT);
+    w.Newline();
+
+    EmitInstructions<D3D11SW_ShaderType::Domain>(w, shader);
+
+    w.Newline();
+    w.Line("_sw_end:;");
+    EmitVSOutputEpilogue(w, shader);
+
+    w.Dedent();
+    w.Line("}}");
+}
+
+void EmitHS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
+{
+    if (!shader.hsControlPointPhase.instrs.empty())
+    {
+        const auto& phase = shader.hsControlPointPhase;
+        Uint32 numTemps = phase.numTemps > 0 ? phase.numTemps : 1;
+
+        w.Line("extern \"C\" SW_JIT_EXPORT void HS_CP(const SW_HSInput* in_ptr, SW_HSOutput* out_ptr,"
+               " unsigned _cpID, const SW_Resources* res)");
+        w.Line("{{");
+        w.Indent();
+        w.Line("SW_float4 r[{}] = {{}};", numTemps);
+        EmitIndexableTempsFromList(w, phase.indexableTemps);
+        w.Line("SW_float4 out_v[{}] = {{}};", 32);
+        w.Newline();
+
+        EmitInstructionsFromList<D3D11SW_ShaderType::Hull>(w, phase.instrs, shader);
+
+        w.Newline();
+        w.Line("_sw_end:;");
+        for (const auto& e : shader.outputs)
+        {
+            if (e.svType == D3D_NAME_POSITION)
+            {
+                w.Line("out_ptr->controlPoints[_cpID].pos = out_v[{}];", e.reg);
+            }
+            else
+            {
+                w.Line("out_ptr->controlPoints[_cpID].o[{}] = out_v[{}];", e.reg, e.reg);
+            }
+        }
+
+        w.Dedent();
+        w.Line("}}");
+        w.Newline();
+    }
+
+    for (Uint32 fi = 0; fi < shader.hsForkPhases.size(); ++fi)
+    {
+        const auto& phase = shader.hsForkPhases[fi];
+        Uint32 numTemps = phase.numTemps > 0 ? phase.numTemps : 1;
+
+        w.Line("extern \"C\" SW_JIT_EXPORT void HS_Fork{}(const SW_HSInput* in_ptr, SW_HSOutput* out_ptr,"
+               " unsigned _instanceID, const SW_Resources* res)", fi);
+        w.Line("{{");
+        w.Indent();
+        w.Line("SW_float4 r[{}] = {{}};", numTemps);
+        EmitIndexableTempsFromList(w, phase.indexableTemps);
+        w.Line("SW_float4* out_v = out_ptr->patchConstants;");
+        w.Newline();
+
+        EmitInstructionsFromList<D3D11SW_ShaderType::Hull>(w, phase.instrs, shader);
+
+        w.Newline();
+        w.Line("_sw_end:;");
+
+        w.Dedent();
+        w.Line("}}");
+        w.Newline();
+    }
+
+    for (Uint32 ji = 0; ji < shader.hsJoinPhases.size(); ++ji)
+    {
+        const auto& phase = shader.hsJoinPhases[ji];
+        Uint32 numTemps = phase.numTemps > 0 ? phase.numTemps : 1;
+
+        w.Line("extern \"C\" SW_JIT_EXPORT void HS_Join{}(const SW_HSInput* in_ptr, SW_HSOutput* out_ptr,"
+               " unsigned _instanceID, const SW_Resources* res)", ji);
+        w.Line("{{");
+        w.Indent();
+        w.Line("SW_float4 r[{}] = {{}};", numTemps);
+        EmitIndexableTempsFromList(w, phase.indexableTemps);
+        w.Line("SW_float4* out_v = out_ptr->patchConstants;");
+        w.Newline();
+
+        EmitInstructionsFromList<D3D11SW_ShaderType::Hull>(w, phase.instrs, shader);
+
+        w.Newline();
+        w.Line("_sw_end:;");
+
+        w.Dedent();
+        w.Line("}}");
+        w.Newline();
+    }
+
+    w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain() {{}}");
+}
+
 }
 
 std::string EmitShader(const D3D11SW_ParsedShader& shader,
@@ -2128,6 +2352,8 @@ std::string EmitShader(const D3D11SW_ParsedShader& shader,
         break;
     case D3D11SW_ShaderType::Compute: EmitCS(w, shader); break;
     case D3D11SW_ShaderType::Geometry: EmitGS(w, shader); break;
+    case D3D11SW_ShaderType::Hull:   EmitHS(w, shader); break;
+    case D3D11SW_ShaderType::Domain: EmitDS(w, shader); break;
     default:
         w.Line("extern \"C\" SW_JIT_EXPORT void ShaderMain() {{}}");
         break;

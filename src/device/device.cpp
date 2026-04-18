@@ -15,6 +15,8 @@
 #include "shaders/vertex_shader.h"
 #include "shaders/pixel_shader.h"
 #include "shaders/geometry_shader.h"
+#include "shaders/hull_shader.h"
+#include "shaders/domain_shader.h"
 #include "shaders/compute_shader.h"
 #include "states/blend_state.h"
 #include "states/depth_stencil_state.h"
@@ -742,7 +744,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateHullShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11HullShader** ppHullShader)
 {
-    return E_NOTIMPL;
+    D3D11HullShaderSW* shader = nullptr;
+    HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (!ppHullShader)
+    {
+        shader->Release();
+        return S_FALSE;
+    }
+    *ppHullShader = shader;
+    return S_OK;
 }
 
 template<Bool IsDebug>
@@ -752,7 +766,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDomainShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11DomainShader** ppDomainShader)
 {
-    return E_NOTIMPL;
+    D3D11DomainShaderSW* shader = nullptr;
+    HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
+    if (FAILED(hr))
+    {
+        return hr;
+    }
+    if (!ppDomainShader)
+    {
+        shader->Release();
+        return S_FALSE;
+    }
+    *ppDomainShader = shader;
+    return S_OK;
 }
 
 template<Bool IsDebug>

@@ -41,6 +41,7 @@ static constexpr UINT32 FOURCC_SHEX = MakeFourCC('S','H','E','X'); // SM5 shader
 static constexpr UINT32 FOURCC_ISGN = MakeFourCC('I','S','G','N'); // input signature
 static constexpr UINT32 FOURCC_OSGN = MakeFourCC('O','S','G','N'); // output signature (SM4)
 static constexpr UINT32 FOURCC_OSG5 = MakeFourCC('O','S','G','5'); // output signature (SM5)
+static constexpr UINT32 FOURCC_PCSG = MakeFourCC('P','C','S','G'); // patch constant signature
 static constexpr UINT32 FOURCC_RDEF = MakeFourCC('R','D','E','F'); // resource/cbuf defs
 
 // ISGN / OSGN / OSG5  signature chunk

@@ -4,13 +4,13 @@ A software implementation of the Direct3D 11 API.
 
 ## Missing Features
 
-- [ ] Tesselation: Hull Shader, Domain Shader
 - [ ] Deferred contexts
 
 ## Implemented
 
 - [x] Vertex, Pixel, and Compute shaders (JIT: DXBC → C++ → clang++/MSVC)
 - [x] Geometry Shader, Stream output, Adjacency topologies, DrawAuto
+- [x] Tesselation: Hull Shader, Domain Shader
 - [x] SM4.0/SM5.0 instruction set (arithmetic, integer, bitwise, control flow, atomics)
 - [x] Tiled rasterizer with 28.4 fixed-point edge functions
 - [x] 2x2 quad pixel shader execution (derivatives, auto-LOD)

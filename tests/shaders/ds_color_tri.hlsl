@@ -1,0 +1,33 @@
+struct DS_INPUT
+{
+    float3 pos   : POSITION;
+    float4 color : COLOR;
+};
+
+struct HS_CONSTANT_OUTPUT
+{
+    float edges[3] : SV_TessFactor;
+    float inside   : SV_InsideTessFactor;
+};
+
+struct DS_OUTPUT
+{
+    float4 pos   : SV_Position;
+    float4 color : COLOR;
+};
+
+[domain("tri")]
+DS_OUTPUT main(HS_CONSTANT_OUTPUT patchConst,
+               float3 uvw : SV_DomainLocation,
+               const OutputPatch<DS_INPUT, 3> patch)
+{
+    DS_OUTPUT o;
+    float3 finalPos = patch[0].pos * uvw.x +
+                      patch[1].pos * uvw.y +
+                      patch[2].pos * uvw.z;
+    o.pos   = float4(finalPos, 1.0);
+    o.color = patch[0].color * uvw.x +
+              patch[1].color * uvw.y +
+              patch[2].color * uvw.z;
+    return o;
+}

@@ -138,6 +138,7 @@ add_golden_test(golden_draw_gs_viewport_select golden/test_draw_gs_viewport_sele
 add_golden_test(golden_draw_gs_rt_array golden/test_draw_gs_rt_array.cpp)
 add_golden_test(golden_draw_multi_cbuf golden/test_draw_multi_cbuf.cpp)
 add_golden_test(golden_draw_combined  golden/test_draw_combined.cpp)
+add_golden_test(golden_draw_tessellation golden/test_draw_tessellation.cpp)
 
 add_golden_test(test_stream_output unit/test_stream_output.cpp)
 

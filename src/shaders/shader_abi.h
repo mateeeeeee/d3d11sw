@@ -117,6 +117,34 @@ struct SW_GSOutput
 
 using SW_GSFn = void(*)(const SW_GSInput*, SW_GSOutput*, const SW_Resources*);
 
+struct SW_HSInput
+{
+    SW_VSOutput controlPoints[SW_MAX_PATCH_CP];
+    unsigned    inputCPCount;
+    unsigned    primitiveID;
+};
+
+struct SW_HSOutput
+{
+    SW_VSOutput controlPoints[SW_MAX_PATCH_CP];
+    SW_float4   patchConstants[SW_MAX_PATCH_CONSTANTS];
+    unsigned    outputCPCount;
+};
+
+using SW_HSCPFn       = void(*)(const SW_HSInput*, SW_HSOutput*, unsigned cpID, const SW_Resources*);
+using SW_HSForkJoinFn = void(*)(const SW_HSInput*, SW_HSOutput*, unsigned instanceID, const SW_Resources*);
+
+struct SW_DSInput
+{
+    SW_VSOutput controlPoints[SW_MAX_PATCH_CP];
+    SW_float4   patchConstants[SW_MAX_PATCH_CONSTANTS];
+    SW_float4   domainLocation;
+    unsigned    primitiveID;
+    unsigned    cpCount;
+};
+
+using SW_DSFn = void(*)(const SW_DSInput*, SW_VSOutput*, const SW_Resources*);
+
 struct SW_TGSM
 {
     void*    data;

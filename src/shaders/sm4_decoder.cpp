@@ -28,6 +28,7 @@ static Uint32 ReadOperand(const Uint32* tokens, Uint32 offset, SM4Operand& op)
     }
 
     op.type     = static_cast<D3D10_SB_OPERAND_TYPE>(opType);
+    op.indexDim = static_cast<Uint8>(indexDim);
 
     op.writeMask  = 0xF;
     op.swizzle[0] = 0; op.swizzle[1] = 1; op.swizzle[2] = 2; op.swizzle[3] = 3;
@@ -148,6 +149,43 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords, D3D11SW_ParsedShader& out
         totalLen = numDwords;
     }
 
+    enum class HSPhaseState { None, Decls, ControlPoint, Fork, Join };
+    HSPhaseState hsPhase = HSPhaseState::None;
+    std::vector<SM4Instruction>*        activeInstrs    = &out.instrs;
+    Uint32*                             activeNumTemps  = &out.numTemps;
+    std::vector<D3D11SW_IndexableTempDecl>* activeIdxTemps = &out.indexableTemps;
+    auto switchPhase = [&](HSPhaseState newPhase)
+    {
+        hsPhase = newPhase;
+        switch (newPhase)
+        {
+        case HSPhaseState::Decls:
+            activeInstrs   = &out.instrs;
+            activeNumTemps = &out.numTemps;
+            activeIdxTemps = &out.indexableTemps;
+            break;
+        case HSPhaseState::ControlPoint:
+            activeInstrs   = &out.hsControlPointPhase.instrs;
+            activeNumTemps = &out.hsControlPointPhase.numTemps;
+            activeIdxTemps = &out.hsControlPointPhase.indexableTemps;
+            break;
+        case HSPhaseState::Fork:
+            out.hsForkPhases.emplace_back();
+            activeInstrs   = &out.hsForkPhases.back().instrs;
+            activeNumTemps = &out.hsForkPhases.back().numTemps;
+            activeIdxTemps = &out.hsForkPhases.back().indexableTemps;
+            break;
+        case HSPhaseState::Join:
+            out.hsJoinPhases.emplace_back();
+            activeInstrs   = &out.hsJoinPhases.back().instrs;
+            activeNumTemps = &out.hsJoinPhases.back().numTemps;
+            activeIdxTemps = &out.hsJoinPhases.back().indexableTemps;
+            break;
+        default:
+            break;
+        }
+    };
+
     Uint32 pos = 2;
     while (pos < totalLen)
     {
@@ -161,11 +199,37 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords, D3D11SW_ParsedShader& out
         }
 
         Uint32 instrEnd = pos + instrLen;
+
+        if (op == D3D11_SB_OPCODE_HS_DECLS)
+        {
+            switchPhase(HSPhaseState::Decls);
+            pos = instrEnd;
+            continue;
+        }
+        if (op == D3D11_SB_OPCODE_HS_CONTROL_POINT_PHASE)
+        {
+            switchPhase(HSPhaseState::ControlPoint);
+            pos = instrEnd;
+            continue;
+        }
+        if (op == D3D11_SB_OPCODE_HS_FORK_PHASE)
+        {
+            switchPhase(HSPhaseState::Fork);
+            pos = instrEnd;
+            continue;
+        }
+        if (op == D3D11_SB_OPCODE_HS_JOIN_PHASE)
+        {
+            switchPhase(HSPhaseState::Join);
+            pos = instrEnd;
+            continue;
+        }
+
         if (op == D3D10_SB_OPCODE_DCL_TEMPS)
         {
             if (pos + 1 < instrEnd)
             {
-                out.numTemps = tokens[pos + 1];
+                *activeNumTemps = tokens[pos + 1];
             }
             pos = instrEnd;
             continue;
@@ -179,7 +243,7 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords, D3D11SW_ParsedShader& out
                 decl.regIndex = tokens[pos + 1];
                 decl.numRegs  = tokens[pos + 2];
                 decl.numComps = tokens[pos + 3];
-                out.indexableTemps.push_back(decl);
+                activeIdxTemps->push_back(decl);
             }
             pos = instrEnd;
             continue;
@@ -260,9 +324,72 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords, D3D11SW_ParsedShader& out
             continue;
         }
 
+        if (op == D3D11_SB_OPCODE_DCL_INPUT_CONTROL_POINT_COUNT)
+        {
+            out.hsInputControlPointCount = DECODE_D3D11_SB_INPUT_CONTROL_POINT_COUNT(opTok);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_OUTPUT_CONTROL_POINT_COUNT)
+        {
+            out.hsOutputControlPointCount = DECODE_D3D11_SB_OUTPUT_CONTROL_POINT_COUNT(opTok);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_TESS_DOMAIN)
+        {
+            out.hsDomain = DECODE_D3D11_SB_TESS_DOMAIN(opTok);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_TESS_PARTITIONING)
+        {
+            out.hsPartitioning = DECODE_D3D11_SB_TESS_PARTITIONING(opTok);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_TESS_OUTPUT_PRIMITIVE)
+        {
+            out.hsOutputPrimitive = DECODE_D3D11_SB_TESS_OUTPUT_PRIMITIVE(opTok);
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_HS_MAX_TESSFACTOR)
+        {
+            if (pos + 1 < instrEnd)
+            {
+                std::memcpy(&out.hsMaxTessFactor, &tokens[pos + 1], 4);
+            }
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_HS_FORK_PHASE_INSTANCE_COUNT)
+        {
+            if (!out.hsForkPhases.empty() && pos + 1 < instrEnd)
+            {
+                out.hsForkPhases.back().instanceCount = tokens[pos + 1];
+            }
+            pos = instrEnd;
+            continue;
+        }
+
+        if (op == D3D11_SB_OPCODE_DCL_HS_JOIN_PHASE_INSTANCE_COUNT)
+        {
+            if (!out.hsJoinPhases.empty() && pos + 1 < instrEnd)
+            {
+                out.hsJoinPhases.back().instanceCount = tokens[pos + 1];
+            }
+            pos = instrEnd;
+            continue;
+        }
+
         if (op == D3D11_SB_OPCODE_DCL_STREAM ||
-            op == D3D11_SB_OPCODE_DCL_INPUT_CONTROL_POINT_COUNT ||
-            op == D3D11_SB_OPCODE_DCL_OUTPUT_CONTROL_POINT_COUNT ||
             op == D3D11_SB_OPCODE_DCL_FUNCTION_BODY ||
             op == D3D11_SB_OPCODE_DCL_FUNCTION_TABLE ||
             op == D3D11_SB_OPCODE_DCL_INTERFACE)
@@ -315,7 +442,7 @@ Bool SM4Decode(const Uint32* tokens, Uint32 numDwords, D3D11SW_ParsedShader& out
         }
 
         pos = instrEnd;
-        out.instrs.push_back(std::move(instr));
+        activeInstrs->push_back(std::move(instr));
     }
 
     return true;

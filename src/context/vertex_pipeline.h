@@ -141,7 +141,23 @@ void ProcessPrimitives(VertexState& vs, const Uint* indices, Uint vertexCount,
         break;
     }
     default:
+    {
+        Uint topVal = static_cast<Uint>(topology);
+        if (topVal >= D3D11_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST && topVal <= D3D11_PRIMITIVE_TOPOLOGY_32_CONTROL_POINT_PATCHLIST)
+        {
+            Uint cpCount = topVal - 32;
+            for (Uint i = 0; i + cpCount <= vertexCount; i += cpCount)
+            {
+                SW_VSOutput patch[SW_MAX_PATCH_CP];
+                for (Uint j = 0; j < cpCount; ++j)
+                {
+                    patch[j] = fetch(i + j);
+                }
+                onPrimitive(patch, cpCount);
+            }
+        }
         break;
+    }
     }
 }
 

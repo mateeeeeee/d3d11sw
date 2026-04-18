@@ -52,6 +52,14 @@ struct D3D11SW_IndexableTempDecl
     Uint32 numComps;
 };
 
+struct D3D11SW_HSPhase
+{
+    std::vector<SM4Instruction>        instrs;
+    Uint32                             numTemps = 0;
+    Uint32                             instanceCount = 1;
+    std::vector<D3D11SW_IndexableTempDecl> indexableTemps;
+};
+
 struct D3D11SW_ParsedShader
 {
     D3D11SW_ShaderType                           type;
@@ -76,6 +84,17 @@ struct D3D11SW_ParsedShader
     Uint32                                       gsOutputTopology   = 0;
     Uint32                                       gsMaxOutputVertices = 0;
     Uint32                                       gsInstanceCount    = 1;
+
+    std::vector<D3D11SW_ShaderSignatureElement>  patchConstants;
+    Uint32                                       hsInputControlPointCount  = 0;
+    Uint32                                       hsOutputControlPointCount = 0;
+    Uint32                                       hsDomain          = 0;
+    Uint32                                       hsPartitioning    = 0;
+    Uint32                                       hsOutputPrimitive = 0;
+    Float                                        hsMaxTessFactor   = 0.f;
+    D3D11SW_HSPhase                              hsControlPointPhase;
+    std::vector<D3D11SW_HSPhase>                 hsForkPhases;
+    std::vector<D3D11SW_HSPhase>                 hsJoinPhases;
 };
 
 D3D11SW_API Bool DXBCParse(const void* bytecode, Usize len, D3D11SW_ParsedShader& out);

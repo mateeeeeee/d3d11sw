@@ -1,5 +1,6 @@
 #include "context/rasterizer.h"
 #include "context/depth_stencil_util.h"
+#include "common/log.h"
 #include "context/blend_util.h"
 #include "context/context_util.h"
 #include "context/pipeline_state.h"
@@ -7,6 +8,9 @@
 #include "shaders/vertex_shader.h"
 #include "shaders/pixel_shader.h"
 #include "shaders/geometry_shader.h"
+#include "shaders/hull_shader.h"
+#include "shaders/domain_shader.h"
+#include "context/tessellator.h"
 #include "states/blend_state.h"
 #include "states/depth_stencil_state.h"
 #include "states/rasterizer_state.h"
@@ -1531,7 +1535,7 @@ void SWRasterizer::DrawInternal(
     const UINT* indices, Uint vertexCount, Int baseVertex,
     D3D11SW_PIPELINE_STATE& state)
 {
-    SW_PSQuadFn psFn = state.ps->GetQuadFn();
+    SW_PSQuadFn psFn = state.ps ? state.ps->GetQuadFn() : nullptr;
     if (!vs.vsFn || !psFn)
     {
         return;
@@ -1545,7 +1549,11 @@ void SWRasterizer::DrawInternal(
     SW_Resources psRes{};
     BuildStageResources(psRes, state.psCBs, state.psCBOffsets, state.psSRVs, state.psSamplers);
 
-    if (state.gs)
+    if (state.hs && state.ds)
+    {
+        DrawWithTessellation(vs, om, indices, vertexCount, baseVertex, vsRefl, psRefl, psFn, psRes, state);
+    }
+    else if (state.gs)
     {
         DrawWithGS(vs, om, indices, vertexCount, baseVertex, vsRefl, psRefl, psFn, psRes, state);
     }
@@ -1646,6 +1654,225 @@ void SWRasterizer::DrawDirect(
             state.stats.cInvocations++;
             state.stats.cPrimitives++;
             RasterizePrimitive(v, n, vsRefl, psRefl, psFn, psRes, om, state);
+        });
+}
+
+void SWRasterizer::DrawWithTessellation(
+    VertexState& vs, OMState& om,
+    const Uint* indices, Uint vertexCount, Int baseVertex,
+    const D3D11SW_ParsedShader& vsRefl,
+    const D3D11SW_ParsedShader& psRefl,
+    SW_PSQuadFn psFn, SW_Resources& psRes,
+    D3D11SW_PIPELINE_STATE& state)
+{
+    auto* hs = state.hs;
+    auto* ds = state.ds;
+
+    SW_HSCPFn cpFn = hs->GetCPFn();
+    SW_DSFn   dsFn = ds->GetJitFn();
+    if (!dsFn)
+    {
+        return;
+    }
+
+    const D3D11SW_ParsedShader& hsRefl = hs->GetReflection();
+    const D3D11SW_ParsedShader& dsRefl = ds->GetReflection();
+
+    SW_Resources hsRes{};
+    BuildStageResources(hsRes, state.hsCBs, state.hsCBOffsets, state.hsSRVs, state.hsSamplers);
+    SW_Resources dsRes{};
+    BuildStageResources(dsRes, state.dsCBs, state.dsCBOffsets, state.dsSRVs, state.dsSamplers);
+
+    Uint32 inputCPCount  = hs->GetInputCPCount();
+    Uint32 outputCPCount = hs->GetOutputCPCount();
+    Uint32 domain        = hs->GetDomain();
+    Uint32 partitioning  = hs->GetPartitioning();
+    Uint32 outputPrim    = hs->GetOutputPrimitive();
+
+    SW_GSFn gsFn = nullptr;
+    const D3D11SW_ParsedShader* gsReflPtr = nullptr;
+    SW_Resources gsRes{};
+    Uint32 gsInstCount = 1;
+    if (state.gs)
+    {
+        gsFn = state.gs->GetJitFn();
+        if (gsFn)
+        {
+            gsReflPtr = &state.gs->GetReflection();
+            BuildStageResources(gsRes, state.gsCBs, state.gsCBOffsets, state.gsSRVs, state.gsSamplers);
+            gsInstCount = gsReflPtr->gsInstanceCount;
+        }
+    }
+
+    Uint primID = 0;
+    ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
+        [&](const SW_VSOutput* v, Uint cpCount)
+        {
+            state.stats.iaPrimitives++;
+
+            SW_HSInput hsIn{};
+            for (Uint i = 0; i < cpCount && i < inputCPCount; ++i)
+            {
+                hsIn.controlPoints[i] = v[i];
+                for (const auto& e : hsRefl.inputs)
+                {
+                    if (e.svType == D3D_NAME_POSITION)
+                    {
+                        auto& p = v[i].pos;
+                        hsIn.controlPoints[i].o[e.reg] = {p.x, p.y, p.z, p.w};
+                    }
+                }
+            }
+            hsIn.inputCPCount = inputCPCount;
+            hsIn.primitiveID  = primID;
+
+            SW_HSOutput hsOut{};
+            hsOut.outputCPCount = outputCPCount;
+
+            if (cpFn)
+            {
+                for (Uint32 cp = 0; cp < outputCPCount; ++cp)
+                {
+                    cpFn(&hsIn, &hsOut, cp, &hsRes);
+                    state.stats.hsInvocations++;
+                }
+            }
+            else if (inputCPCount == outputCPCount)
+            {
+                for (Uint32 cp = 0; cp < outputCPCount; ++cp)
+                {
+                    hsOut.controlPoints[cp] = hsIn.controlPoints[cp];
+                }
+            }
+
+            for (Uint32 fi = 0; fi < hs->GetForkPhaseCount(); ++fi)
+            {
+                SW_HSForkJoinFn forkFn = hs->GetForkFn(fi);
+                if (!forkFn)
+                {
+                    continue;
+                }
+                Uint32 instCount = hsRefl.hsForkPhases[fi].instanceCount;
+                for (Uint32 inst = 0; inst < instCount; ++inst)
+                {
+                    forkFn(&hsIn, &hsOut, inst, &hsRes);
+                    state.stats.hsInvocations++;
+                }
+            }
+
+            for (Uint32 ji = 0; ji < hs->GetJoinPhaseCount(); ++ji)
+            {
+                SW_HSForkJoinFn joinFn = hs->GetJoinFn(ji);
+                if (!joinFn)
+                {
+                    continue;
+                }
+                Uint32 instCount = hsRefl.hsJoinPhases[ji].instanceCount;
+                for (Uint32 inst = 0; inst < instCount; ++inst)
+                {
+                    joinFn(&hsIn, &hsOut, inst, &hsRes);
+                    state.stats.hsInvocations++;
+                }
+            }
+
+            Float tessFactors[6] = {};
+            ExtractTessFactors(hsOut, hsRefl.patchConstants, domain, tessFactors);
+
+            Int numEdgeFactors = (domain == D3D11_SB_TESSELLATOR_DOMAIN_TRI) ? 3 :
+                                 (domain == D3D11_SB_TESSELLATOR_DOMAIN_QUAD) ? 4 : 2;
+            for (Int i = 0; i < numEdgeFactors; ++i)
+            {
+                if (tessFactors[i] <= 0.f || std::isnan(tessFactors[i]))
+                {
+                    goto next_patch;
+                }
+            }
+
+            {
+                TessellatorOutput tessOut;
+                Tessellate(domain, partitioning, outputPrim, tessFactors, tessOut);
+
+                if (tessOut.domainPoints.empty())
+                {
+                    goto next_patch;
+                }
+
+                std::vector<SW_VSOutput> dsOutputs(tessOut.domainPoints.size());
+                for (Usize di = 0; di < tessOut.domainPoints.size(); ++di)
+                {
+                    SW_DSInput dsIn{};
+                    for (Uint32 cp = 0; cp < outputCPCount; ++cp)
+                    {
+                        dsIn.controlPoints[cp] = hsOut.controlPoints[cp];
+                    }
+                    for (Uint32 pc = 0; pc < SW_MAX_PATCH_CONSTANTS; ++pc)
+                    {
+                        dsIn.patchConstants[pc] = hsOut.patchConstants[pc];
+                    }
+                    dsIn.domainLocation = tessOut.domainPoints[di];
+                    dsIn.primitiveID    = primID;
+                    dsIn.cpCount        = outputCPCount;
+
+                    dsFn(&dsIn, &dsOutputs[di], &dsRes);
+                    state.stats.dsInvocations++;
+                }
+
+                if (gsFn)
+                {
+                    Uint32 vertsPerPrim = (outputPrim >= 3) ? 3 : 2;
+                    for (Usize i = 0; i + vertsPerPrim <= tessOut.indices.size(); i += vertsPerPrim)
+                    {
+                        SW_GSInput gsIn{};
+                        for (Uint32 vi = 0; vi < vertsPerPrim; ++vi)
+                        {
+                            gsIn.vertices[vi] = dsOutputs[tessOut.indices[i + vi]];
+                            for (const auto& e : gsReflPtr->inputs)
+                            {
+                                if (e.svType == D3D_NAME_POSITION)
+                                {
+                                    auto& p = gsIn.vertices[vi].pos;
+                                    gsIn.vertices[vi].o[e.reg] = {p.x, p.y, p.z, p.w};
+                                }
+                            }
+                        }
+                        gsIn.vertexCount = vertsPerPrim;
+                        gsIn.primitiveID = primID;
+
+                        for (Uint32 inst = 0; inst < gsInstCount; ++inst)
+                        {
+                            gsIn.instanceID = inst;
+                            SW_GSOutput gsOut{};
+                            gsFn(&gsIn, &gsOut, &gsRes);
+                            state.stats.gsInvocations++;
+                            state.stats.gsPrimitives += gsOut.vertexCount >= 3 ? gsOut.vertexCount - 2 : 0;
+                            if (state.gs->HasSO())
+                            {
+                                WriteSOVertices(gsOut, *gsReflPtr, *state.gs, state);
+                            }
+                            RasterizeGSOutput(gsOut, *gsReflPtr, psRefl, psFn, psRes, om, state);
+                        }
+                    }
+                }
+                else
+                {
+                    Uint32 vertsPerPrim = (outputPrim >= 3) ? 3 : (outputPrim == 2) ? 2 : 1;
+                    for (Usize i = 0; i + vertsPerPrim <= tessOut.indices.size(); i += vertsPerPrim)
+                    {
+                        om.primitiveID = primID;
+                        state.stats.cInvocations++;
+                        state.stats.cPrimitives++;
+                        SW_VSOutput prim[3];
+                        for (Uint32 vi = 0; vi < vertsPerPrim; ++vi)
+                        {
+                            prim[vi] = dsOutputs[tessOut.indices[i + vi]];
+                        }
+                        RasterizePrimitive(prim, vertsPerPrim, dsRefl, psRefl, psFn, psRes, om, state);
+                    }
+                }
+            }
+
+            next_patch:
+            primID++;
         });
 }
 

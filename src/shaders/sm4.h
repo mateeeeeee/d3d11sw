@@ -17,6 +17,7 @@ struct SM4Operand
     Bool           intContext   = false;
     Int            relativeReg  = -1;
     Uint8          relativeComp = 0;
+    Uint8          indexDim     = 0;
 };
 
 struct SM4Instruction

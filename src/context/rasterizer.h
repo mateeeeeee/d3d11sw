@@ -80,6 +80,13 @@ private:
                     SW_PSQuadFn psFn, SW_Resources& psRes,
                     D3D11SW_PIPELINE_STATE& state);
 
+    void DrawWithTessellation(VertexState& vs, OMState& om,
+                              const Uint* indices, Uint vertexCount, Int baseVertex,
+                              const D3D11SW_ParsedShader& vsRefl,
+                              const D3D11SW_ParsedShader& psRefl,
+                              SW_PSQuadFn psFn, SW_Resources& psRes,
+                              D3D11SW_PIPELINE_STATE& state);
+
     void RasterizePrimitive(const SW_VSOutput* v, Uint n,
                             const D3D11SW_ParsedShader& vsRefl,
                             const D3D11SW_ParsedShader& psRefl,

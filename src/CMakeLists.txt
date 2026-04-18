@@ -29,6 +29,8 @@ set(D3D11SW_SOURCES
     context/output_merger.cpp
     context/vertex_pipeline.h
     context/vertex_pipeline.cpp
+    context/tessellator.h
+    context/tessellator.cpp
 
     resources/buffer.cpp
     resources/buffer.h
@@ -178,7 +180,7 @@ else()
     )
 endif()
 
-target_link_libraries(d3d11 PRIVATE bc_decomp)
+target_link_libraries(d3d11 PRIVATE bc_decomp tessellator)
 
 if(APPLE)
     target_link_libraries(d3d11 PRIVATE "-framework AppKit" "-framework QuartzCore")
@@ -216,7 +218,7 @@ else()
     )
 endif()
 
-target_link_libraries(dxgi PRIVATE bc_decomp)
+target_link_libraries(dxgi PRIVATE bc_decomp tessellator)
 
 if(APPLE)
     target_link_libraries(dxgi PRIVATE "-framework AppKit" "-framework QuartzCore")
