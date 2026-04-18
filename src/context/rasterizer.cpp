@@ -837,6 +837,54 @@ static Int ClipTriangle(const SW_VSOutput in[3], SW_VSOutput out[][3],
     return numTris;
 }
 
+static Float ComputeDepthBias(
+    const D3D11_RASTERIZER_DESC& rsDesc, DXGI_FORMAT dsvFmt,
+    const Float screenX[3], const Float screenY[3], const Float ndcZ[3])
+{
+    //https://learn.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-output-merger-stage-depth-bias
+    Float edgeArea = (screenX[1] - screenX[0]) * (screenY[2] - screenY[0])
+                   - (screenY[1] - screenY[0]) * (screenX[2] - screenX[0]);
+    Float invArea = 1.f / edgeArea;
+    Float dzdx = ((ndcZ[1] - ndcZ[0]) * (screenY[2] - screenY[0]) -
+                   (ndcZ[2] - ndcZ[0]) * (screenY[1] - screenY[0])) * invArea;
+    Float dzdy = ((ndcZ[2] - ndcZ[0]) * (screenX[1] - screenX[0]) -
+                   (ndcZ[1] - ndcZ[0]) * (screenX[2] - screenX[0])) * invArea;
+    Float maxSlope = std::max(std::abs(dzdx), std::abs(dzdy));
+
+    Float r = 0.f;
+    switch (dsvFmt)
+    {
+    case DXGI_FORMAT_D24_UNORM_S8_UINT:
+        r = 1.f / static_cast<Float>(1 << 24);
+        break;
+    case DXGI_FORMAT_D16_UNORM:
+        r = 1.f / static_cast<Float>(1 << 16);
+        break;
+    case DXGI_FORMAT_D32_FLOAT:
+    case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
+    {
+        Float maxZ = std::max({ndcZ[0], ndcZ[1], ndcZ[2]});
+        Int exp;
+        std::frexp(maxZ, &exp);
+        r = std::ldexp(1.f, exp - 23);
+        break;
+    }
+    default:
+        break;
+    }
+
+    Float bias = static_cast<Float>(rsDesc.DepthBias) * r + rsDesc.SlopeScaledDepthBias * maxSlope;
+    if (rsDesc.DepthBiasClamp > 0.f)
+    {
+        bias = std::min(bias, rsDesc.DepthBiasClamp);
+    }
+    else if (rsDesc.DepthBiasClamp < 0.f)
+    {
+        bias = std::max(bias, rsDesc.DepthBiasClamp);
+    }
+    return bias;
+}
+
 void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput tri[3],
     const D3D11SW_ParsedShader& vsReflection,
@@ -989,47 +1037,7 @@ void SWRasterizer::RasterizeTriangle(
     Float depthBias = 0.f;
     if (rsDesc.DepthBias != 0 || rsDesc.SlopeScaledDepthBias != 0.f)
     {
-        //https://learn.microsoft.com/en-us/windows/win32/direct3d11/d3d10-graphics-programming-guide-output-merger-stage-depth-bias
-        Float edgeArea = (screenX[1] - screenX[0]) * (screenY[2] - screenY[0])
-                       - (screenY[1] - screenY[0]) * (screenX[2] - screenX[0]);
-        Float invArea = 1.f / edgeArea;
-        Float dzdx = ((ndcZ[1] - ndcZ[0]) * (screenY[2] - screenY[0]) -
-                       (ndcZ[2] - ndcZ[0]) * (screenY[1] - screenY[0])) * invArea;
-        Float dzdy = ((ndcZ[2] - ndcZ[0]) * (screenX[1] - screenX[0]) -
-                       (ndcZ[1] - ndcZ[0]) * (screenX[2] - screenX[0])) * invArea;
-        Float maxSlope = std::max(std::abs(dzdx), std::abs(dzdy));
-
-        Float r = 0.f;
-        switch (om.dsvFmt)
-        {
-        case DXGI_FORMAT_D24_UNORM_S8_UINT:
-            r = 1.f / static_cast<Float>(1 << 24);
-            break;
-        case DXGI_FORMAT_D16_UNORM:
-            r = 1.f / static_cast<Float>(1 << 16);
-            break;
-        case DXGI_FORMAT_D32_FLOAT:
-        case DXGI_FORMAT_D32_FLOAT_S8X24_UINT:
-        {
-            Float maxZ = std::max({ndcZ[0], ndcZ[1], ndcZ[2]});
-            Int exp;
-            std::frexp(maxZ, &exp);
-            r = std::ldexp(1.f, exp - 23);
-            break;
-        }
-        default:
-            break;
-        }
-
-        depthBias = static_cast<Float>(rsDesc.DepthBias) * r + rsDesc.SlopeScaledDepthBias * maxSlope;
-        if (rsDesc.DepthBiasClamp > 0.f)
-        {
-            depthBias = std::min(depthBias, rsDesc.DepthBiasClamp);
-        }
-        else if (rsDesc.DepthBiasClamp < 0.f)
-        {
-            depthBias = std::max(depthBias, rsDesc.DepthBiasClamp);
-        }
+        depthBias = ComputeDepthBias(rsDesc, om.dsvFmt, screenX, screenY, ndcZ);
     }
 
     if (rsDesc.FillMode == D3D11_FILL_WIREFRAME)
@@ -1493,6 +1501,31 @@ void SWRasterizer::RasterizePoint(
     }
 }
 
+void SWRasterizer::RasterizePrimitive(
+    const SW_VSOutput* v, Uint n,
+    const D3D11SW_ParsedShader& vsRefl,
+    const D3D11SW_ParsedShader& psRefl,
+    SW_PSQuadFn psFn, SW_Resources& psRes,
+    OMState& om, D3D11SW_PIPELINE_STATE& state)
+{
+    switch (n)
+    {
+    case 1: RasterizePoint(v[0], vsRefl, psRefl, psFn, psRes, om, state); break;
+    case 2: RasterizeLine(v, vsRefl, psRefl, psFn, psRes, om, state); break;
+    case 3: RasterizeTriangle(v, vsRefl, psRefl, psFn, psRes, om, state); break;
+    case 4: {
+        SW_VSOutput e[2] = { v[1], v[2] };
+        RasterizeLine(e, vsRefl, psRefl, psFn, psRes, om, state);
+        break;
+    }
+    case 6: {
+        SW_VSOutput t[3] = { v[0], v[2], v[4] };
+        RasterizeTriangle(t, vsRefl, psRefl, psFn, psRes, om, state);
+        break;
+    }
+    }
+}
+
 void SWRasterizer::DrawInternal(
     VertexState& vs, OMState& om,
     const UINT* indices, Uint vertexCount, Int baseVertex,
@@ -1514,114 +1547,106 @@ void SWRasterizer::DrawInternal(
 
     if (state.gs)
     {
-        SW_GSFn gsFn = state.gs->GetJitFn();
-
-        if (gsFn)
-        {
-            const D3D11SW_ParsedShader& gsRefl = state.gs->GetReflection();
-            SW_Resources gsRes{};
-            BuildStageResources(gsRes, state.gsCBs, state.gsCBOffsets, state.gsSRVs, state.gsSamplers);
-
-            Uint primID = 0;
-            Uint32 gsInstCount = gsRefl.gsInstanceCount;
-            auto runGS = [&](const SW_VSOutput* verts, Uint vertCount)
-            {
-                SW_GSInput gsIn{};
-                for (Uint i = 0; i < vertCount; ++i)
-                {
-                    gsIn.vertices[i] = verts[i];
-                    for (const auto& e : gsRefl.inputs)
-                    {
-                        if (e.svType == D3D_NAME_POSITION)
-                        {
-                            auto& p = verts[i].pos;
-                            gsIn.vertices[i].o[e.reg] = {p.x, p.y, p.z, p.w};
-                        }
-                    }
-                }
-                gsIn.vertexCount = vertCount;
-                gsIn.primitiveID = primID++;
-                state.stats.iaPrimitives++;
-
-                for (Uint32 inst = 0; inst < gsInstCount; ++inst)
-                {
-                    gsIn.instanceID = inst;
-                    SW_GSOutput gsOut{};
-                    gsFn(&gsIn, &gsOut, &gsRes);
-                    state.stats.gsInvocations++;
-                    state.stats.gsPrimitives += gsOut.vertexCount >= 3 ? gsOut.vertexCount - 2 : 0;
-                    if (state.gs->HasSO())
-                    {
-                        WriteSOVertices(gsOut, gsRefl, *state.gs, state);
-                    }
-
-                    RasterizeGSOutput(gsOut, gsRefl, psRefl, psFn, psRes, om, state);
-                }
-            };
-
-            ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
-                [&](const SW_VSOutput* v, Uint n) { runGS(v, n); });
-        }
-        else if (state.gs->HasSO())
-        {
-            ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
-                [&](const SW_VSOutput* v, Uint n)
-                {
-                    SW_GSOutput soOut{};
-                    for (Uint i = 0; i < n; ++i)
-                    {
-                        soOut.vertices[i] = v[i];
-                    }
-                    soOut.vertexCount = n;
-                    WriteSOVertices(soOut, vsRefl, *state.gs, state);
-
-                    switch (n)
-                    {
-                    case 1: RasterizePoint(v[0], vsRefl, psRefl, psFn, psRes, om, state); break;
-                    case 2: RasterizeLine(v, vsRefl, psRefl, psFn, psRes, om, state); break;
-                    case 3: RasterizeTriangle(v, vsRefl, psRefl, psFn, psRes, om, state); break;
-                    case 4: {
-                        SW_VSOutput e[2] = { v[1], v[2] };
-                        RasterizeLine(e, vsRefl, psRefl, psFn, psRes, om, state);
-                        break;
-                    }
-                    case 6: {
-                        SW_VSOutput t[3] = { v[0], v[2], v[4] };
-                        RasterizeTriangle(t, vsRefl, psRefl, psFn, psRes, om, state);
-                        break;
-                    }
-                    }
-                });
-        }
+        DrawWithGS(vs, om, indices, vertexCount, baseVertex, vsRefl, psRefl, psFn, psRes, state);
     }
     else
     {
+        DrawDirect(vs, om, indices, vertexCount, baseVertex, vsRefl, psRefl, psFn, psRes, state);
+    }
+}
+
+void SWRasterizer::DrawWithGS(
+    VertexState& vs, OMState& om,
+    const Uint* indices, Uint vertexCount, Int baseVertex,
+    const D3D11SW_ParsedShader& vsRefl,
+    const D3D11SW_ParsedShader& psRefl,
+    SW_PSQuadFn psFn, SW_Resources& psRes,
+    D3D11SW_PIPELINE_STATE& state)
+{
+    SW_GSFn gsFn = state.gs->GetJitFn();
+
+    if (gsFn)
+    {
+        const D3D11SW_ParsedShader& gsRefl = state.gs->GetReflection();
+        SW_Resources gsRes{};
+        BuildStageResources(gsRes, state.gsCBs, state.gsCBOffsets, state.gsSRVs, state.gsSamplers);
+
         Uint primID = 0;
+        Uint32 gsInstCount = gsRefl.gsInstanceCount;
+        auto runGS = [&](const SW_VSOutput* verts, Uint vertCount)
+        {
+            SW_GSInput gsIn{};
+            for (Uint i = 0; i < vertCount; ++i)
+            {
+                gsIn.vertices[i] = verts[i];
+                for (const auto& e : gsRefl.inputs)
+                {
+                    if (e.svType == D3D_NAME_POSITION)
+                    {
+                        auto& p = verts[i].pos;
+                        gsIn.vertices[i].o[e.reg] = {p.x, p.y, p.z, p.w};
+                    }
+                }
+            }
+            gsIn.vertexCount = vertCount;
+            gsIn.primitiveID = primID++;
+            state.stats.iaPrimitives++;
+
+            for (Uint32 inst = 0; inst < gsInstCount; ++inst)
+            {
+                gsIn.instanceID = inst;
+                SW_GSOutput gsOut{};
+                gsFn(&gsIn, &gsOut, &gsRes);
+                state.stats.gsInvocations++;
+                state.stats.gsPrimitives += gsOut.vertexCount >= 3 ? gsOut.vertexCount - 2 : 0;
+                if (state.gs->HasSO())
+                {
+                    WriteSOVertices(gsOut, gsRefl, *state.gs, state);
+                }
+
+                RasterizeGSOutput(gsOut, gsRefl, psRefl, psFn, psRes, om, state);
+            }
+        };
+
+        ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
+            [&](const SW_VSOutput* v, Uint n) { runGS(v, n); });
+    }
+    else if (state.gs->HasSO())
+    {
         ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
             [&](const SW_VSOutput* v, Uint n)
             {
-                om.primitiveID = primID++;
-                state.stats.iaPrimitives++;
-                state.stats.cInvocations++;
-                state.stats.cPrimitives++;
-                switch (n)
+                SW_GSOutput soOut{};
+                for (Uint i = 0; i < n; ++i)
                 {
-                case 1: RasterizePoint(v[0], vsRefl, psRefl, psFn, psRes, om, state); break;
-                case 2: RasterizeLine(v, vsRefl, psRefl, psFn, psRes, om, state); break;
-                case 3: RasterizeTriangle(v, vsRefl, psRefl, psFn, psRes, om, state); break;
-                case 4: {
-                    SW_VSOutput e[2] = { v[1], v[2] };
-                    RasterizeLine(e, vsRefl, psRefl, psFn, psRes, om, state);
-                    break;
+                    soOut.vertices[i] = v[i];
                 }
-                case 6: {
-                    SW_VSOutput t[3] = { v[0], v[2], v[4] };
-                    RasterizeTriangle(t, vsRefl, psRefl, psFn, psRes, om, state);
-                    break;
-                }
-                }
+                soOut.vertexCount = n;
+                WriteSOVertices(soOut, vsRefl, *state.gs, state);
+
+                RasterizePrimitive(v, n, vsRefl, psRefl, psFn, psRes, om, state);
             });
     }
+}
+
+void SWRasterizer::DrawDirect(
+    VertexState& vs, OMState& om,
+    const Uint* indices, Uint vertexCount, Int baseVertex,
+    const D3D11SW_ParsedShader& vsRefl,
+    const D3D11SW_ParsedShader& psRefl,
+    SW_PSQuadFn psFn, SW_Resources& psRes,
+    D3D11SW_PIPELINE_STATE& state)
+{
+    Uint primID = 0;
+    ProcessPrimitives(vs, indices, vertexCount, baseVertex, state.topology,
+        [&](const SW_VSOutput* v, Uint n)
+        {
+            om.primitiveID = primID++;
+            state.stats.iaPrimitives++;
+            state.stats.cInvocations++;
+            state.stats.cPrimitives++;
+            RasterizePrimitive(v, n, vsRefl, psRefl, psFn, psRes, om, state);
+        });
 }
 
 void SWRasterizer::WriteSOVertices(

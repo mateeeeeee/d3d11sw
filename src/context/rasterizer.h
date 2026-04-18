@@ -66,6 +66,26 @@ private:
                       const Uint* indices, Uint vertexCount, Int baseVertex,
                       D3D11SW_PIPELINE_STATE& state);
 
+    void DrawWithGS(VertexState& vs, OMState& om,
+                    const Uint* indices, Uint vertexCount, Int baseVertex,
+                    const D3D11SW_ParsedShader& vsRefl,
+                    const D3D11SW_ParsedShader& psRefl,
+                    SW_PSQuadFn psFn, SW_Resources& psRes,
+                    D3D11SW_PIPELINE_STATE& state);
+
+    void DrawDirect(VertexState& vs, OMState& om,
+                    const Uint* indices, Uint vertexCount, Int baseVertex,
+                    const D3D11SW_ParsedShader& vsRefl,
+                    const D3D11SW_ParsedShader& psRefl,
+                    SW_PSQuadFn psFn, SW_Resources& psRes,
+                    D3D11SW_PIPELINE_STATE& state);
+
+    void RasterizePrimitive(const SW_VSOutput* v, Uint n,
+                            const D3D11SW_ParsedShader& vsRefl,
+                            const D3D11SW_ParsedShader& psRefl,
+                            SW_PSQuadFn psFn, SW_Resources& psRes,
+                            OMState& om, D3D11SW_PIPELINE_STATE& state);
+
     void RasterizeGSOutput(const SW_GSOutput& gsOut,
                            const D3D11SW_ParsedShader& gsRefl,
                            const D3D11SW_ParsedShader& psRefl,
