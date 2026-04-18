@@ -5,6 +5,7 @@ A software implementation of the Direct3D 11 API.
 ## Missing Features
 
 - [ ] Multisampled textures (Currently rendered as 1x)
+- [ ] Class linkage
 - [ ] Deferred contexts
 
 ## Implemented
