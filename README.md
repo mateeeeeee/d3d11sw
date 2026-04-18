@@ -4,6 +4,7 @@ A software implementation of the Direct3D 11 API.
 
 ## Missing Features
 
+- [ ] Multisampled textures (Currently rendered as 1x)
 - [ ] Deferred contexts
 
 ## Implemented
@@ -24,7 +25,6 @@ A software implementation of the Direct3D 11 API.
 - [x] Multi-render-target, write masks, clip/cull distances
 - [x] SV_ViewportArrayIndex, SV_RenderTargetArrayIndex
 - [x] Indexed/instanced/indirect draw and dispatch
-- [x] MSAA stubs (apps requesting MSAA should work, rendered as 1x)
 - [x] TGSM, barriers, thread pool for compute
 - [x] Append/consume buffers
 
