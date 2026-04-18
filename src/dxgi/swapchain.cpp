@@ -92,21 +92,6 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::QueryInterface(REFIID riid, void** pp
 }
 
 
-HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
-{
-    return E_NOTIMPL;
-}
-
-HRESULT STDMETHODCALLTYPE DXGISwapChainSW::SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown)
-{
-    return E_NOTIMPL;
-}
-
-HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData)
-{
-    return E_NOTIMPL;
-}
-
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetParent(REFIID riid, void** ppParent)
 {
     return E_NOTIMPL;

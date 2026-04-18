@@ -2,6 +2,7 @@
 
 #include "common/common.h"
 #include "common/unknown_impl.h"
+#include "common/private_data.h"
 
 namespace d3d11sw {
 
@@ -99,6 +100,7 @@ public:
 
 private:
     ID3D11DeviceContext* _immediateContext = nullptr;
+    PrivateDataStore _privateData;
 
 private:
     template<typename... ArgsT>

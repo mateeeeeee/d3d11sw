@@ -11,14 +11,14 @@ struct Vertex
 
 static const Vertex kTriangle[] = {
     { 0.0f,  0.8f, 0.5f,  1.f, 0.f, 0.f, 1.f},
-    {-0.8f, -0.8f, 0.5f,  0.f, 1.f, 0.f, 1.f},
     { 0.8f, -0.8f, 0.5f,  0.f, 0.f, 1.f, 1.f},
+    {-0.8f, -0.8f, 0.5f,  0.f, 1.f, 0.f, 1.f},
 };
 
 static const Vertex kTriangleAlpha[] = {
     { 0.0f,  0.8f, 0.5f,  1.f, 0.f, 0.f, 0.5f},
-    {-0.8f, -0.8f, 0.5f,  0.f, 1.f, 0.f, 0.5f},
     { 0.8f, -0.8f, 0.5f,  0.f, 0.f, 1.f, 0.5f},
+    {-0.8f, -0.8f, 0.5f,  0.f, 1.f, 0.f, 0.5f},
 };
 
 struct PerfDraw : ::testing::Test
@@ -78,8 +78,8 @@ struct PerfDraw : ::testing::Test
             float cy = ((i / 10) - 4.5f) / 5.0f;
             float s  = 0.08f;
             manyVerts[i * 3 + 0] = {cx,       cy + s, 0.5f,  1.f, 0.f, 0.f, 1.f};
-            manyVerts[i * 3 + 1] = {cx - s, cy - s, 0.5f,  0.f, 1.f, 0.f, 1.f};
-            manyVerts[i * 3 + 2] = {cx + s, cy - s, 0.5f,  0.f, 0.f, 1.f, 1.f};
+            manyVerts[i * 3 + 1] = {cx + s, cy - s, 0.5f,  0.f, 0.f, 1.f, 1.f};
+            manyVerts[i * 3 + 2] = {cx - s, cy - s, 0.5f,  0.f, 1.f, 0.f, 1.f};
         }
 
         D3D11_BUFFER_DESC manyDesc{};
@@ -312,8 +312,8 @@ TEST_F(PerfDraw, ThinTriangle_1024x1024)
 {
     static const Vertex thinTri[] = {
         {-0.95f,  0.95f, 0.5f,  1.f, 0.f, 0.f, 1.f},
-        { 0.95f, -0.95f, 0.5f,  0.f, 1.f, 0.f, 1.f},
         {-0.90f,  0.90f, 0.5f,  0.f, 0.f, 1.f, 1.f},
+        { 0.95f, -0.95f, 0.5f,  0.f, 1.f, 0.f, 1.f},
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -374,13 +374,13 @@ TEST_F(PerfDraw, DepthReject_512x512)
 {
     static const Vertex nearTri[] = {
         { 0.0f,  0.8f, 0.2f,  1.f, 0.f, 0.f, 1.f},
-        {-0.8f, -0.8f, 0.2f,  0.f, 1.f, 0.f, 1.f},
         { 0.8f, -0.8f, 0.2f,  0.f, 0.f, 1.f, 1.f},
+        {-0.8f, -0.8f, 0.2f,  0.f, 1.f, 0.f, 1.f},
     };
     static const Vertex farTri[] = {
         { 0.0f,  0.8f, 0.8f,  1.f, 1.f, 0.f, 1.f},
-        {-0.8f, -0.8f, 0.8f,  1.f, 1.f, 0.f, 1.f},
         { 0.8f, -0.8f, 0.8f,  1.f, 1.f, 0.f, 1.f},
+        {-0.8f, -0.8f, 0.8f,  1.f, 1.f, 0.f, 1.f},
     };
 
     D3D11_BUFFER_DESC vbDesc{};
@@ -613,8 +613,8 @@ TEST_F(PerfDraw, FullscreenQuad_512x512)
 {
     static const Vertex fsQuad[] = {
         {-1.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
-        {-1.0f, -3.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
         { 3.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+        {-1.0f, -3.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
     };
     D3D11_BUFFER_DESC vbDesc{};
     vbDesc.ByteWidth = sizeof(fsQuad);
@@ -643,8 +643,8 @@ TEST_F(PerfDraw, FullscreenQuad_2048x2048)
 {
     static const Vertex fsQuad[] = {
         {-1.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
-        {-1.0f, -3.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
         { 3.0f,  1.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
+        {-1.0f, -3.0f, 0.5f,  0.2f, 0.4f, 0.8f, 1.f},
     };
     D3D11_BUFFER_DESC vbDesc{};
     vbDesc.ByteWidth = sizeof(fsQuad);

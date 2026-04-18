@@ -1,22 +1,17 @@
 #pragma once
-#include "common/unknown_impl.h"
+#include "dxgi/dxgi_object_impl.h"
 
 namespace d3d11sw {
 
-class DXGIOutputSW final : public IDXGIOutput1, private UnknownBase
+class DXGIOutputSW final : public DXGIObjectImpl<IDXGIOutput1>
 {
 public:
     DXGIOutputSW() = default;
     ~DXGIOutputSW() override = default;
 
-    ULONG STDMETHODCALLTYPE AddRef() override { return AddRefImpl(); }
-    ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     // IDXGIObject
-    HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override { return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override { return E_NOTIMPL; }
-    HRESULT STDMETHODCALLTYPE GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData) override { return E_NOTIMPL; }
     HRESULT STDMETHODCALLTYPE GetParent(REFIID riid, void** ppParent) override { return E_NOTIMPL; }
 
     // IDXGIOutput

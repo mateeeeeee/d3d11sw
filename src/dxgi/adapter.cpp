@@ -41,21 +41,6 @@ HRESULT STDMETHODCALLTYPE DXGIAdapterSW::QueryInterface(REFIID riid, void** ppv)
 }
 
 
-HRESULT STDMETHODCALLTYPE DXGIAdapterSW::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
-{
-    return E_NOTIMPL;
-}
-
-HRESULT STDMETHODCALLTYPE DXGIAdapterSW::SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown)
-{
-    return E_NOTIMPL;
-}
-
-HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData)
-{
-    return E_NOTIMPL;
-}
-
 HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetParent(REFIID riid, void** ppParent)
 {
     if (!ppParent)

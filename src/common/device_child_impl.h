@@ -1,6 +1,7 @@
 #pragma once
 
 #include "unknown_impl.h"
+#include "private_data.h"
 
 namespace d3d11sw {
 
@@ -22,27 +23,30 @@ public:
         {
             *ppDevice = _device;
             if (_device)
+            {
                 _device->AddRef();
+            }
         }
     }
 
     HRESULT STDMETHODCALLTYPE GetPrivateData(REFGUID guid, UINT* pDataSize, void* pData) override
     {
-        return E_NOTIMPL;
+        return _privateData.GetData(guid, pDataSize, pData);
     }
 
     HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID guid, UINT DataSize, const void* pData) override
     {
-        return E_NOTIMPL;
+        return _privateData.SetData(guid, DataSize, pData);
     }
 
     HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID guid, const IUnknown* pData) override
     {
-        return E_NOTIMPL;
+        return _privateData.SetInterface(guid, pData);
     }
 
 protected:
     ID3D11Device* _device;
+    PrivateDataStore _privateData;
 };
 
 

@@ -1,22 +1,17 @@
 #pragma once
-#include "common/unknown_impl.h"
+#include "dxgi/dxgi_object_impl.h"
 
 namespace d3d11sw {
 
 
-class DXGIDeviceSW final : public IDXGIDevice1, private UnknownBase
+class DXGIDeviceSW final : public DXGIObjectImpl<IDXGIDevice1>
 {
 public:
     DXGIDeviceSW(ID3D11Device* device);
     ~DXGIDeviceSW();
 
-    ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
-    ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
-    HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
-    HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;
-    HRESULT STDMETHODCALLTYPE GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData) override;
     HRESULT STDMETHODCALLTYPE GetParent(REFIID riid, void** ppParent) override;
 
     HRESULT STDMETHODCALLTYPE GetAdapter(IDXGIAdapter** pAdapter) override;

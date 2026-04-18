@@ -2,25 +2,20 @@
 
 #include <memory>
 #include <vector>
-#include "common/unknown_impl.h"
+#include "dxgi/dxgi_object_impl.h"
 #include "dxgi/presenter.h"
 
 namespace d3d11sw {
 
 
-class D3D11SW_API DXGISwapChainSW : public IDXGISwapChain1, private UnknownBase
+class D3D11SW_API DXGISwapChainSW : public DXGIObjectImpl<IDXGISwapChain1>
 {
 public:
     DXGISwapChainSW(ID3D11Device* device, const DXGI_SWAP_CHAIN_DESC& desc);
     ~DXGISwapChainSW();
 
-    ULONG STDMETHODCALLTYPE AddRef() override  { return AddRefImpl(); }
-    ULONG STDMETHODCALLTYPE Release() override { return ReleaseImpl(); }
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) final;
 
-    HRESULT STDMETHODCALLTYPE SetPrivateData(REFGUID Name, UINT DataSize, const void* pData) override;
-    HRESULT STDMETHODCALLTYPE SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown) override;
-    HRESULT STDMETHODCALLTYPE GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData) override;
     HRESULT STDMETHODCALLTYPE GetParent(REFIID riid, void** ppParent) override;
 
     HRESULT STDMETHODCALLTYPE GetDevice(REFIID riid, void** ppDevice) override;

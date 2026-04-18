@@ -1260,7 +1260,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::GetPrivateData(
     UINT* pDataSize,
     void* pData)
 {
-    return E_NOTIMPL;
+    return _privateData.GetData(guid, pDataSize, pData);
 }
 
 template<Bool IsDebug>
@@ -1269,7 +1269,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::SetPrivateData(
     UINT DataSize,
     const void* pData)
 {
-    return E_NOTIMPL;
+    return _privateData.SetData(guid, DataSize, pData);
 }
 
 template<Bool IsDebug>
@@ -1277,7 +1277,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::SetPrivateDataInterface(
     REFGUID guid,
     const IUnknown* pData)
 {
-    return E_NOTIMPL;
+    return _privateData.SetInterface(guid, pData);
 }
 
 template<Bool IsDebug>

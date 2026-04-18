@@ -43,21 +43,6 @@ HRESULT STDMETHODCALLTYPE DXGIFactorySW::QueryInterface(REFIID riid, void** ppv)
 }
 
 
-HRESULT STDMETHODCALLTYPE DXGIFactorySW::SetPrivateData(REFGUID Name, UINT DataSize, const void* pData)
-{
-    return E_NOTIMPL;
-}
-
-HRESULT STDMETHODCALLTYPE DXGIFactorySW::SetPrivateDataInterface(REFGUID Name, const IUnknown* pUnknown)
-{
-    return E_NOTIMPL;
-}
-
-HRESULT STDMETHODCALLTYPE DXGIFactorySW::GetPrivateData(REFGUID Name, UINT* pDataSize, void* pData)
-{
-    return E_NOTIMPL;
-}
-
 HRESULT STDMETHODCALLTYPE DXGIFactorySW::GetParent(REFIID riid, void** ppParent)
 {
     return E_NOTIMPL;
