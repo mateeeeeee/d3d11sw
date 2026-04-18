@@ -62,6 +62,13 @@ A software implementation of the Direct3D 11 API.
     <img width="49%" src="examples/screenshots/DirectX-SDK-Samples-Tutorial10.png" alt="DirectX SDK Samples Tutorial 10"/>
 </p>
 
+**DirectX SDK Samples — DecalTessellation11**
+<p align="center">
+    <img width="49%" src="examples/screenshots/DirectX-SDK-Samples-DecalTesselation11_Tiger.png" alt="Tiger"/>
+&nbsp;
+    <img width="49%" src="examples/screenshots/DirectX-SDK-Samples-DecalTesselation11_Tiger2.png" alt="Wireframe Tiger"/>
+</p>
+
 </details>
 
 ## Tests
