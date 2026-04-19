@@ -215,6 +215,152 @@ struct TileContext
     Int hiZTileSize;
 };
 
+static D3D11SW_FORCEINLINE void TileCornerTest(
+    const TileContext& ctx,
+    Fixed28_4 w0_tile, Fixed28_4 w1_tile, Fixed28_4 w2_tile,
+    Bool& allOutside, Bool& fullyCovered)
+{
+    Fixed28_4 w0_TL = w0_tile;
+    Fixed28_4 w1_TL = w1_tile;
+    Fixed28_4 w2_TL = w2_tile;
+
+    Fixed28_4 w0_TR = w0_TL + ctx.w0_cornerDx;
+    Fixed28_4 w1_TR = w1_TL + ctx.w1_cornerDx;
+    Fixed28_4 w2_TR = w2_TL + ctx.w2_cornerDx;
+
+    Fixed28_4 w0_BL = w0_TL + ctx.w0_cornerDy;
+    Fixed28_4 w1_BL = w1_TL + ctx.w1_cornerDy;
+    Fixed28_4 w2_BL = w2_TL + ctx.w2_cornerDy;
+
+    Fixed28_4 w0_BR = w0_TR + ctx.w0_cornerDy;
+    Fixed28_4 w1_BR = w1_TR + ctx.w1_cornerDy;
+    Fixed28_4 w2_BR = w2_TR + ctx.w2_cornerDy;
+
+    allOutside =
+        (w0_TL < 0 && w0_TR < 0 && w0_BL < 0 && w0_BR < 0) ||
+        (w1_TL < 0 && w1_TR < 0 && w1_BL < 0 && w1_BR < 0) ||
+        (w2_TL < 0 && w2_TR < 0 && w2_BL < 0 && w2_BR < 0);
+
+    fullyCovered =
+        (w0_TL >= 0 && w0_TR >= 0 && w0_BL >= 0 && w0_BR >= 0) &&
+        (w1_TL >= 0 && w1_TR >= 0 && w1_BL >= 0 && w1_BR >= 0) &&
+        (w2_TL >= 0 && w2_TR >= 0 && w2_BL >= 0 && w2_BR >= 0);
+}
+
+static D3D11SW_FORCEINLINE Bool HiZRejectTile(
+    const TileContext& ctx, Int tileX, Int tileY,
+    Fixed28_4 w0_tile, Fixed28_4 w1_tile, Fixed28_4 w2_tile)
+{
+    Float b0_TL = static_cast<Float>(w0_tile) * ctx.invArea2;
+    Float b1_TL = static_cast<Float>(w1_tile) * ctx.invArea2;
+    Float b0_TR = static_cast<Float>(w0_tile + ctx.w0_cornerDx) * ctx.invArea2;
+    Float b1_TR = static_cast<Float>(w1_tile + ctx.w1_cornerDx) * ctx.invArea2;
+    Float b0_BL = static_cast<Float>(w0_tile + ctx.w0_cornerDy) * ctx.invArea2;
+    Float b1_BL = static_cast<Float>(w1_tile + ctx.w1_cornerDy) * ctx.invArea2;
+    Float b0_BR = static_cast<Float>(w0_tile + ctx.w0_cornerDx + ctx.w0_cornerDy) * ctx.invArea2;
+    Float b1_BR = static_cast<Float>(w1_tile + ctx.w1_cornerDx + ctx.w1_cornerDy) * ctx.invArea2;
+
+    Float zTL = ctx.ndcZ2 + b0_TL * ctx.dz0 + b1_TL * ctx.dz1 + ctx.depthBias;
+    Float zTR = ctx.ndcZ2 + b0_TR * ctx.dz0 + b1_TR * ctx.dz1 + ctx.depthBias;
+    Float zBL = ctx.ndcZ2 + b0_BL * ctx.dz0 + b1_BL * ctx.dz1 + ctx.depthBias;
+    Float zBR = ctx.ndcZ2 + b0_BR * ctx.dz0 + b1_BR * ctx.dz1 + ctx.depthBias;
+
+    Float zMinTri = std::min({zTL, zTR, zBL, zBR});
+    zMinTri = std::clamp(zMinTri, ctx.vpMinDepth, ctx.vpMaxDepth);
+
+    Int gCol = tileX / ctx.hiZTileSize;
+    Int gRow = tileY / ctx.hiZTileSize;
+    Float hiZVal = ctx.hiZ[gRow * ctx.hiZTilesX + gCol];
+
+    if (ctx.om->depthFunc == D3D11_COMPARISON_LESS && zMinTri >= hiZVal)
+    {
+        return true;
+    }
+    if (ctx.om->depthFunc == D3D11_COMPARISON_LESS_EQUAL && zMinTri > hiZVal)
+    {
+        return true;
+    }
+    return false;
+}
+
+static D3D11SW_FORCEINLINE void HiZUpdateTile(
+    const TileContext& ctx, OMState& om, Int tileX, Int tileY)
+{
+    Int gCol = tileX / ctx.hiZTileSize;
+    Int gRow = tileY / ctx.hiZTileSize;
+    Int scanMaxX = std::min(tileX + ctx.tileStepX, ctx.hiZWidth);
+    Int scanMaxY = std::min(tileY + ctx.tileStepY, ctx.hiZHeight);
+    Float maxZ = 0.f;
+    for (Int sy = tileY; sy < scanMaxY; ++sy)
+    {
+        for (Int sx = tileX; sx < scanMaxX; ++sx)
+        {
+            Uint8* p = om.dsvData + (Uint64)sy * om.dsvRowPitch + (Uint64)sx * om.dsvPixStride;
+            maxZ = std::max(maxZ, ReadDepthValue(om.dsvFmt, p));
+        }
+    }
+    ctx.hiZ[gRow * ctx.hiZTilesX + gCol] = maxZ;
+}
+
+static D3D11SW_FORCEINLINE void ApplyStencilResult(
+    OMState& om, Int px, Int py, D3D11_STENCIL_OP op, Uint8 oldStencil)
+{
+    Uint8 result = ApplyStencilOp(op, oldStencil, om.stencilRef);
+    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+    WriteStencil(om, px, py, written);
+}
+
+static D3D11SW_FORCEINLINE void ApplyStencilResultSample(
+    OMState& om, Int px, Int py, Uint sampleIdx, D3D11_STENCIL_OP op, Uint8 oldStencil)
+{
+    Uint8 result = ApplyStencilOp(op, oldStencil, om.stencilRef);
+    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+    WriteStencilSample(om, px, py, sampleIdx, written);
+}
+
+static D3D11SW_FORCEINLINE Float ComputeSampleDepth(
+    const TileContext& ctx, Fixed28_4 qw0, Fixed28_4 qw1, Uint s)
+{
+    Fixed28_4 w0_s = qw0 + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
+    Fixed28_4 w1_s = qw1 + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
+    Float sb0 = static_cast<Float>(w0_s) * ctx.invArea2;
+    Float sb1 = static_cast<Float>(w1_s) * ctx.invArea2;
+    Float sDepth = ctx.ndcZ2 + sb0 * ctx.dz0 + sb1 * ctx.dz1 + ctx.depthBias;
+    return std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+}
+
+static D3D11SW_FORCEINLINE void SetupQuadPSInput(
+    const TileContext& ctx, SW_PSQuadInput& qin,
+    const Int qx[4], const Int qy[4],
+    const Float quadB0[4], const Float quadB1[4], const Float quadB2[4],
+    const Float quadInvPerspW[4], const Float quadDepth[4], const Float quadPerspW[4],
+    Uint activeMask, const Uint* sampleCoverage)
+{
+    qin.activeMask = activeMask;
+    for (Int q = 0; q < 4; ++q)
+    {
+        Float pxC = static_cast<Float>(qx[q]) + 0.5f;
+        Float pyC = static_cast<Float>(qy[q]) + 0.5f;
+        qin.pixels[q].pos = { pxC, pyC, quadDepth[q], quadPerspW[q] };
+        if (ctx.svPosRegPS >= 0)
+        {
+            qin.pixels[q].v[ctx.svPosRegPS] = qin.pixels[q].pos;
+        }
+        qin.pixels[q].isFrontFace = ctx.frontFace ? 1u : 0u;
+        qin.pixels[q].primitiveID = ctx.primitiveID;
+        qin.pixels[q].coverageMask = sampleCoverage ? sampleCoverage[q] : 1u;
+        qin.pixels[q].sampleIndex = 0;
+
+        for (Int vi = 0; vi < ctx.numVaryings; ++vi)
+        {
+            Int psR = ctx.varyings[vi].psInReg;
+            qin.pixels[q].v[psR] = InterpolateVarying(
+                ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
+                quadB0[q], quadB1[q], quadB2[q], quadInvPerspW[q]);
+        }
+    }
+}
+
 void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                            SW_PSInput& psIn, SW_PSOutput& psOut)
 {
@@ -235,31 +381,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     Bool fullyCovered = false;
     if (ctx.useTiling)
     {
-        Fixed28_4 w0_TL = w0_tile;
-        Fixed28_4 w1_TL = w1_tile;
-        Fixed28_4 w2_TL = w2_tile;
-
-        Fixed28_4 w0_TR = w0_TL + ctx.w0_cornerDx;
-        Fixed28_4 w1_TR = w1_TL + ctx.w1_cornerDx;
-        Fixed28_4 w2_TR = w2_TL + ctx.w2_cornerDx;
-
-        Fixed28_4 w0_BL = w0_TL + ctx.w0_cornerDy;
-        Fixed28_4 w1_BL = w1_TL + ctx.w1_cornerDy;
-        Fixed28_4 w2_BL = w2_TL + ctx.w2_cornerDy;
-
-        Fixed28_4 w0_BR = w0_TR + ctx.w0_cornerDy;
-        Fixed28_4 w1_BR = w1_TR + ctx.w1_cornerDy;
-        Fixed28_4 w2_BR = w2_TR + ctx.w2_cornerDy;
-
-        allOutside =
-            (w0_TL < 0 && w0_TR < 0 && w0_BL < 0 && w0_BR < 0) ||
-            (w1_TL < 0 && w1_TR < 0 && w1_BL < 0 && w1_BR < 0) ||
-            (w2_TL < 0 && w2_TR < 0 && w2_BL < 0 && w2_BR < 0);
-
-        fullyCovered =
-            (w0_TL >= 0 && w0_TR >= 0 && w0_BL >= 0 && w0_BR >= 0) &&
-            (w1_TL >= 0 && w1_TR >= 0 && w1_BL >= 0 && w1_BR >= 0) &&
-            (w2_TL >= 0 && w2_TR >= 0 && w2_BL >= 0 && w2_BR >= 0);
+        TileCornerTest(ctx, w0_tile, w1_tile, w2_tile, allOutside, fullyCovered);
     }
 
     if (allOutside)
@@ -270,32 +392,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
     if (ctx.useTiling && ctx.hiZ && ctx.om->depthEnabled &&
         (ctx.om->depthFunc == D3D11_COMPARISON_LESS || ctx.om->depthFunc == D3D11_COMPARISON_LESS_EQUAL))
     {
-        Float b0_TL = static_cast<Float>(w0_tile) * ctx.invArea2;
-        Float b1_TL = static_cast<Float>(w1_tile) * ctx.invArea2;
-        Float b0_TR = static_cast<Float>(w0_tile + ctx.w0_cornerDx) * ctx.invArea2;
-        Float b1_TR = static_cast<Float>(w1_tile + ctx.w1_cornerDx) * ctx.invArea2;
-        Float b0_BL = static_cast<Float>(w0_tile + ctx.w0_cornerDy) * ctx.invArea2;
-        Float b1_BL = static_cast<Float>(w1_tile + ctx.w1_cornerDy) * ctx.invArea2;
-        Float b0_BR = static_cast<Float>(w0_tile + ctx.w0_cornerDx + ctx.w0_cornerDy) * ctx.invArea2;
-        Float b1_BR = static_cast<Float>(w1_tile + ctx.w1_cornerDx + ctx.w1_cornerDy) * ctx.invArea2;
-
-        Float zTL = ctx.ndcZ2 + b0_TL * ctx.dz0 + b1_TL * ctx.dz1 + ctx.depthBias;
-        Float zTR = ctx.ndcZ2 + b0_TR * ctx.dz0 + b1_TR * ctx.dz1 + ctx.depthBias;
-        Float zBL = ctx.ndcZ2 + b0_BL * ctx.dz0 + b1_BL * ctx.dz1 + ctx.depthBias;
-        Float zBR = ctx.ndcZ2 + b0_BR * ctx.dz0 + b1_BR * ctx.dz1 + ctx.depthBias;
-
-        Float zMinTri = std::min({zTL, zTR, zBL, zBR});
-        zMinTri = std::clamp(zMinTri, ctx.vpMinDepth, ctx.vpMaxDepth);
-
-        Int gCol = tileX / ctx.hiZTileSize;
-        Int gRow = tileY / ctx.hiZTileSize;
-        Float hiZVal = ctx.hiZ[gRow * ctx.hiZTilesX + gCol];
-
-        if (ctx.om->depthFunc == D3D11_COMPARISON_LESS && zMinTri >= hiZVal)
-        {
-            return;
-        }
-        if (ctx.om->depthFunc == D3D11_COMPARISON_LESS_EQUAL && zMinTri > hiZVal)
+        if (HiZRejectTile(ctx, tileX, tileY, w0_tile, w1_tile, w2_tile))
         {
             return;
         }
@@ -433,9 +530,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                 {
                                     op = stencilOps->StencilDepthFailOp;
                                 }
-                                Uint8 result = ApplyStencilOp(op, oldStencil, om.stencilRef);
-                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                WriteStencil(om, qx[q], qy[q], written);
+                                ApplyStencilResult(om, qx[q], qy[q], op, oldStencil);
                             }
                         }
                         w0_q += ctx.w0_dx * 2;
@@ -446,29 +541,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 }
 
                 SW_PSQuadInput qin{};
-                qin.activeMask = activeMask;
-                for (Int q = 0; q < 4; ++q)
-                {
-                    Float pxC = static_cast<Float>(qx[q]) + 0.5f;
-                    Float pyC = static_cast<Float>(qy[q]) + 0.5f;
-                    qin.pixels[q].pos = { pxC, pyC, quadDepth[q], quadPerspW[q] };
-                    if (ctx.svPosRegPS >= 0)
-                    {
-                        qin.pixels[q].v[ctx.svPosRegPS] = qin.pixels[q].pos;
-                    }
-                    qin.pixels[q].isFrontFace = ctx.frontFace ? 1u : 0u;
-                    qin.pixels[q].primitiveID = ctx.primitiveID;
-                    qin.pixels[q].coverageMask = 1;
-                    qin.pixels[q].sampleIndex = 0;
-
-                    for (Int vi = 0; vi < ctx.numVaryings; ++vi)
-                    {
-                        Int psR = ctx.varyings[vi].psInReg;
-                        qin.pixels[q].v[psR] = InterpolateVarying(
-                            ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
-                            quadB0[q], quadB1[q], quadB2[q], quadInvPerspW[q]);
-                    }
-                }
+                SetupQuadPSInput(ctx, qin, qx, qy, quadB0, quadB1, quadB2, quadInvPerspW, quadDepth, quadPerspW, activeMask, nullptr);
 
                 SW_PSQuadOutput qout{};
                 ctx.psQuadFn(&qin, &qout, ctx.psRes);
@@ -507,9 +580,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                 {
                                     op = stencilOps->StencilDepthFailOp;
                                 }
-                                Uint8 result = ApplyStencilOp(op, oldStencil, om.stencilRef);
-                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                WriteStencil(om, qx[q], qy[q], written);
+                                ApplyStencilResult(om, qx[q], qy[q], op, oldStencil);
                             }
                             continue;
                         }
@@ -530,9 +601,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                     ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
                                     maskedRef, maskedVal))
                             {
-                                Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
-                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                WriteStencil(om, qx[q], qy[q], written);
+                                ApplyStencilResult(om, qx[q], qy[q], stencilOps->StencilFailOp, oldStencil);
                                 continue;
                             }
                         }
@@ -545,9 +614,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                 if (om.stencilEnabled)
                                 {
                                     Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
-                                    Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                    WriteStencil(om, qx[q], qy[q], written);
+                                    ApplyStencilResult(om, qx[q], qy[q], stencilOps->StencilDepthFailOp, oldStencil);
                                 }
                                 continue;
                             }
@@ -564,9 +631,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     {
                         Uint8 oldStencil = ReadStencil(om, qx[q], qy[q]);
                         const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
-                        Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
-                        Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                        WriteStencil(om, qx[q], qy[q], written);
+                        ApplyStencilResult(om, qx[q], qy[q], stencilOps->StencilPassOp, oldStencil);
                     }
 
                     if (qout.pixels[q].coverageWritten && !(qout.pixels[q].coverageMask & 1u))
@@ -644,12 +709,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                 continue;
                             }
 
-                            Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
-                            Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
-                            Float sb0 = static_cast<Float>(w0_s) * ctx.invArea2;
-                            Float sb1 = static_cast<Float>(w1_s) * ctx.invArea2;
-                            Float sDepth = ctx.ndcZ2 + sb0 * ctx.dz0 + sb1 * ctx.dz1 + ctx.depthBias;
-                            sDepth = std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+                            Float sDepth = ComputeSampleDepth(ctx, qw0[q], qw1[q], s);
 
                             if (om.stencilEnabled)
                             {
@@ -660,9 +720,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                         ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
                                         maskedRef, maskedVal))
                                 {
-                                    Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
-                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                    ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilFailOp, oldStencil);
                                     sampleCoverage[q] &= ~(1u << s);
                                     continue;
                                 }
@@ -673,9 +731,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                 if (om.stencilEnabled)
                                 {
                                     Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
-                                    Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                    ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilDepthFailOp, oldStencil);
                                 }
                                 sampleCoverage[q] &= ~(1u << s);
                                 continue;
@@ -700,29 +756,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 }
 
                 SW_PSQuadInput qin{};
-                qin.activeMask = activeMask;
-                for (Int q = 0; q < 4; ++q)
-                {
-                    Float pxC = static_cast<Float>(qx[q]) + 0.5f;
-                    Float pyC = static_cast<Float>(qy[q]) + 0.5f;
-                    qin.pixels[q].pos = { pxC, pyC, quadDepth[q], quadPerspW[q] };
-                    if (ctx.svPosRegPS >= 0)
-                    {
-                        qin.pixels[q].v[ctx.svPosRegPS] = qin.pixels[q].pos;
-                    }
-                    qin.pixels[q].isFrontFace = ctx.frontFace ? 1u : 0u;
-                    qin.pixels[q].primitiveID = ctx.primitiveID;
-                    qin.pixels[q].coverageMask = sampleCoverage[q];
-                    qin.pixels[q].sampleIndex = 0;
-
-                    for (Int vi = 0; vi < ctx.numVaryings; ++vi)
-                    {
-                        Int psR = ctx.varyings[vi].psInReg;
-                        qin.pixels[q].v[psR] = InterpolateVarying(
-                            ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
-                            quadB0[q], quadB1[q], quadB2[q], quadInvPerspW[q]);
-                    }
-                }
+                SetupQuadPSInput(ctx, qin, qx, qy, quadB0, quadB1, quadB2, quadInvPerspW, quadDepth, quadPerspW, activeMask, sampleCoverage);
 
                 if (!ctx.perSampleShading)
                 {
@@ -760,12 +794,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                 continue;
                             }
 
-                            Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
-                            Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
-                            Float sb0 = static_cast<Float>(w0_s) * ctx.invArea2;
-                            Float sb1 = static_cast<Float>(w1_s) * ctx.invArea2;
-                            Float sDepth = ctx.ndcZ2 + sb0 * ctx.dz0 + sb1 * ctx.dz1 + ctx.depthBias;
-                            sDepth = std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+                            Float sDepth = ComputeSampleDepth(ctx, qw0[q], qw1[q], s);
 
                             if (qout.pixels[q].depthWritten)
                             {
@@ -781,9 +810,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                         ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
                                         maskedRef, maskedVal))
                                 {
-                                    Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
-                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                    ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilFailOp, oldStencil);
                                     sampleCoverage[q] &= ~(1u << s);
                                     continue;
                                 }
@@ -796,9 +823,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                     if (om.stencilEnabled)
                                     {
                                         Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
-                                        Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                                        Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                        WriteStencilSample(om, qx[q], qy[q], s, written);
+                                        ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilDepthFailOp, oldStencil);
                                     }
                                     sampleCoverage[q] &= ~(1u << s);
                                     continue;
@@ -816,12 +841,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
 
                         if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
                         {
-                            Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
-                            Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
-                            Float sb0 = static_cast<Float>(w0_s) * ctx.invArea2;
-                            Float sb1 = static_cast<Float>(w1_s) * ctx.invArea2;
-                            Float sDepth = ctx.ndcZ2 + sb0 * ctx.dz0 + sb1 * ctx.dz1 + ctx.depthBias;
-                            sDepth = std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+                            Float sDepth = ComputeSampleDepth(ctx, qw0[q], qw1[q], s);
                             if (qout.pixels[q].depthWritten)
                             {
                                 sDepth = qout.pixels[q].oDepth;
@@ -832,9 +852,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         if (om.stencilEnabled)
                         {
                             Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
-                            Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
-                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                            WriteStencilSample(om, qx[q], qy[q], s, written);
+                            ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilPassOp, oldStencil);
                         }
                     }
 
@@ -910,9 +928,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                     ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
                                     maskedRef, maskedVal))
                             {
-                                Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
-                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                WriteStencilSample(om, qx[q], qy[q], s, written);
+                                ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilFailOp, oldStencil);
                                 continue;
                             }
                         }
@@ -924,9 +940,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                                 if (om.stencilEnabled)
                                 {
                                     Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
-                                    Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
-                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                    ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilDepthFailOp, oldStencil);
                                 }
                                 continue;
                             }
@@ -940,9 +954,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         if (om.stencilEnabled)
                         {
                             Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
-                            Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
-                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
-                            WriteStencilSample(om, qx[q], qy[q], s, written);
+                            ApplyStencilResultSample(om, qx[q], qy[q], s, stencilOps->StencilPassOp, oldStencil);
                         }
 
                         Uint finalCov = 1u << s;
@@ -974,21 +986,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
 
     if (ctx.hiZ && ctx.om->depthEnabled && ctx.om->depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
     {
-        OMState& om = *ctx.om;
-        Int gCol = tileX / ctx.hiZTileSize;
-        Int gRow = tileY / ctx.hiZTileSize;
-        Int scanMaxX = std::min(tileX + ctx.tileStepX, ctx.hiZWidth);
-        Int scanMaxY = std::min(tileY + ctx.tileStepY, ctx.hiZHeight);
-        Float maxZ = 0.f;
-        for (Int sy = tileY; sy < scanMaxY; ++sy)
-        {
-            for (Int sx = tileX; sx < scanMaxX; ++sx)
-            {
-                Uint8* p = om.dsvData + (Uint64)sy * om.dsvRowPitch + (Uint64)sx * om.dsvPixStride;
-                maxZ = std::max(maxZ, ReadDepthValue(om.dsvFmt, p));
-            }
-        }
-        ctx.hiZ[gRow * ctx.hiZTilesX + gCol] = maxZ;
+        HiZUpdateTile(ctx, *ctx.om, tileX, tileY);
     }
 }
 
@@ -1289,6 +1287,271 @@ static Float ComputeDepthBias(
     return bias;
 }
 
+static D3D11SW_FORCEINLINE Bool CullByDistance(const SW_VSOutput tri[3], Int numCullDist)
+{
+    for (Int c = 0; c < numCullDist; ++c)
+    {
+        if (tri[0].cullDist[c] < 0.f && tri[1].cullDist[c] < 0.f && tri[2].cullDist[c] < 0.f)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+static D3D11SW_FORCEINLINE Bool NeedsClipping(const SW_VSOutput tri[3], Float guardBandK, Bool depthClip, Int numClipDist)
+{
+    for (Int v = 0; v < 3; ++v)
+    {
+        const auto& p = tri[v].pos;
+        Float Kw = guardBandK * p.w;
+        if (p.w < NearEpsilon
+            || p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
+            || (depthClip && p.z > p.w))
+        {
+            return true;
+        }
+        for (Int c = 0; c < numClipDist; ++c)
+        {
+            if (tri[v].clipDist[c] < 0.f)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static D3D11SW_FORCEINLINE void PerspectiveDivideAndViewportTransform(
+    const SW_VSOutput tri[3], const D3D11_VIEWPORT& vp,
+    Float ndcX[3], Float ndcY[3], Float ndcZ[3], Float invW[3],
+    Float screenX[3], Float screenY[3])
+{
+    for (Int v = 0; v < 3; ++v)
+    {
+        Float w = tri[v].pos.w;
+        invW[v] = 1.f / w;
+        ndcX[v] = tri[v].pos.x * invW[v];
+        ndcY[v] = tri[v].pos.y * invW[v];
+        ndcZ[v] = tri[v].pos.z * invW[v];
+
+        screenX[v] = (ndcX[v] * 0.5f + 0.5f) * vp.Width  + vp.TopLeftX;
+        screenY[v] = (1.f - (ndcY[v] * 0.5f + 0.5f)) * vp.Height + vp.TopLeftY;
+    }
+}
+
+static D3D11SW_FORCEINLINE void SnapToFixedPoint(Float screenX[3], Float screenY[3], Fixed28_4 fx[3], Fixed28_4 fy[3])
+{
+    for (Int v = 0; v < 3; ++v)
+    {
+        fx[v] = Fixed28_4::FromFloat(screenX[v]);
+        fy[v] = Fixed28_4::FromFloat(screenY[v]);
+        screenX[v] = fx[v].ToFloat();
+        screenY[v] = fy[v].ToFloat();
+    }
+}
+
+static D3D11SW_FORCEINLINE Fixed28_4 ComputeSignedArea(const Fixed28_4 fx[3], const Fixed28_4 fy[3])
+{
+    return (fx[1] - fx[0]) * (fy[2] - fy[0]) - (fy[1] - fy[0]) * (fx[2] - fx[0]);
+}
+
+static D3D11SW_FORCEINLINE Bool ShouldCullFace(D3D11_CULL_MODE cullMode, Bool frontFace)
+{
+    if (cullMode == D3D11_CULL_BACK && !frontFace)
+    {
+        return true;
+    }
+    if (cullMode == D3D11_CULL_FRONT && frontFace)
+    {
+        return true;
+    }
+    return false;
+}
+
+static D3D11SW_FORCEINLINE void NormalizeWinding(
+    Fixed28_4& fixedArea2,
+    Fixed28_4 fx[3], Fixed28_4 fy[3],
+    Float screenX[3], Float screenY[3],
+    Float ndcZ[3], Float invW[3],
+    Int& i0, Int& i1, Int& i2)
+{
+    Bool ccw = fixedArea2 > 0;
+    i0 = 0; i1 = 1; i2 = 2;
+    if (!ccw)
+    {
+        std::swap(i1, i2);
+        fixedArea2 = -fixedArea2;
+        std::swap(fx[1], fx[2]);
+        std::swap(fy[1], fy[2]);
+        std::swap(screenX[1], screenX[2]);
+        std::swap(screenY[1], screenY[2]);
+        std::swap(ndcZ[1], ndcZ[2]);
+        std::swap(invW[1], invW[2]);
+    }
+}
+
+static D3D11SW_FORCEINLINE void ComputeBoundingBox(
+    const Float screenX[3], const Float screenY[3],
+    Int& minX, Int& minY, Int& maxX, Int& maxY)
+{
+    Float minXf = std::min({screenX[0], screenX[1], screenX[2]});
+    Float minYf = std::min({screenY[0], screenY[1], screenY[2]});
+    Float maxXf = std::max({screenX[0], screenX[1], screenX[2]});
+    Float maxYf = std::max({screenY[0], screenY[1], screenY[2]});
+
+    minX = static_cast<Int>(std::floor(minXf));
+    minY = static_cast<Int>(std::floor(minYf));
+    maxX = static_cast<Int>(std::ceil(maxXf));
+    maxY = static_cast<Int>(std::ceil(maxYf));
+}
+
+static D3D11SW_FORCEINLINE Bool ClipToViewportAndScissor(
+    const D3D11_VIEWPORT& vp, const D3D11_RASTERIZER_DESC& rsDesc,
+    const D3D11SW_PIPELINE_STATE& state, Uint32 vpIdx,
+    Int& minX, Int& minY, Int& maxX, Int& maxY)
+{
+    Int vpMinX = static_cast<Int>(vp.TopLeftX);
+    Int vpMinY = static_cast<Int>(vp.TopLeftY);
+    Int vpMaxX = static_cast<Int>(vp.TopLeftX + vp.Width);
+    Int vpMaxY = static_cast<Int>(vp.TopLeftY + vp.Height);
+
+    if (rsDesc.ScissorEnable && state.numScissorRects > 0)
+    {
+        const D3D11_RECT& sr = state.scissorRects[vpIdx];
+        vpMinX = std::max(vpMinX, static_cast<Int>(sr.left));
+        vpMinY = std::max(vpMinY, static_cast<Int>(sr.top));
+        vpMaxX = std::min(vpMaxX, static_cast<Int>(sr.right));
+        vpMaxY = std::min(vpMaxY, static_cast<Int>(sr.bottom));
+    }
+
+    minX = std::max(minX, vpMinX);
+    minY = std::max(minY, vpMinY);
+    maxX = std::min(maxX, vpMaxX);
+    maxY = std::min(maxY, vpMaxY);
+
+    return minX < maxX && minY < maxY;
+}
+
+static D3D11SW_FORCEINLINE Int BuildVaryingMap(
+    const D3D11SW_ParsedShader& vsReflection,
+    const D3D11SW_ParsedShader& psReflection,
+    VaryingMap varyings[D3D11_VS_OUTPUT_REGISTER_COUNT])
+{
+    Int numVaryings = 0;
+    for (const auto& psIn : psReflection.inputs)
+    {
+        if (psIn.svType != 0)
+        {
+            continue;
+        }
+
+        Int vsOutReg = FindSemanticRegister(vsReflection.outputs, psIn.name, psIn.semanticIndex);
+        if (vsOutReg >= 0)
+        {
+            varyings[numVaryings++] = { vsOutReg, static_cast<Int>(psIn.reg) };
+        }
+    }
+    return numVaryings;
+}
+
+static D3D11SW_FORCEINLINE void PreDivideVaryings(
+    const SW_VSOutput& v0, const SW_VSOutput& v1, const SW_VSOutput& v2,
+    const VaryingMap varyings[D3D11_VS_OUTPUT_REGISTER_COUNT], Int numVaryings,
+    Float iw0, Float iw1, Float iw2,
+    SW_float4 v0pw[D3D11_VS_OUTPUT_REGISTER_COUNT],
+    SW_float4 v1pw[D3D11_VS_OUTPUT_REGISTER_COUNT],
+    SW_float4 v2pw[D3D11_VS_OUTPUT_REGISTER_COUNT])
+{
+    for (Int vi = 0; vi < numVaryings; ++vi)
+    {
+        Int vsR = varyings[vi].vsOutReg;
+        v0pw[vi] = { v0.o[vsR].x * iw0, v0.o[vsR].y * iw0, v0.o[vsR].z * iw0, v0.o[vsR].w * iw0 };
+        v1pw[vi] = { v1.o[vsR].x * iw1, v1.o[vsR].y * iw1, v1.o[vsR].z * iw1, v1.o[vsR].w * iw1 };
+        v2pw[vi] = { v2.o[vsR].x * iw2, v2.o[vsR].y * iw2, v2.o[vsR].z * iw2, v2.o[vsR].w * iw2 };
+    }
+}
+
+struct EdgeSetup
+{
+    Fixed28_4 w0_dx, w1_dx, w2_dx;
+    Fixed28_4 w0_dy, w1_dy, w2_dy;
+    Fixed28_4 w0_tileOrig, w1_tileOrig, w2_tileOrig;
+    Fixed28_4 w0_tileStepX, w1_tileStepX, w2_tileStepX;
+    Fixed28_4 w0_tileStepY, w1_tileStepY, w2_tileStepY;
+    Fixed28_4 w0_cornerDx, w1_cornerDx, w2_cornerDx;
+    Fixed28_4 w0_cornerDy, w1_cornerDy, w2_cornerDy;
+    Fixed28_4 w0_dx_sub, w1_dx_sub, w2_dx_sub;
+    Fixed28_4 w0_dy_sub, w1_dy_sub, w2_dy_sub;
+    Fixed28_4 bias0, bias1, bias2;
+};
+
+static D3D11SW_FORCEINLINE EdgeSetup SetupEdgeFunctions(
+    const Fixed28_4 fx[3], const Fixed28_4 fy[3],
+    Int tileMinX, Int tileMinY, Int TILE)
+{
+    EdgeSetup e{};
+
+    auto isTopLeft = [&](Int a, Int b) -> Bool
+    {
+        Fixed28_4 edgeY = fy[b] - fy[a];
+        Fixed28_4 edgeX = fx[b] - fx[a];
+        Bool isTop  = (edgeY == 0 && edgeX > 0);
+        Bool isLeft = (edgeY < 0);
+        return isTop || isLeft;
+    };
+
+    e.bias0 = isTopLeft(1, 2) ? Fixed28_4(0) : Fixed28_4(-1);
+    e.bias1 = isTopLeft(2, 0) ? Fixed28_4(0) : Fixed28_4(-1);
+    e.bias2 = isTopLeft(0, 1) ? Fixed28_4(0) : Fixed28_4(-1);
+
+    Fixed28_4 tileStartX = Fixed28_4(static_cast<Int64>(tileMinX) * 16 + 8);
+    Fixed28_4 tileStartY = Fixed28_4(static_cast<Int64>(tileMinY) * 16 + 8);
+
+    e.w0_dx = -(fy[2] - fy[1]) * 16;
+    e.w1_dx = -(fy[0] - fy[2]) * 16;
+    e.w2_dx = -(fy[1] - fy[0]) * 16;
+
+    e.w0_dy = (fx[2] - fx[1]) * 16;
+    e.w1_dy = (fx[0] - fx[2]) * 16;
+    e.w2_dy = (fx[1] - fx[0]) * 16;
+
+    auto edgeFn = [](Fixed28_4 ax, Fixed28_4 ay, Fixed28_4 bx, Fixed28_4 by, Fixed28_4 px, Fixed28_4 py) -> Fixed28_4
+    {
+        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+    };
+
+    e.w0_tileOrig = edgeFn(fx[1], fy[1], fx[2], fy[2], tileStartX, tileStartY) + e.bias0;
+    e.w1_tileOrig = edgeFn(fx[2], fy[2], fx[0], fy[0], tileStartX, tileStartY) + e.bias1;
+    e.w2_tileOrig = edgeFn(fx[0], fy[0], fx[1], fy[1], tileStartX, tileStartY) + e.bias2;
+
+    e.w0_tileStepX = e.w0_dx * TILE;
+    e.w1_tileStepX = e.w1_dx * TILE;
+    e.w2_tileStepX = e.w2_dx * TILE;
+
+    e.w0_tileStepY = e.w0_dy * TILE;
+    e.w1_tileStepY = e.w1_dy * TILE;
+    e.w2_tileStepY = e.w2_dy * TILE;
+
+    e.w0_cornerDx = e.w0_dx * (TILE - 1);
+    e.w1_cornerDx = e.w1_dx * (TILE - 1);
+    e.w2_cornerDx = e.w2_dx * (TILE - 1);
+
+    e.w0_cornerDy = e.w0_dy * (TILE - 1);
+    e.w1_cornerDy = e.w1_dy * (TILE - 1);
+    e.w2_cornerDy = e.w2_dy * (TILE - 1);
+
+    e.w0_dx_sub = -(fy[2] - fy[1]);
+    e.w1_dx_sub = -(fy[0] - fy[2]);
+    e.w2_dx_sub = -(fy[1] - fy[0]);
+
+    e.w0_dy_sub = (fx[2] - fx[1]);
+    e.w1_dy_sub = (fx[0] - fx[2]);
+    e.w2_dy_sub = (fx[1] - fx[0]);
+
+    return e;
+}
+
 void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput tri[3],
     const D3D11SW_ParsedShader& vsReflection,
@@ -1330,40 +1593,12 @@ void SWRasterizer::RasterizeTriangle(
         }
     }
 
-    for (Int c = 0; c < numCullDist; ++c)
+    if (CullByDistance(tri, numCullDist))
     {
-        if (tri[0].cullDist[c] < 0.f && tri[1].cullDist[c] < 0.f && tri[2].cullDist[c] < 0.f)
-        {
-            return;
-        }
+        return;
     }
 
-    Bool needsClip = false;
-    for (Int v = 0; v < 3; ++v)
-    {
-        const auto& p = tri[v].pos;
-        Float Kw = _config.guardBandK * p.w;
-        if (p.w < NearEpsilon
-            || p.x < -Kw || p.x > Kw || p.y < -Kw || p.y > Kw
-            || (depthClip && p.z > p.w))
-        {
-            needsClip = true;
-            break;
-        }
-        for (Int c = 0; c < numClipDist; ++c)
-        {
-            if (tri[v].clipDist[c] < 0.f) 
-            { 
-                needsClip = true; 
-                break; 
-            }
-        }
-
-        if (needsClip) 
-        { 
-            break; 
-        }
-    }
+    Bool needsClip = NeedsClipping(tri, _config.guardBandK, depthClip, numClipDist);
     if (needsClip)
     {
         if (alreadyClipped)
@@ -1392,35 +1627,12 @@ void SWRasterizer::RasterizeTriangle(
 
     Float ndcX[3], ndcY[3], ndcZ[3], invW[3];
     Float screenX[3], screenY[3];
-    for (Int v = 0; v < 3; ++v)
-    {
-        Float w = tri[v].pos.w;
-        invW[v] = 1.f / w;
-        ndcX[v] = tri[v].pos.x * invW[v];
-        ndcY[v] = tri[v].pos.y * invW[v];
-        ndcZ[v] = tri[v].pos.z * invW[v];
-
-        screenX[v] = (ndcX[v] * 0.5f + 0.5f) * vp.Width  + vp.TopLeftX;
-        screenY[v] = (1.f - (ndcY[v] * 0.5f + 0.5f)) * vp.Height + vp.TopLeftY;
-    }
-
-    //https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm
-    // Post-clipped vertex positions are snapped to 28.4 fixed point, to uniformly distribute
-    // precision across the RenderTarget area. Rasterizer operations such as face culling occur
-    // on fixed point snapped positions, while attribute interpolator setup uses positions that
-    // have been converted back to floating point from the fixed point snapped positions.
-    auto toFixed = [](Float v) -> Fixed28_4 { return Fixed28_4::FromFloat(v); };
+    PerspectiveDivideAndViewportTransform(tri, vp, ndcX, ndcY, ndcZ, invW, screenX, screenY);
 
     Fixed28_4 fx[3], fy[3];
-    for (Int v = 0; v < 3; ++v)
-    {
-        fx[v] = toFixed(screenX[v]);
-        fy[v] = toFixed(screenY[v]);
-        screenX[v] = fx[v].ToFloat();
-        screenY[v] = fy[v].ToFloat();
-    }
+    SnapToFixedPoint(screenX, screenY, fx, fy);
 
-    Fixed28_4 fixedArea2 = (fx[1] - fx[0]) * (fy[2] - fy[0]) - (fy[1] - fy[0]) * (fx[2] - fx[0]);
+    Fixed28_4 fixedArea2 = ComputeSignedArea(fx, fy);
     if (fixedArea2 == 0)
     {
         return;
@@ -1428,12 +1640,7 @@ void SWRasterizer::RasterizeTriangle(
 
     const Bool frontFace = rsDesc.FrontCounterClockwise ? (fixedArea2 < 0) : (fixedArea2 > 0);
 
-    if (rsDesc.CullMode == D3D11_CULL_BACK  && !frontFace)
-    {
-        return;
-    }
-
-    if (rsDesc.CullMode == D3D11_CULL_FRONT &&  frontFace)
+    if (ShouldCullFace(rsDesc.CullMode, frontFace))
     {
         return;
     }
@@ -1456,91 +1663,22 @@ void SWRasterizer::RasterizeTriangle(
         return;
     }
 
-    Bool ccw = fixedArea2 > 0;
-    Int i0 = 0, i1 = 1, i2 = 2;
-    if (!ccw)
+    Int i0, i1, i2;
+    NormalizeWinding(fixedArea2, fx, fy, screenX, screenY, ndcZ, invW, i0, i1, i2);
+
+    Int minX, minY, maxX, maxY;
+    ComputeBoundingBox(screenX, screenY, minX, minY, maxX, maxY);
+
+    if (!ClipToViewportAndScissor(vp, rsDesc, state, vpIdx, minX, minY, maxX, maxY))
     {
-        std::swap(i1, i2);
-        fixedArea2 = -fixedArea2;
-        std::swap(fx[1], fx[2]);
-        std::swap(fy[1], fy[2]);
-        std::swap(screenX[1], screenX[2]);
-        std::swap(screenY[1], screenY[2]);
-        std::swap(ndcZ[1], ndcZ[2]);
-        std::swap(invW[1], invW[2]);
+        return;
     }
-
-    Float minXf = std::min({screenX[0], screenX[1], screenX[2]});
-    Float minYf = std::min({screenY[0], screenY[1], screenY[2]});
-    Float maxXf = std::max({screenX[0], screenX[1], screenX[2]});
-    Float maxYf = std::max({screenY[0], screenY[1], screenY[2]});
-
-    Int minX = static_cast<Int>(std::floor(minXf));
-    Int minY = static_cast<Int>(std::floor(minYf));
-    Int maxX = static_cast<Int>(std::ceil(maxXf));
-    Int maxY = static_cast<Int>(std::ceil(maxYf));
-
-    Int vpMinX = static_cast<Int>(vp.TopLeftX);
-    Int vpMinY = static_cast<Int>(vp.TopLeftY);
-    Int vpMaxX = static_cast<Int>(vp.TopLeftX + vp.Width);
-    Int vpMaxY = static_cast<Int>(vp.TopLeftY + vp.Height);
-
-    if (rsDesc.ScissorEnable && state.numScissorRects > 0)
-    {
-        const D3D11_RECT& sr = state.scissorRects[vpIdx];
-        vpMinX = std::max(vpMinX, static_cast<Int>(sr.left));
-        vpMinY = std::max(vpMinY, static_cast<Int>(sr.top));
-        vpMaxX = std::min(vpMaxX, static_cast<Int>(sr.right));
-        vpMaxY = std::min(vpMaxY, static_cast<Int>(sr.bottom));
-    }
-
-    minX = std::max(minX, vpMinX);
-    minY = std::max(minY, vpMinY);
-    maxX = std::min(maxX, vpMaxX);
-    maxY = std::min(maxY, vpMaxY);
-
-    if (minX >= maxX || minY >= maxY) 
-    { 
-        return; 
-    }
-
-    auto edgeFn = [](Fixed28_4 ax, Fixed28_4 ay, Fixed28_4 bx, Fixed28_4 by, Fixed28_4 px, Fixed28_4 py) -> Fixed28_4
-    {
-        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
-    };
-
-    //https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#3.4.2.1%20Top-Left%20Rule
-    auto isTopLeft = [&](Int a, Int b) -> Bool
-    {
-        Fixed28_4 edgeY = fy[b] - fy[a];
-        Fixed28_4 edgeX = fx[b] - fx[a];
-        Bool isTop  = (edgeY == 0 && edgeX > 0);
-        Bool isLeft = (edgeY < 0);
-        return isTop || isLeft;
-    };
-
-    Fixed28_4 bias0 = isTopLeft(1, 2) ? Fixed28_4(0) : Fixed28_4(-1);
-    Fixed28_4 bias1 = isTopLeft(2, 0) ? Fixed28_4(0) : Fixed28_4(-1);
-    Fixed28_4 bias2 = isTopLeft(0, 1) ? Fixed28_4(0) : Fixed28_4(-1);
 
     Float invArea2 = 1.f / static_cast<Float>(fixedArea2);
     Int svPosRegPS = FindSVPositionInput(psReflection);
 
     VaryingMap varyings[D3D11_VS_OUTPUT_REGISTER_COUNT];
-    Int numVaryings = 0;
-    for (const auto& psIn : psReflection.inputs)
-    {
-        if (psIn.svType != 0) 
-        { 
-            continue; 
-        }
-
-        Int vsOutReg = FindSemanticRegister(vsReflection.outputs, psIn.name, psIn.semanticIndex);
-        if (vsOutReg >= 0)
-        {
-            varyings[numVaryings++] = { vsOutReg, static_cast<Int>(psIn.reg) };
-        }
-    }
+    Int numVaryings = BuildVaryingMap(vsReflection, psReflection, varyings);
 
     const SW_VSOutput& v0 = tri[i0];
     const SW_VSOutput& v1 = tri[i1];
@@ -1550,13 +1688,7 @@ void SWRasterizer::RasterizeTriangle(
     SW_float4 v0pw[D3D11_VS_OUTPUT_REGISTER_COUNT];
     SW_float4 v1pw[D3D11_VS_OUTPUT_REGISTER_COUNT];
     SW_float4 v2pw[D3D11_VS_OUTPUT_REGISTER_COUNT];
-    for (Int vi = 0; vi < numVaryings; ++vi)
-    {
-        Int vsR = varyings[vi].vsOutReg;
-        v0pw[vi] = { v0.o[vsR].x * iw0, v0.o[vsR].y * iw0, v0.o[vsR].z * iw0, v0.o[vsR].w * iw0 };
-        v1pw[vi] = { v1.o[vsR].x * iw1, v1.o[vsR].y * iw1, v1.o[vsR].z * iw1, v1.o[vsR].w * iw1 };
-        v2pw[vi] = { v2.o[vsR].x * iw2, v2.o[vsR].y * iw2, v2.o[vsR].z * iw2, v2.o[vsR].w * iw2 };
-    }
+    PreDivideVaryings(v0, v1, v2, varyings, numVaryings, iw0, iw1, iw2, v0pw, v1pw, v2pw);
 
     if (om.activeRTCount == 0)
     {
@@ -1576,36 +1708,7 @@ void SWRasterizer::RasterizeTriangle(
     Int tileStepX = useTiling ? TILE : (maxX - minX);
     Int tileStepY = useTiling ? TILE : (maxY - minY);
 
-    Fixed28_4 tileStartX = Fixed28_4(static_cast<Int64>(tileMinX) * 16 + 8);
-    Fixed28_4 tileStartY = Fixed28_4(static_cast<Int64>(tileMinY) * 16 + 8);
-
-    Fixed28_4 w0_dx = -(fy[2] - fy[1]) * 16;
-    Fixed28_4 w1_dx = -(fy[0] - fy[2]) * 16;
-    Fixed28_4 w2_dx = -(fy[1] - fy[0]) * 16;
-
-    Fixed28_4 w0_dy = (fx[2] - fx[1]) * 16;
-    Fixed28_4 w1_dy = (fx[0] - fx[2]) * 16;
-    Fixed28_4 w2_dy = (fx[1] - fx[0]) * 16;
-
-    Fixed28_4 w0_tileOrig = edgeFn(fx[1], fy[1], fx[2], fy[2], tileStartX, tileStartY) + bias0;
-    Fixed28_4 w1_tileOrig = edgeFn(fx[2], fy[2], fx[0], fy[0], tileStartX, tileStartY) + bias1;
-    Fixed28_4 w2_tileOrig = edgeFn(fx[0], fy[0], fx[1], fy[1], tileStartX, tileStartY) + bias2;
-
-    Fixed28_4 w0_tileStepX = w0_dx * TILE;
-    Fixed28_4 w1_tileStepX = w1_dx * TILE;
-    Fixed28_4 w2_tileStepX = w2_dx * TILE;
-
-    Fixed28_4 w0_tileStepY = w0_dy * TILE;
-    Fixed28_4 w1_tileStepY = w1_dy * TILE;
-    Fixed28_4 w2_tileStepY = w2_dy * TILE;
-
-    Fixed28_4 w0_cornerDx = w0_dx * (TILE - 1);
-    Fixed28_4 w1_cornerDx = w1_dx * (TILE - 1);
-    Fixed28_4 w2_cornerDx = w2_dx * (TILE - 1);
-
-    Fixed28_4 w0_cornerDy = w0_dy * (TILE - 1);
-    Fixed28_4 w1_cornerDy = w1_dy * (TILE - 1);
-    Fixed28_4 w2_cornerDy = w2_dy * (TILE - 1);
+    EdgeSetup edge = SetupEdgeFunctions(fx, fy, tileMinX, tileMinY, TILE);
 
     Int numTilesX = (maxX - tileMinX + tileStepX - 1) / tileStepX;
     Int numTilesY = (maxY - tileMinY + tileStepY - 1) / tileStepY;
@@ -1617,13 +1720,13 @@ void SWRasterizer::RasterizeTriangle(
     }
 
     TileContext tctx{};
-    tctx.w0_tileOrig  = w0_tileOrig;  tctx.w1_tileOrig  = w1_tileOrig;  tctx.w2_tileOrig  = w2_tileOrig;
-    tctx.w0_tileStepX = w0_tileStepX; tctx.w1_tileStepX = w1_tileStepX; tctx.w2_tileStepX = w2_tileStepX;
-    tctx.w0_tileStepY = w0_tileStepY; tctx.w1_tileStepY = w1_tileStepY; tctx.w2_tileStepY = w2_tileStepY;
-    tctx.w0_dx = w0_dx; tctx.w1_dx = w1_dx; tctx.w2_dx = w2_dx;
-    tctx.w0_dy = w0_dy; tctx.w1_dy = w1_dy; tctx.w2_dy = w2_dy;
-    tctx.w0_cornerDx = w0_cornerDx; tctx.w1_cornerDx = w1_cornerDx; tctx.w2_cornerDx = w2_cornerDx;
-    tctx.w0_cornerDy = w0_cornerDy; tctx.w1_cornerDy = w1_cornerDy; tctx.w2_cornerDy = w2_cornerDy;
+    tctx.w0_tileOrig  = edge.w0_tileOrig;  tctx.w1_tileOrig  = edge.w1_tileOrig;  tctx.w2_tileOrig  = edge.w2_tileOrig;
+    tctx.w0_tileStepX = edge.w0_tileStepX; tctx.w1_tileStepX = edge.w1_tileStepX; tctx.w2_tileStepX = edge.w2_tileStepX;
+    tctx.w0_tileStepY = edge.w0_tileStepY; tctx.w1_tileStepY = edge.w1_tileStepY; tctx.w2_tileStepY = edge.w2_tileStepY;
+    tctx.w0_dx = edge.w0_dx; tctx.w1_dx = edge.w1_dx; tctx.w2_dx = edge.w2_dx;
+    tctx.w0_dy = edge.w0_dy; tctx.w1_dy = edge.w1_dy; tctx.w2_dy = edge.w2_dy;
+    tctx.w0_cornerDx = edge.w0_cornerDx; tctx.w1_cornerDx = edge.w1_cornerDx; tctx.w2_cornerDx = edge.w2_cornerDx;
+    tctx.w0_cornerDy = edge.w0_cornerDy; tctx.w1_cornerDy = edge.w1_cornerDy; tctx.w2_cornerDy = edge.w2_cornerDy;
 
     tctx.invArea2    = invArea2;
     tctx.iw2         = iw2;
@@ -1671,12 +1774,12 @@ void SWRasterizer::RasterizeTriangle(
 
     tctx.sampleCount = om.sampleCount;
     tctx.samplePositions = GetSamplePositions(om.sampleCount, om.sampleQuality);
-    tctx.w0_dx_sub = -(fy[2] - fy[1]);
-    tctx.w1_dx_sub = -(fy[0] - fy[2]);
-    tctx.w2_dx_sub = -(fy[1] - fy[0]);
-    tctx.w0_dy_sub =  (fx[2] - fx[1]);
-    tctx.w1_dy_sub =  (fx[0] - fx[2]);
-    tctx.w2_dy_sub =  (fx[1] - fx[0]);
+    tctx.w0_dx_sub = edge.w0_dx_sub;
+    tctx.w1_dx_sub = edge.w1_dx_sub;
+    tctx.w2_dx_sub = edge.w2_dx_sub;
+    tctx.w0_dy_sub = edge.w0_dy_sub;
+    tctx.w1_dy_sub = edge.w1_dy_sub;
+    tctx.w2_dy_sub = edge.w2_dy_sub;
 
     tctx.hiZ        = (om.sampleCount > 1) ? nullptr : (_hiZ.Matches(om.dsvData) ? _hiZ.data.data() : nullptr);
     tctx.hiZTilesX  = _hiZ.tilesX;
@@ -1686,7 +1789,6 @@ void SWRasterizer::RasterizeTriangle(
 
     Bool useThreads = useTiling && _config.tileThreads > 0
                       && totalTiles > _config.tileThreads;
-
     if (useThreads)
     {
         if (!_tilePool)
