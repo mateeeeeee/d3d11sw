@@ -77,6 +77,7 @@ struct D3D11SW_ParsedShader
     Bool                                         usesDiscard    = false;
     Bool                                         writesSVDepth  = false;
     Bool                                         usesUAVs       = false;
+    Bool                                         usesSampleIndex = false;
     Bool                                         needsQuad      = false;
     Uint32                                       numClipDistances = 0;
     Uint32                                       numCullDistances = 0;

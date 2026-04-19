@@ -4,7 +4,6 @@ set(D3D11SW_SOURCES
 
     common/log.cpp
     common/common.h
-    common/device_child_impl.h
     common/log.h
     common/macros.h
     common/types.h
@@ -12,6 +11,7 @@ set(D3D11SW_SOURCES
 
     device/device.cpp
     device/device.h
+    device/device_child_impl.h
 
     context/context.cpp
     context/context.h

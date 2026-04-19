@@ -174,6 +174,11 @@ struct TileContext
     Fixed28_4 w0_cornerDx, w1_cornerDx, w2_cornerDx;
     Fixed28_4 w0_cornerDy, w1_cornerDy, w2_cornerDy;
 
+    Fixed28_4 w0_dx_sub, w1_dx_sub, w2_dx_sub;
+    Fixed28_4 w0_dy_sub, w1_dy_sub, w2_dy_sub;
+    Uint sampleCount;
+    const SampleOffset* samplePositions;
+
     Float invArea2;
     Float iw2, diw0, diw1;
     Float dz0, dz1;
@@ -199,8 +204,9 @@ struct TileContext
     Bool useTiling;
     Bool frontFace;
     Bool earlyZ;
+    Bool perSampleShading;
     Uint primitiveID;
-    SW_PSQuadFn psQuadFn;
+    SW_PSFn psQuadFn;
     D3D11SW_PIPELINE_STATISTICS* stats;
 
     Float* hiZ;
@@ -330,6 +336,8 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                 Int qy[4] = { py, py, py+1, py+1 };
 
                 Uint activeMask;
+                if (ctx.sampleCount == 1)
+                {
                 if (interiorTile)
                 {
                     activeMask = 0xFu;
@@ -450,6 +458,8 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                     }
                     qin.pixels[q].isFrontFace = ctx.frontFace ? 1u : 0u;
                     qin.pixels[q].primitiveID = ctx.primitiveID;
+                    qin.pixels[q].coverageMask = 1;
+                    qin.pixels[q].sampleIndex = 0;
 
                     for (Int vi = 0; vi < ctx.numVaryings; ++vi)
                     {
@@ -559,8 +569,398 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         WriteStencil(om, qx[q], qy[q], written);
                     }
 
+                    if (qout.pixels[q].coverageWritten && !(qout.pixels[q].coverageMask & 1u))
+                    {
+                        continue;
+                    }
+
                     WritePixel(om, qx[q], qy[q], qout.pixels[q]);
                 }
+                } // sampleCount == 1
+                else
+                {
+                // MSAA path: per-sample coverage testing, per-pixel shading
+                Uint sampleCoverage[4] = {};
+                activeMask = 0;
+                for (Int q = 0; q < 4; ++q)
+                {
+                    if (qx[q] < tMinX || qx[q] >= tMaxX || qy[q] < tMinY || qy[q] >= tMaxY)
+                    {
+                        continue;
+                    }
+                    for (Uint s = 0; s < ctx.sampleCount; ++s)
+                    {
+                        Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
+                        Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
+                        Fixed28_4 w2_s = qw2[q] + ctx.w2_dx_sub * ctx.samplePositions[s].dx + ctx.w2_dy_sub * ctx.samplePositions[s].dy;
+                        if (w0_s >= 0 && w1_s >= 0 && w2_s >= 0)
+                        {
+                            sampleCoverage[q] |= (1u << s);
+                        }
+                    }
+                    if (sampleCoverage[q] != 0)
+                    {
+                        activeMask |= (1u << q);
+                    }
+                }
+                if (activeMask == 0)
+                {
+                    w0_q += ctx.w0_dx * 2;
+                    w1_q += ctx.w1_dx * 2;
+                    w2_q += ctx.w2_dx * 2;
+                    continue;
+                }
+
+                Float quadDepth[4];
+                Float quadPerspW[4];
+                Float quadB0[4], quadB1[4], quadB2[4], quadInvPerspW[4];
+                for (Int q = 0; q < 4; ++q)
+                {
+                    quadB0[q] = static_cast<Float>(qw0[q]) * ctx.invArea2;
+                    quadB1[q] = static_cast<Float>(qw1[q]) * ctx.invArea2;
+                    quadB2[q] = 1.f - quadB0[q] - quadB1[q];
+                    quadPerspW[q] = ctx.iw2 + quadB0[q] * ctx.diw0 + quadB1[q] * ctx.diw1;
+                    quadInvPerspW[q] = (quadPerspW[q] != 0.f) ? 1.f / quadPerspW[q] : 0.f;
+                    quadDepth[q] = ctx.ndcZ2 + quadB0[q] * ctx.dz0 + quadB1[q] * ctx.dz1;
+                    quadDepth[q] += ctx.depthBias;
+                    quadDepth[q] = std::clamp(quadDepth[q], ctx.vpMinDepth, ctx.vpMaxDepth);
+                }
+
+                if (ctx.earlyZ)
+                {
+                    Bool anyPass = false;
+                    const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+                    for (Int q = 0; q < 4; ++q)
+                    {
+                        if (!(activeMask & (1u << q)))
+                        {
+                            continue;
+                        }
+                        Uint covMask = sampleCoverage[q];
+                        for (Uint s = 0; s < ctx.sampleCount; ++s)
+                        {
+                            if (!(covMask & (1u << s)))
+                            {
+                                continue;
+                            }
+
+                            Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
+                            Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
+                            Float sb0 = static_cast<Float>(w0_s) * ctx.invArea2;
+                            Float sb1 = static_cast<Float>(w1_s) * ctx.invArea2;
+                            Float sDepth = ctx.ndcZ2 + sb0 * ctx.dz0 + sb1 * ctx.dz1 + ctx.depthBias;
+                            sDepth = std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+
+                            if (om.stencilEnabled)
+                            {
+                                Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                                Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
+                                Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                                if (!CompareStencil(
+                                        ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                        maskedRef, maskedVal))
+                                {
+                                    Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
+                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                    sampleCoverage[q] &= ~(1u << s);
+                                    continue;
+                                }
+                            }
+
+                            if (om.depthEnabled && !TestDepthSample(om, qx[q], qy[q], s, sDepth))
+                            {
+                                if (om.stencilEnabled)
+                                {
+                                    Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                                    Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                }
+                                sampleCoverage[q] &= ~(1u << s);
+                                continue;
+                            }
+                        }
+                        if (sampleCoverage[q] == 0)
+                        {
+                            activeMask &= ~(1u << q);
+                        }
+                        else
+                        {
+                            anyPass = true;
+                        }
+                    }
+                    if (!anyPass)
+                    {
+                        w0_q += ctx.w0_dx * 2;
+                        w1_q += ctx.w1_dx * 2;
+                        w2_q += ctx.w2_dx * 2;
+                        continue;
+                    }
+                }
+
+                SW_PSQuadInput qin{};
+                qin.activeMask = activeMask;
+                for (Int q = 0; q < 4; ++q)
+                {
+                    Float pxC = static_cast<Float>(qx[q]) + 0.5f;
+                    Float pyC = static_cast<Float>(qy[q]) + 0.5f;
+                    qin.pixels[q].pos = { pxC, pyC, quadDepth[q], quadPerspW[q] };
+                    if (ctx.svPosRegPS >= 0)
+                    {
+                        qin.pixels[q].v[ctx.svPosRegPS] = qin.pixels[q].pos;
+                    }
+                    qin.pixels[q].isFrontFace = ctx.frontFace ? 1u : 0u;
+                    qin.pixels[q].primitiveID = ctx.primitiveID;
+                    qin.pixels[q].coverageMask = sampleCoverage[q];
+                    qin.pixels[q].sampleIndex = 0;
+
+                    for (Int vi = 0; vi < ctx.numVaryings; ++vi)
+                    {
+                        Int psR = ctx.varyings[vi].psInReg;
+                        qin.pixels[q].v[psR] = InterpolateVarying(
+                            ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
+                            quadB0[q], quadB1[q], quadB2[q], quadInvPerspW[q]);
+                    }
+                }
+
+                if (!ctx.perSampleShading)
+                {
+                SW_PSQuadOutput qout{};
+                ctx.psQuadFn(&qin, &qout, ctx.psRes);
+                ctx.stats->psInvocations += std::popcount(qin.activeMask);
+
+                for (Int q = 0; q < 4; ++q)
+                {
+                    if (!(activeMask & (1u << q)))
+                    {
+                        continue;
+                    }
+                    if (qout.pixels[q].discarded)
+                    {
+                        continue;
+                    }
+                    if (qout.pixels[q].coverageWritten)
+                    {
+                        sampleCoverage[q] &= qout.pixels[q].coverageMask;
+                        if (sampleCoverage[q] == 0)
+                        {
+                            continue;
+                        }
+                    }
+
+                    const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+
+                    if (!ctx.earlyZ)
+                    {
+                        for (Uint s = 0; s < ctx.sampleCount; ++s)
+                        {
+                            if (!(sampleCoverage[q] & (1u << s)))
+                            {
+                                continue;
+                            }
+
+                            Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
+                            Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
+                            Float sb0 = static_cast<Float>(w0_s) * ctx.invArea2;
+                            Float sb1 = static_cast<Float>(w1_s) * ctx.invArea2;
+                            Float sDepth = ctx.ndcZ2 + sb0 * ctx.dz0 + sb1 * ctx.dz1 + ctx.depthBias;
+                            sDepth = std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+
+                            if (qout.pixels[q].depthWritten)
+                            {
+                                sDepth = qout.pixels[q].oDepth;
+                            }
+
+                            if (om.stencilEnabled)
+                            {
+                                Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                                Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
+                                Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                                if (!CompareStencil(
+                                        ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                        maskedRef, maskedVal))
+                                {
+                                    Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
+                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                    sampleCoverage[q] &= ~(1u << s);
+                                    continue;
+                                }
+                            }
+
+                            if (om.depthEnabled)
+                            {
+                                if (!TestDepthSample(om, qx[q], qy[q], s, sDepth))
+                                {
+                                    if (om.stencilEnabled)
+                                    {
+                                        Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                                        Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                                        Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                        WriteStencilSample(om, qx[q], qy[q], s, written);
+                                    }
+                                    sampleCoverage[q] &= ~(1u << s);
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+
+                    for (Uint s = 0; s < ctx.sampleCount; ++s)
+                    {
+                        if (!(sampleCoverage[q] & (1u << s)))
+                        {
+                            continue;
+                        }
+
+                        if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+                        {
+                            Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
+                            Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
+                            Float sb0 = static_cast<Float>(w0_s) * ctx.invArea2;
+                            Float sb1 = static_cast<Float>(w1_s) * ctx.invArea2;
+                            Float sDepth = ctx.ndcZ2 + sb0 * ctx.dz0 + sb1 * ctx.dz1 + ctx.depthBias;
+                            sDepth = std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+                            if (qout.pixels[q].depthWritten)
+                            {
+                                sDepth = qout.pixels[q].oDepth;
+                            }
+                            WriteDepthSample(om, qx[q], qy[q], s, sDepth);
+                        }
+
+                        if (om.stencilEnabled)
+                        {
+                            Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                            Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
+                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                            WriteStencilSample(om, qx[q], qy[q], s, written);
+                        }
+                    }
+
+                    WritePixelSamples(om, qx[q], qy[q], sampleCoverage[q], qout.pixels[q]);
+                }
+                } // per-pixel shading
+                else
+                {
+                // Per-sample shading: run PS once per covered sample
+                const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
+                for (Int q = 0; q < 4; ++q)
+                {
+                    if (!(activeMask & (1u << q)))
+                    {
+                        continue;
+                    }
+                    for (Uint s = 0; s < ctx.sampleCount; ++s)
+                    {
+                        if (!(sampleCoverage[q] & (1u << s)))
+                        {
+                            continue;
+                        }
+
+                        Fixed28_4 w0_s = qw0[q] + ctx.w0_dx_sub * ctx.samplePositions[s].dx + ctx.w0_dy_sub * ctx.samplePositions[s].dy;
+                        Fixed28_4 w1_s = qw1[q] + ctx.w1_dx_sub * ctx.samplePositions[s].dx + ctx.w1_dy_sub * ctx.samplePositions[s].dy;
+                        Float sB0 = static_cast<Float>(w0_s) * ctx.invArea2;
+                        Float sB1 = static_cast<Float>(w1_s) * ctx.invArea2;
+                        Float sB2 = 1.f - sB0 - sB1;
+                        Float sPerspW = ctx.iw2 + sB0 * ctx.diw0 + sB1 * ctx.diw1;
+                        Float sInvPerspW = (sPerspW != 0.f) ? 1.f / sPerspW : 0.f;
+                        Float sDepth = ctx.ndcZ2 + sB0 * ctx.dz0 + sB1 * ctx.dz1 + ctx.depthBias;
+                        sDepth = std::clamp(sDepth, ctx.vpMinDepth, ctx.vpMaxDepth);
+
+                        SW_PSQuadInput sqin{};
+                        sqin.activeMask = 1u;
+                        Float pxC = static_cast<Float>(qx[q]) + 0.5f;
+                        Float pyC = static_cast<Float>(qy[q]) + 0.5f;
+                        sqin.pixels[0].pos = { pxC, pyC, sDepth, sPerspW };
+                        if (ctx.svPosRegPS >= 0)
+                        {
+                            sqin.pixels[0].v[ctx.svPosRegPS] = sqin.pixels[0].pos;
+                        }
+                        sqin.pixels[0].isFrontFace = ctx.frontFace ? 1u : 0u;
+                        sqin.pixels[0].primitiveID = ctx.primitiveID;
+                        sqin.pixels[0].coverageMask = sampleCoverage[q];
+                        sqin.pixels[0].sampleIndex = s;
+
+                        for (Int vi = 0; vi < ctx.numVaryings; ++vi)
+                        {
+                            Int psR = ctx.varyings[vi].psInReg;
+                            sqin.pixels[0].v[psR] = InterpolateVarying(
+                                ctx.v0pw[vi], ctx.v1pw[vi], ctx.v2pw[vi],
+                                sB0, sB1, sB2, sInvPerspW);
+                        }
+
+                        SW_PSQuadOutput sqout{};
+                        ctx.psQuadFn(&sqin, &sqout, ctx.psRes);
+                        ++ctx.stats->psInvocations;
+
+                        if (sqout.pixels[0].discarded)
+                        {
+                            continue;
+                        }
+
+                        Float testDepth = sqout.pixels[0].depthWritten ? sqout.pixels[0].oDepth : sDepth;
+
+                        if (om.stencilEnabled)
+                        {
+                            Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                            Uint8 maskedRef = om.stencilRef & om.stencilReadMask;
+                            Uint8 maskedVal = oldStencil & om.stencilReadMask;
+                            if (!CompareStencil(
+                                    ctx.frontFace ? om.stencilFront.StencilFunc : om.stencilBack.StencilFunc,
+                                    maskedRef, maskedVal))
+                            {
+                                Uint8 result = ApplyStencilOp(stencilOps->StencilFailOp, oldStencil, om.stencilRef);
+                                Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                WriteStencilSample(om, qx[q], qy[q], s, written);
+                                continue;
+                            }
+                        }
+
+                        if (om.depthEnabled)
+                        {
+                            if (!TestDepthSample(om, qx[q], qy[q], s, testDepth))
+                            {
+                                if (om.stencilEnabled)
+                                {
+                                    Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                                    Uint8 result = ApplyStencilOp(stencilOps->StencilDepthFailOp, oldStencil, om.stencilRef);
+                                    Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                                    WriteStencilSample(om, qx[q], qy[q], s, written);
+                                }
+                                continue;
+                            }
+                        }
+
+                        if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
+                        {
+                            WriteDepthSample(om, qx[q], qy[q], s, testDepth);
+                        }
+
+                        if (om.stencilEnabled)
+                        {
+                            Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
+                            Uint8 result = ApplyStencilOp(stencilOps->StencilPassOp, oldStencil, om.stencilRef);
+                            Uint8 written = (result & om.stencilWriteMask) | (oldStencil & ~om.stencilWriteMask);
+                            WriteStencilSample(om, qx[q], qy[q], s, written);
+                        }
+
+                        Uint finalCov = 1u << s;
+                        if (sqout.pixels[0].coverageWritten)
+                        {
+                            finalCov &= sqout.pixels[0].coverageMask;
+                        }
+                        if (finalCov)
+                        {
+                            for (Uint rt = 0; rt < om.activeRTCount; ++rt)
+                            {
+                                BlendAndWriteSample(om, qx[q], qy[q], s, rt, sqout.pixels[0].oC[rt], sqout.pixels[0].oC[1]);
+                            }
+                        }
+                    }
+                }
+                } // per-sample shading
+                } // MSAA path
 
                 w0_q += ctx.w0_dx * 2;
                 w1_q += ctx.w1_dx * 2;
@@ -893,7 +1293,7 @@ void SWRasterizer::RasterizeTriangle(
     const SW_VSOutput tri[3],
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
-    SW_PSQuadFn psFn,
+    SW_PSFn psFn,
     SW_Resources& psRes,
     OMState& om,
     D3D11SW_PIPELINE_STATE& state,
@@ -1261,10 +1661,24 @@ void SWRasterizer::RasterizeTriangle(
     tctx.primitiveID = om.primitiveID;
     tctx.stats = &state.stats;
     tctx.earlyZ    = !psReflection.usesDiscard && !psReflection.writesSVDepth && !psReflection.usesUAVs;
+    tctx.perSampleShading = psReflection.usesSampleIndex;
+    if (tctx.perSampleShading)
+    {
+        tctx.earlyZ = false;
+    }
 
     tctx.psQuadFn  = psFn;
 
-    tctx.hiZ        = _hiZ.Matches(om.dsvData) ? _hiZ.data.data() : nullptr;
+    tctx.sampleCount = om.sampleCount;
+    tctx.samplePositions = GetSamplePositions(om.sampleCount, om.sampleQuality);
+    tctx.w0_dx_sub = -(fy[2] - fy[1]);
+    tctx.w1_dx_sub = -(fy[0] - fy[2]);
+    tctx.w2_dx_sub = -(fy[1] - fy[0]);
+    tctx.w0_dy_sub =  (fx[2] - fx[1]);
+    tctx.w1_dy_sub =  (fx[0] - fx[2]);
+    tctx.w2_dy_sub =  (fx[1] - fx[0]);
+
+    tctx.hiZ        = (om.sampleCount > 1) ? nullptr : (_hiZ.Matches(om.dsvData) ? _hiZ.data.data() : nullptr);
     tctx.hiZTilesX  = _hiZ.tilesX;
     tctx.hiZWidth   = _hiZ.width;
     tctx.hiZHeight  = _hiZ.height;
@@ -1298,7 +1712,7 @@ void SWRasterizer::RasterizeLine(
     const SW_VSOutput endpts[2],
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
-    SW_PSQuadFn psFn,
+    SW_PSFn psFn,
     SW_Resources& psRes,
     OMState& om,
     D3D11SW_PIPELINE_STATE& state)
@@ -1410,7 +1824,14 @@ void SWRasterizer::RasterizeLine(
 
         if (!qout.pixels[0].discarded)
         {
-            WritePixel(om, px, py, qout.pixels[0]);
+            if (om.sampleCount > 1)
+            {
+                WritePixelSamples(om, px, py, (1u << om.sampleCount) - 1u, qout.pixels[0]);
+            }
+            else
+            {
+                WritePixel(om, px, py, qout.pixels[0]);
+            }
         }
     }
 }
@@ -1419,7 +1840,7 @@ void SWRasterizer::RasterizePoint(
     const SW_VSOutput& point,
     const D3D11SW_ParsedShader& vsReflection,
     const D3D11SW_ParsedShader& psReflection,
-    SW_PSQuadFn psFn,
+    SW_PSFn psFn,
     SW_Resources& psRes,
     OMState& om,
     D3D11SW_PIPELINE_STATE& state)
@@ -1501,7 +1922,14 @@ void SWRasterizer::RasterizePoint(
 
     if (!qout.pixels[0].discarded)
     {
-        WritePixel(om, px, py, qout.pixels[0]);
+        if (om.sampleCount > 1)
+        {
+            WritePixelSamples(om, px, py, (1u << om.sampleCount) - 1u, qout.pixels[0]);
+        }
+        else
+        {
+            WritePixel(om, px, py, qout.pixels[0]);
+        }
     }
 }
 
@@ -1509,7 +1937,7 @@ void SWRasterizer::RasterizePrimitive(
     const SW_VSOutput* v, Uint n,
     const D3D11SW_ParsedShader& vsRefl,
     const D3D11SW_ParsedShader& psRefl,
-    SW_PSQuadFn psFn, SW_Resources& psRes,
+    SW_PSFn psFn, SW_Resources& psRes,
     OMState& om, D3D11SW_PIPELINE_STATE& state)
 {
     switch (n)
@@ -1535,7 +1963,7 @@ void SWRasterizer::DrawInternal(
     const UINT* indices, Uint vertexCount, Int baseVertex,
     D3D11SW_PIPELINE_STATE& state)
 {
-    SW_PSQuadFn psFn = state.ps ? state.ps->GetQuadFn() : nullptr;
+    SW_PSFn psFn = state.ps ? state.ps->GetJitFn() : nullptr;
     if (!vs.vsFn || !psFn)
     {
         return;
@@ -1568,7 +1996,7 @@ void SWRasterizer::DrawWithGS(
     const Uint* indices, Uint vertexCount, Int baseVertex,
     const D3D11SW_ParsedShader& vsRefl,
     const D3D11SW_ParsedShader& psRefl,
-    SW_PSQuadFn psFn, SW_Resources& psRes,
+    SW_PSFn psFn, SW_Resources& psRes,
     D3D11SW_PIPELINE_STATE& state)
 {
     SW_GSFn gsFn = state.gs->GetJitFn();
@@ -1642,7 +2070,7 @@ void SWRasterizer::DrawDirect(
     const Uint* indices, Uint vertexCount, Int baseVertex,
     const D3D11SW_ParsedShader& vsRefl,
     const D3D11SW_ParsedShader& psRefl,
-    SW_PSQuadFn psFn, SW_Resources& psRes,
+    SW_PSFn psFn, SW_Resources& psRes,
     D3D11SW_PIPELINE_STATE& state)
 {
     Uint primID = 0;
@@ -1662,7 +2090,7 @@ void SWRasterizer::DrawWithTessellation(
     const Uint* indices, Uint vertexCount, Int baseVertex,
     const D3D11SW_ParsedShader& vsRefl,
     const D3D11SW_ParsedShader& psRefl,
-    SW_PSQuadFn psFn, SW_Resources& psRes,
+    SW_PSFn psFn, SW_Resources& psRes,
     D3D11SW_PIPELINE_STATE& state)
 {
     auto* hs = state.hs;
@@ -1991,7 +2419,7 @@ void SWRasterizer::RasterizeGSOutput(
     const SW_GSOutput& gsOut,
     const D3D11SW_ParsedShader& gsRefl,
     const D3D11SW_ParsedShader& psRefl,
-    SW_PSQuadFn psFn, SW_Resources& psRes,
+    SW_PSFn psFn, SW_Resources& psRes,
     OMState& om, D3D11SW_PIPELINE_STATE& state)
 {
     if (gsOut.vertexCount == 0)

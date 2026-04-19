@@ -945,9 +945,58 @@ FLOAT STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::GetResourceMinLOD(ID3
 template<Bool IsDebug>
 void STDMETHODCALLTYPE D3D11DeviceContextSWImpl<IsDebug>::ResolveSubresource(ID3D11Resource* pDstResource, UINT DstSubresource, ID3D11Resource* pSrcResource, UINT SrcSubresource, DXGI_FORMAT Format)
 {
-    //Atm, all MS Textures are forced to have 1 sample, 
-    //this implementation should change once we have proper implementation
-    CopySubresourceRegion(pDstResource, DstSubresource, 0, 0, 0, pSrcResource, SrcSubresource, nullptr);
+    D3D11_RESOURCE_DIMENSION srcDim{}, dstDim{};
+    pSrcResource->GetType(&srcDim);
+    pDstResource->GetType(&dstDim);
+    if (srcDim != D3D11_RESOURCE_DIMENSION_TEXTURE2D || dstDim != D3D11_RESOURCE_DIMENSION_TEXTURE2D)
+    {
+        CopySubresourceRegion(pDstResource, DstSubresource, 0, 0, 0, pSrcResource, SrcSubresource, nullptr);
+        return;
+    }
+
+    D3D11Texture2DSW* srcTex = static_cast<D3D11Texture2DSW*>(pSrcResource);
+    D3D11Texture2DSW* dstTex = static_cast<D3D11Texture2DSW*>(pDstResource);
+    D3D11SW_SUBRESOURCE_LAYOUT srcLayout = srcTex->GetSubresourceLayout(SrcSubresource);
+    D3D11SW_SUBRESOURCE_LAYOUT dstLayout = dstTex->GetSubresourceLayout(DstSubresource);
+    Uint sampleCount = srcLayout.SampleCount;
+    if (sampleCount <= 1)
+    {
+        CopySubresourceRegion(pDstResource, DstSubresource, 0, 0, 0, pSrcResource, SrcSubresource, nullptr);
+        return;
+    }
+
+    Uint pixStride = GetFormatStride(Format);
+    Uint8* srcBase = static_cast<Uint8*>(srcTex->GetDataPtr()) + srcLayout.Offset;
+    Uint8* dstBase = static_cast<Uint8*>(dstTex->GetDataPtr()) + dstLayout.Offset;
+    Uint width = dstLayout.RowPitch / pixStride;
+    Float invN = 1.f / static_cast<Float>(sampleCount);
+    for (Uint y = 0; y < dstLayout.NumRows; ++y)
+    {
+        for (Uint x = 0; x < width; ++x)
+        {
+            Float accumulated[4] = {};
+            for (Uint s = 0; s < sampleCount; ++s)
+            {
+                Uint8* srcPx = srcBase + (Uint64)y * srcLayout.RowPitch
+                             + (Uint64)x * pixStride * sampleCount + (Uint64)s * pixStride;
+                Float color[4];
+                UnpackColor(Format, srcPx, color);
+                for (Int c = 0; c < 4; ++c)
+                {
+                    accumulated[c] += color[c];
+                }
+            }
+            for (Int c = 0; c < 4; ++c)
+            {
+                accumulated[c] *= invN;
+            }
+
+            Uint8* dstPx = dstBase + (Uint64)y * dstLayout.RowPitch + (Uint64)x * pixStride;
+            Uint8 packed[16];
+            PackColor(Format, accumulated, packed);
+            std::memcpy(dstPx, packed, pixStride);
+        }
+    }
 }
 
 template<Bool IsDebug>

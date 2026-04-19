@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/device_child_impl.h"
+#include "device/device_child_impl.h"
 
 namespace d3d11sw {
 

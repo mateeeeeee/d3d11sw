@@ -1216,6 +1216,49 @@ static inline SW_float4 sw_fetch_texel_3d_mip(const SW_SRV& t, unsigned x, unsig
     }
 }
 
+static inline SW_float4 sw_fetch_texel_ms(const SW_SRV& t, unsigned x, unsigned y, unsigned sampleIdx)
+{
+    const SW_MipInfo& mi = t.mips[0];
+    unsigned sc = t.sampleCount > 0 ? t.sampleCount : 1;
+    sampleIdx = std::min(sampleIdx, sc - 1);
+    y = std::min(y, mi.height ? mi.height - 1 : 0u);
+    x = std::min(x, mi.width  ? mi.width  - 1 : 0u);
+    unsigned pixStride = mi.rowPitch / (mi.width * sc);
+    const unsigned char* base = static_cast<const unsigned char*>(t.data)
+                               + (unsigned long long)y * mi.rowPitch
+                               + (unsigned long long)x * pixStride * sc
+                               + (unsigned long long)sampleIdx * pixStride;
+    switch (t.format)
+    {
+        case SW_FORMAT_R8G8B8A8_UNORM:
+        {
+            return { base[0]/255.f, base[1]/255.f, base[2]/255.f, base[3]/255.f };
+        }
+        case SW_FORMAT_R8G8B8A8_UNORM_SRGB:
+        {
+            return { sw_srgb_to_linear(base[0]/255.f), sw_srgb_to_linear(base[1]/255.f), sw_srgb_to_linear(base[2]/255.f), base[3]/255.f };
+        }
+        case SW_FORMAT_R32_FLOAT:
+        {
+            float fv;
+            std::memcpy(&fv, base, 4);
+            return { fv, fv, fv, fv };
+        }
+        case SW_FORMAT_R32G32B32A32_FLOAT:
+        {
+            float fv[4];
+            std::memcpy(fv, base, 16);
+            return { fv[0], fv[1], fv[2], fv[3] };
+        }
+        case SW_FORMAT_B8G8R8A8_UNORM:
+        {
+            return { base[2]/255.f, base[1]/255.f, base[0]/255.f, base[3]/255.f };
+        }
+        default:
+            return { 0.f, 0.f, 0.f, 0.f };
+    }
+}
+
 static inline SW_float4 sw_gather_2d(const SW_SRV& t, const SW_Sampler& s,
                                       float u, float v, int comp)
 {

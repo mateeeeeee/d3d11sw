@@ -21,7 +21,8 @@ inline void BuildTextureLayouts(
     Uint                               MipLevels,
     Uint                               ArraySize,
     std::vector<D3D11SW_SUBRESOURCE_LAYOUT>& outLayouts,
-    std::vector<Uint8>&                    outData)
+    std::vector<Uint8>&                    outData,
+    Uint                               SampleCount = 1)
 {
     Uint blockSize   = GetFormatBlockSize(Format);
     Uint pixelStride = GetFormatStride(Format);
@@ -46,7 +47,7 @@ inline void BuildTextureLayouts(
         Uint numBlocksX = std::max(1u, DivideAndRoundUp(mipW, blockSize));
         Uint numBlocksY = std::max(1u, DivideAndRoundUp(mipH, blockSize));
 
-        Uint rowPitch   = numBlocksX * pixelStride;
+        Uint rowPitch   = numBlocksX * pixelStride * SampleCount;
         Uint depthPitch = rowPitch * numBlocksY;
 
         mipInfo[mip] = { offset, rowPitch, depthPitch, numBlocksY, mipD };
@@ -63,7 +64,7 @@ inline void BuildTextureLayouts(
             Uint   subres      = mip + slice * MipLevels;
             Uint64 sliceOffset = mi.Base + (Uint64)slice * mi.DepthPitch * mi.NumSlices;
             outLayouts[subres] = { sliceOffset, mi.RowPitch, mi.DepthPitch,
-                                   mi.NumRows, mi.NumSlices, blockSize, pixelStride };
+                                   mi.NumRows, mi.NumSlices, blockSize, pixelStride, SampleCount };
         }
     }
 }

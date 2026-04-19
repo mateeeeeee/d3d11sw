@@ -1,8 +1,8 @@
 #pragma once
-#include "common/device_child_impl.h"
+#include <vector>
+#include "device/device_child_impl.h"
 #include "shaders/dxbc_parser.h"
 #include "shaders/shader_abi.h"
-#include <vector>
 
 namespace d3d11sw {
 
@@ -16,14 +16,12 @@ public:
     HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override;
 
     SW_PSFn                     GetJitFn();
-    SW_PSQuadFn                 GetQuadFn();
     const D3D11SW_ParsedShader& GetReflection() const { return _reflection; }
 
 private:
     std::vector<Uint8>   _bytecode;
     D3D11SW_ParsedShader _reflection;
     SW_PSFn              _jitFn    = nullptr;
-    SW_PSQuadFn          _quadFn   = nullptr;
     Bool                 _compiled = false;
 };
 

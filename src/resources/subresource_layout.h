@@ -12,6 +12,7 @@ struct D3D11SW_SUBRESOURCE_LAYOUT
     Uint   NumSlices;    //depth slices (1 for 1D/2D, depth>>mip for 3D)
     Uint   BlockSize;    //texels per block edge: 4 for BC, 1 otherwise
     Uint   PixelStride;  //bytes per pixel or per 4x4 block
+    Uint   SampleCount;  //1 for non-MS, 2 or 4 for MSAA
 };
 
 }

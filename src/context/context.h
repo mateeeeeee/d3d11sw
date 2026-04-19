@@ -1,6 +1,6 @@
 #pragma once
 #include "common/common.h"
-#include "common/device_child_impl.h"
+#include "device/device_child_impl.h"
 #include "context/pipeline_state.h"
 #include "context/dispatcher.h"
 #include "context/rasterizer.h"

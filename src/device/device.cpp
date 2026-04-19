@@ -331,9 +331,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture2D(
     std::memcpy(&desc1, pDesc, sizeof(D3D11_TEXTURE2D_DESC));
     desc1.TextureLayout  = D3D11_TEXTURE_LAYOUT_UNDEFINED;
 
-    //#todo: force non-MS texture for now, implement later
-    desc1.SampleDesc.Count   = 1;
-    desc1.SampleDesc.Quality = 0;
+    if (desc1.SampleDesc.Count > 1)
+    {
+        Uint c = desc1.SampleDesc.Count;
+        if (c > 16 || (c & (c - 1)) != 0)
+        {
+            Uint clamped = 1;
+            for (Uint p = 16; p >= 2; p >>= 1)
+            {
+                if (c >= p) { clamped = p; break; }
+            }
+            desc1.SampleDesc.Count = clamped;
+        }
+    }
 
     D3D11Texture2DSW* tex = nullptr;
     HRESULT hr = CreateAndInit(&tex, &desc1, pInitialData);
@@ -1473,8 +1483,19 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture2D1(const D3D
     }
 
     D3D11_TEXTURE2D_DESC1 desc = *pDesc;
-    desc.SampleDesc.Count   = 1;
-    desc.SampleDesc.Quality = 0;
+    if (desc.SampleDesc.Count > 1)
+    {
+        Uint c = desc.SampleDesc.Count;
+        if (c > 16 || (c & (c - 1)) != 0)
+        {
+            Uint clamped = 1;
+            for (Uint p = 16; p >= 2; p >>= 1)
+            {
+                if (c >= p) { clamped = p; break; }
+            }
+            desc.SampleDesc.Count = clamped;
+        }
+    }
 
     D3D11Texture2DSW* tex = nullptr;
     HRESULT hr = CreateAndInit(&tex, &desc, pInitialData);

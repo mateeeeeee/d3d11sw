@@ -1,7 +1,7 @@
 #pragma once
 
-#include "unknown_impl.h"
-#include "private_data.h"
+#include "common/unknown_impl.h"
+#include "common/private_data.h"
 
 namespace d3d11sw {
 

@@ -80,11 +80,12 @@ void BuildStageResources(
         tex.format      = srv->GetFormat();
         tex.mipLevels   = srv->GetViewMipCount();
         tex.stride      = srv->GetStride();
+        tex.sampleCount = layout.SampleCount;
 
         for (Uint m = 0; m < tex.mipLevels && m < SW_MAX_MIP_LEVELS; ++m)
         {
             D3D11SW_SUBRESOURCE_LAYOUT ml = srv->GetMipLayout(m);
-            tex.mips[m].width     = ml.PixelStride > 0 ? (ml.RowPitch / ml.PixelStride) * ml.BlockSize : 0;
+            tex.mips[m].width     = ml.PixelStride > 0 ? (ml.RowPitch / (ml.PixelStride * ml.SampleCount)) * ml.BlockSize : 0;
             tex.mips[m].height    = ml.NumRows * ml.BlockSize;
             tex.mips[m].depth     = ml.NumSlices;
             tex.mips[m].rowPitch  = ml.RowPitch;

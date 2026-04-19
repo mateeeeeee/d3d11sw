@@ -38,7 +38,8 @@ OMState InitOM(D3D11SW_PIPELINE_STATE& state)
     om.dsvFmt      = dsv ? dsv->GetFormat()  : DXGI_FORMAT_UNKNOWN;
     om.dsvRowPitch = dsv ? dsv->GetLayout().RowPitch : 0;
     om.dsvPixStride = dsv ? DepthPixelStride(om.dsvFmt) : 0;
-    om.dsvWidth  = (dsv && om.dsvPixStride > 0) ? static_cast<Int>(dsv->GetLayout().RowPitch / om.dsvPixStride) : 0;
+    om.dsvSampleCount = dsv ? dsv->GetSampleCount() : 1;
+    om.dsvWidth  = (dsv && om.dsvPixStride > 0) ? static_cast<Int>(dsv->GetLayout().RowPitch / (om.dsvPixStride * om.dsvSampleCount)) : 0;
     om.dsvHeight = dsv ? static_cast<Int>(dsv->GetLayout().NumRows) : 0;
     if (!dsv)
     {
@@ -73,6 +74,7 @@ OMState InitOM(D3D11SW_PIPELINE_STATE& state)
         info.rowPitch   = rtv->GetLayout().RowPitch;
         info.pixStride  = rtv->GetLayout().PixelStride;
         info.slicePitch = rtv->GetLayout().DepthPitch;
+        info.sampleCount = rtv->GetSampleCount();
         info.blendDesc  = {};
         info.blendDesc.RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
         if (haveBlendState)
@@ -83,6 +85,21 @@ OMState InitOM(D3D11SW_PIPELINE_STATE& state)
 
     om.blendFactor = state.blendFactor;
     om.rtArrayIndex = 0;
+
+    om.sampleCount = 1;
+    om.sampleQuality = 0;
+    if (om.activeRTCount > 0)
+    {
+        om.sampleCount = om.rtInfos[0].sampleCount;
+        om.sampleQuality = state.renderTargets[0] ? state.renderTargets[0]->GetSampleQuality() : 0;
+    }
+    else if (dsv)
+    {
+        om.sampleCount = om.dsvSampleCount;
+        om.sampleQuality = dsv->GetSampleQuality();
+    }
+    om.sampleMask = state.sampleMask;
+
     return om;
 }
 

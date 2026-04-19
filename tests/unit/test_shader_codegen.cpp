@@ -128,8 +128,8 @@ TEST_F(ShaderCodeGenTests, PSSignature)
     s.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
 
     std::string src = EmitShader(s, "shaders/shader_runtime.h");
-    EXPECT_NE(src.find("SW_PSInput"), std::string::npos);
-    EXPECT_NE(src.find("SW_PSOutput"), std::string::npos);
+    EXPECT_NE(src.find("SW_PSQuadInput"), std::string::npos);
+    EXPECT_NE(src.find("SW_PSQuadOutput"), std::string::npos);
 }
 
 TEST_F(ShaderCodeGenTests, CSSignature)

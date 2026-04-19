@@ -46,20 +46,20 @@ private:
     void RasterizeTriangle(const SW_VSOutput tri[3],
                            const D3D11SW_ParsedShader& vsRefl,
                            const D3D11SW_ParsedShader& psRefl,
-                           SW_PSQuadFn psQuadFn, SW_Resources& psRes,
+                           SW_PSFn psQuadFn, SW_Resources& psRes,
                            OMState& om, D3D11SW_PIPELINE_STATE& state,
                            Bool alreadyClipped = false);
 
     void RasterizeLine(const SW_VSOutput endpts[2],
                        const D3D11SW_ParsedShader& vsRefl,
                        const D3D11SW_ParsedShader& psRefl,
-                       SW_PSQuadFn psQuadFn, SW_Resources& psRes,
+                       SW_PSFn psQuadFn, SW_Resources& psRes,
                        OMState& om, D3D11SW_PIPELINE_STATE& state);
 
     void RasterizePoint(const SW_VSOutput& point,
                         const D3D11SW_ParsedShader& vsRefl,
                         const D3D11SW_ParsedShader& psRefl,
-                        SW_PSQuadFn psQuadFn, SW_Resources& psRes,
+                        SW_PSFn psQuadFn, SW_Resources& psRes,
                         OMState& om, D3D11SW_PIPELINE_STATE& state);
 
     void DrawInternal(VertexState& vs, OMState& om,
@@ -70,33 +70,33 @@ private:
                     const Uint* indices, Uint vertexCount, Int baseVertex,
                     const D3D11SW_ParsedShader& vsRefl,
                     const D3D11SW_ParsedShader& psRefl,
-                    SW_PSQuadFn psFn, SW_Resources& psRes,
+                    SW_PSFn psFn, SW_Resources& psRes,
                     D3D11SW_PIPELINE_STATE& state);
 
     void DrawDirect(VertexState& vs, OMState& om,
                     const Uint* indices, Uint vertexCount, Int baseVertex,
                     const D3D11SW_ParsedShader& vsRefl,
                     const D3D11SW_ParsedShader& psRefl,
-                    SW_PSQuadFn psFn, SW_Resources& psRes,
+                    SW_PSFn psFn, SW_Resources& psRes,
                     D3D11SW_PIPELINE_STATE& state);
 
     void DrawWithTessellation(VertexState& vs, OMState& om,
                               const Uint* indices, Uint vertexCount, Int baseVertex,
                               const D3D11SW_ParsedShader& vsRefl,
                               const D3D11SW_ParsedShader& psRefl,
-                              SW_PSQuadFn psFn, SW_Resources& psRes,
+                              SW_PSFn psFn, SW_Resources& psRes,
                               D3D11SW_PIPELINE_STATE& state);
 
     void RasterizePrimitive(const SW_VSOutput* v, Uint n,
                             const D3D11SW_ParsedShader& vsRefl,
                             const D3D11SW_ParsedShader& psRefl,
-                            SW_PSQuadFn psFn, SW_Resources& psRes,
+                            SW_PSFn psFn, SW_Resources& psRes,
                             OMState& om, D3D11SW_PIPELINE_STATE& state);
 
     void RasterizeGSOutput(const SW_GSOutput& gsOut,
                            const D3D11SW_ParsedShader& gsRefl,
                            const D3D11SW_ParsedShader& psRefl,
-                           SW_PSQuadFn psQuadFn, SW_Resources& psRes,
+                           SW_PSFn psQuadFn, SW_Resources& psRes,
                            OMState& om, D3D11SW_PIPELINE_STATE& state);
 
     void WriteSOVertices(const SW_GSOutput& gsOut,

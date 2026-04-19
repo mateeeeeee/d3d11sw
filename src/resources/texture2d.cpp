@@ -56,7 +56,7 @@ HRESULT D3D11Texture2DSW::Init(
     BuildTextureLayouts(_desc.Format,
         _desc.Width, _desc.Height, 1,
         _desc.MipLevels, _desc.ArraySize,
-        _layouts, _data);
+        _layouts, _data, _desc.SampleDesc.Count);
 
     CopyInitialData(pInitialData, GetSubresourceCount(), _layouts, _data);
     return S_OK;

@@ -76,7 +76,7 @@ void STDMETHODCALLTYPE D3D11BufferSW::GetDesc(D3D11_BUFFER_DESC* pDesc)
 
 D3D11SW_SUBRESOURCE_LAYOUT D3D11BufferSW::GetSubresourceLayout(UINT Subresource) const
 {
-    return { 0, _desc.ByteWidth, _desc.ByteWidth, 1, 1, 1, 1 };
+    return { 0, _desc.ByteWidth, _desc.ByteWidth, 1, 1, 1, 1, 1 };
 }
 
 }

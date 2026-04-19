@@ -193,6 +193,18 @@ static Bool ParseShaderChunk(const Uint8* data, Usize size, D3D11SW_ParsedShader
         }
     }
 
+    if (out.type == D3D11SW_ShaderType::Pixel)
+    {
+        for (const auto& e : out.inputs)
+        {
+            if (e.svType == D3D_NAME_SAMPLE_INDEX)
+            {
+                out.usesSampleIndex = true;
+                break;
+            }
+        }
+    }
+
     return true;
 }
 

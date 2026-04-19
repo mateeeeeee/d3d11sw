@@ -30,6 +30,7 @@ struct SW_SRV
     unsigned    format;
     SW_MipInfo  mips[SW_MAX_MIP_LEVELS];
     unsigned    mipOffsets[SW_MAX_MIP_LEVELS];
+    unsigned    sampleCount;
 };
 
 struct SW_Sampler
@@ -72,8 +73,8 @@ struct SW_Resources
 struct SW_VSInput  { SW_float4 v[SW_MAX_VS_INPUTS]; };
 struct SW_VSOutput { SW_float4 pos; SW_float4 o[SW_MAX_VARYINGS]; float clipDist[8]; float cullDist[8]; unsigned viewportIndex = 0; unsigned rtArrayIndex = 0; };
 
-struct SW_PSInput  { SW_float4 pos; SW_float4 v[SW_MAX_VARYINGS]; unsigned isFrontFace; unsigned primitiveID; };
-struct SW_PSOutput { SW_float4 oC[SW_MAX_PS_OUTPUTS]; float oDepth; bool depthWritten; bool discarded; };
+struct SW_PSInput  { SW_float4 pos; SW_float4 v[SW_MAX_VARYINGS]; unsigned isFrontFace; unsigned primitiveID; unsigned coverageMask; unsigned sampleIndex; };
+struct SW_PSOutput { SW_float4 oC[SW_MAX_PS_OUTPUTS]; float oDepth; bool depthWritten; bool discarded; unsigned coverageMask; bool coverageWritten; };
 
 struct SW_CSInput
 {
@@ -84,7 +85,6 @@ struct SW_CSInput
 };
 
 using SW_VSFn = void(*)(const SW_VSInput*, SW_VSOutput*, const SW_Resources*);
-using SW_PSFn = void(*)(const SW_PSInput*, SW_PSOutput*, const SW_Resources*);
 
 struct SW_PSQuadInput
 {
@@ -97,7 +97,7 @@ struct SW_PSQuadOutput
     SW_PSOutput pixels[4];
 };
 
-using SW_PSQuadFn = void(*)(const SW_PSQuadInput*, SW_PSQuadOutput*, const SW_Resources*);
+using SW_PSFn = void(*)(SW_PSQuadInput*, SW_PSQuadOutput*, const SW_Resources*);
 
 struct SW_GSInput
 {

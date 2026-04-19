@@ -1,8 +1,7 @@
 #pragma once
 #include <vector>
-#include "common/types.h"
 #include "subresource_layout.h"
-#include "common/device_child_impl.h"
+#include "device/device_child_impl.h"
 
 namespace d3d11sw {
 

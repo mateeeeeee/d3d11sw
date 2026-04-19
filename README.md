@@ -4,7 +4,6 @@ A software implementation of the Direct3D 11 API.
 
 ## Missing Features
 
-- [ ] Multisampled textures (Currently rendered as 1x)
 - [ ] Class linkage
 - [ ] Deferred contexts
 
@@ -16,6 +15,7 @@ A software implementation of the Direct3D 11 API.
 - [x] SM4.0/SM5.0 instruction set (arithmetic, integer, bitwise, control flow, atomics)
 - [x] Tiled rasterizer with 28.4 fixed-point edge functions
 - [x] 2x2 quad pixel shader execution (derivatives, auto-LOD)
+- [x] MSAA: 1x/2x/4x/8x/16x, per-sample coverage/depth/stencil, per-sample shading (SV_SampleIndex), SV_Coverage input/output, LD_MS, ResolveSubresource
 - [x] BC compressed textures (BC1, BC2, BC3, BC4, BC5, BC7), BC6H still missing
 - [x] Texture sampling: 1D/2D/3D/cube, point/bilinear/trilinear, all address modes
 - [x] Anisotropic filtering
