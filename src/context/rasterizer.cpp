@@ -622,6 +622,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         }
                     }
 
+                    ++ctx.stats->occlusionCount;
                     if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
                     {
                         WriteDepth(om, qx[q], qy[q], depth);
@@ -856,12 +857,12 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         }
                     }
 
+                    ctx.stats->occlusionCount += std::popcount(sampleCoverage[q]);
                     WritePixelSamples(om, qx[q], qy[q], sampleCoverage[q], qout.pixels[q]);
                 }
-                } // per-pixel shading
+                } 
                 else
                 {
-                // Per-sample shading: run PS once per covered sample
                 const D3D11_DEPTH_STENCILOP_DESC* stencilOps = ctx.frontFace ? &om.stencilFront : &om.stencilBack;
                 for (Int q = 0; q < 4; ++q)
                 {
@@ -918,7 +919,6 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         }
 
                         Float testDepth = sqout.pixels[0].depthWritten ? sqout.pixels[0].oDepth : sDepth;
-
                         if (om.stencilEnabled)
                         {
                             Uint8 oldStencil = ReadStencilSample(om, qx[q], qy[q], s);
@@ -946,6 +946,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                             }
                         }
 
+                        ++ctx.stats->occlusionCount;
                         if (om.depthEnabled && om.depthWriteMask == D3D11_DEPTH_WRITE_MASK_ALL)
                         {
                             WriteDepthSample(om, qx[q], qy[q], s, testDepth);
@@ -971,8 +972,8 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         }
                     }
                 }
-                } // per-sample shading
-                } // MSAA path
+                } 
+                } 
 
                 w0_q += ctx.w0_dx * 2;
                 w1_q += ctx.w1_dx * 2;
@@ -1928,10 +1929,12 @@ void SWRasterizer::RasterizeLine(
         {
             if (om.sampleCount > 1)
             {
+                state.stats.occlusionCount += om.sampleCount;
                 WritePixelSamples(om, px, py, (1u << om.sampleCount) - 1u, qout.pixels[0]);
             }
             else
             {
+                ++state.stats.occlusionCount;
                 WritePixel(om, px, py, qout.pixels[0]);
             }
         }
@@ -2026,10 +2029,12 @@ void SWRasterizer::RasterizePoint(
     {
         if (om.sampleCount > 1)
         {
+            state.stats.occlusionCount += om.sampleCount;
             WritePixelSamples(om, px, py, (1u << om.sampleCount) - 1u, qout.pixels[0]);
         }
         else
         {
+            ++state.stats.occlusionCount;
             WritePixel(om, px, py, qout.pixels[0]);
         }
     }
@@ -2414,6 +2419,12 @@ void SWRasterizer::WriteSOVertices(
 {
     const auto& soDecls   = gs.GetSODecls();
     const Uint32* soStrides = gs.GetSOStrides();
+
+    Uint32 topo = gsRefl.gsOutputTopology;
+    Uint32 minVerts = (topo <= D3D10_SB_PRIMITIVE_TOPOLOGY_POINTLIST) ? 1 :
+                      (topo <= D3D10_SB_PRIMITIVE_TOPOLOGY_LINESTRIP) ? 2 : 3;
+    Uint32 stripLen = 0;
+    Bool slot0Overflowed = false;
     for (Uint vi = 0; vi < gsOut.vertexCount; ++vi)
     {
         const SW_VSOutput& vert = gsOut.vertices[vi];
@@ -2505,14 +2516,49 @@ void SWRasterizer::WriteSOVertices(
             }
         }
 
+        Bool vertOverflow = false;
         for (Uint8 slot = 0; slot < D3D11_SO_BUFFER_SLOT_COUNT; ++slot)
         {
             auto& t = state.soTargets[slot];
             if (t.buffer && soStrides[slot] > 0 && slotWritten[slot])
             {
-                t.writeOffset += soStrides[slot];
-                t.vertexCount++;
+                if (t.writeOffset + soStrides[slot] > t.buffer->GetDataSize())
+                {
+                    if (slot == 0)
+                    {
+                        vertOverflow = true;
+                    }
+                }
+                else
+                {
+                    t.writeOffset += soStrides[slot];
+                    t.vertexCount++;
+                }
             }
+        }
+
+        if (vertOverflow)
+        {
+            slot0Overflowed = true;
+        }
+
+        if (slotWritten[0])
+        {
+            ++stripLen;
+            if (stripLen >= minVerts)
+            {
+                ++state.stats.soPrimitivesStorageNeeded;
+                if (!slot0Overflowed)
+                {
+                    ++state.stats.soNumPrimitivesWritten;
+                }
+            }
+        }
+
+        Bool isCut = (gsOut.stripCuts[vi / 32] >> (vi % 32)) & 1u;
+        if (isCut)
+        {
+            stripLen = 0;
         }
     }
 }

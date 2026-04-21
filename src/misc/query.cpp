@@ -116,6 +116,10 @@ HRESULT D3D11QuerySW::Init(const D3D11_QUERY_DESC1* pDesc)
     case D3D11_QUERY_TIMESTAMP_DISJOINT:
     case D3D11_QUERY_EVENT:
     case D3D11_QUERY_PIPELINE_STATISTICS:
+    case D3D11_QUERY_OCCLUSION:
+    case D3D11_QUERY_OCCLUSION_PREDICATE:
+    case D3D11_QUERY_SO_STATISTICS:
+    case D3D11_QUERY_SO_OVERFLOW_PREDICATE:
         break;
     default:
         return E_NOTIMPL;
@@ -133,6 +137,10 @@ UINT STDMETHODCALLTYPE D3D11QuerySW::GetDataSize()
     case D3D11_QUERY_TIMESTAMP_DISJOINT: return sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT);
     case D3D11_QUERY_EVENT:              return sizeof(BOOL);
     case D3D11_QUERY_PIPELINE_STATISTICS: return sizeof(D3D11_QUERY_DATA_PIPELINE_STATISTICS);
+    case D3D11_QUERY_OCCLUSION:          return sizeof(UINT64);
+    case D3D11_QUERY_OCCLUSION_PREDICATE: return sizeof(BOOL);
+    case D3D11_QUERY_SO_STATISTICS:      return sizeof(D3D11_QUERY_DATA_SO_STATISTICS);
+    case D3D11_QUERY_SO_OVERFLOW_PREDICATE: return sizeof(BOOL);
     default:                             return 0;
     }
 }
@@ -157,7 +165,7 @@ void STDMETHODCALLTYPE D3D11QuerySW::GetDesc1(D3D11_QUERY_DESC1* pDesc)
 void D3D11QuerySW::Begin(const D3D11SW_PIPELINE_STATISTICS* stats)
 {
     _ended = false;
-    if (_desc.Query == D3D11_QUERY_PIPELINE_STATISTICS && stats)
+    if (stats)
     {
         _statsBegin = *stats;
     }
@@ -172,7 +180,7 @@ void D3D11QuerySW::End(const D3D11SW_PIPELINE_STATISTICS* stats)
         using period = std::chrono::steady_clock::period;
         _timestamp = _timestamp * period::num * (1'000'000'000 / period::den);
     }
-    else if (_desc.Query == D3D11_QUERY_PIPELINE_STATISTICS && stats)
+    else if (stats)
     {
         _statsEnd = *stats;
     }
@@ -243,6 +251,50 @@ HRESULT D3D11QuerySW::GetData(void* pData, UINT DataSize)
         data.DSInvocations = _statsEnd.dsInvocations - _statsBegin.dsInvocations;
         data.CSInvocations = _statsEnd.csInvocations - _statsBegin.csInvocations;
         std::memcpy(pData, &data, sizeof(data));
+        return S_OK;
+    }
+    case D3D11_QUERY_OCCLUSION:
+    {
+        if (DataSize < sizeof(UINT64))
+        {
+            return E_INVALIDARG;
+        }
+        UINT64 count = _statsEnd.occlusionCount - _statsBegin.occlusionCount;
+        std::memcpy(pData, &count, sizeof(UINT64));
+        return S_OK;
+    }
+    case D3D11_QUERY_OCCLUSION_PREDICATE:
+    {
+        if (DataSize < sizeof(BOOL))
+        {
+            return E_INVALIDARG;
+        }
+        BOOL visible = (_statsEnd.occlusionCount - _statsBegin.occlusionCount) > 0 ? TRUE : FALSE;
+        std::memcpy(pData, &visible, sizeof(BOOL));
+        return S_OK;
+    }
+    case D3D11_QUERY_SO_STATISTICS:
+    {
+        if (DataSize < sizeof(D3D11_QUERY_DATA_SO_STATISTICS))
+        {
+            return E_INVALIDARG;
+        }
+        D3D11_QUERY_DATA_SO_STATISTICS data{};
+        data.NumPrimitivesWritten    = _statsEnd.soNumPrimitivesWritten    - _statsBegin.soNumPrimitivesWritten;
+        data.PrimitivesStorageNeeded = _statsEnd.soPrimitivesStorageNeeded - _statsBegin.soPrimitivesStorageNeeded;
+        std::memcpy(pData, &data, sizeof(data));
+        return S_OK;
+    }
+    case D3D11_QUERY_SO_OVERFLOW_PREDICATE:
+    {
+        if (DataSize < sizeof(BOOL))
+        {
+            return E_INVALIDARG;
+        }
+        UINT64 written = _statsEnd.soNumPrimitivesWritten    - _statsBegin.soNumPrimitivesWritten;
+        UINT64 needed  = _statsEnd.soPrimitivesStorageNeeded - _statsBegin.soPrimitivesStorageNeeded;
+        BOOL overflowed = (needed > written) ? TRUE : FALSE;
+        std::memcpy(pData, &overflowed, sizeof(BOOL));
         return S_OK;
     }
     default:

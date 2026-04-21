@@ -36,6 +36,9 @@ struct D3D11SW_PIPELINE_STATISTICS
     Uint64 hsInvocations   = 0;
     Uint64 dsInvocations   = 0;
     Uint64 csInvocations   = 0;
+    Uint64 occlusionCount  = 0;
+    Uint64 soNumPrimitivesWritten  = 0;
+    Uint64 soPrimitivesStorageNeeded = 0;
 };
 
 struct D3D11SW_PIPELINE_STATE

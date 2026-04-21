@@ -103,7 +103,7 @@ TEST_F(QueryTests, CreateEventQuery)
 TEST_F(QueryTests, UnsupportedQueryTypeReturnsError)
 {
     D3D11_QUERY_DESC desc = {};
-    desc.Query = D3D11_QUERY_OCCLUSION;
+    desc.Query = D3D11_QUERY_SO_STATISTICS_STREAM1;
 
     ID3D11Query* query = nullptr;
     HRESULT hr = device->CreateQuery(&desc, &query);
@@ -319,6 +319,206 @@ TEST_F(QueryTests, QueryInterfaceToQuery1)
         EXPECT_EQ(desc1.Query, D3D11_QUERY_TIMESTAMP);
         query1->Release();
     }
+
+    query->Release();
+}
+
+TEST_F(QueryTests, CreateOcclusionQuery)
+{
+    D3D11_QUERY_DESC desc{};
+    desc.Query = D3D11_QUERY_OCCLUSION;
+
+    ID3D11Query* query = nullptr;
+    HRESULT hr = device->CreateQuery(&desc, &query);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_EQ(query->GetDataSize(), sizeof(UINT64));
+
+    D3D11_QUERY_DESC outDesc{};
+    query->GetDesc(&outDesc);
+    EXPECT_EQ(outDesc.Query, D3D11_QUERY_OCCLUSION);
+
+    query->Release();
+}
+
+TEST_F(QueryTests, CreateOcclusionPredicateQuery)
+{
+    D3D11_QUERY_DESC desc{};
+    desc.Query = D3D11_QUERY_OCCLUSION_PREDICATE;
+
+    ID3D11Query* query = nullptr;
+    HRESULT hr = device->CreateQuery(&desc, &query);
+    ASSERT_TRUE(SUCCEEDED(hr));
+    EXPECT_EQ(query->GetDataSize(), sizeof(BOOL));
+
+    query->Release();
+}
+
+TEST_F(QueryTests, OcclusionCountFullScreen)
+{
+    D3D11_QUERY_DESC desc{};
+    desc.Query = D3D11_QUERY_OCCLUSION;
+
+    ID3D11Query* query = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateQuery(&desc, &query)));
+
+    const UINT W = 8, H = 8;
+    D3D11_TEXTURE2D_DESC texDesc{};
+    texDesc.Width = W; texDesc.Height = H; texDesc.MipLevels = 1; texDesc.ArraySize = 1;
+    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; texDesc.SampleDesc.Count = 1;
+    texDesc.Usage = D3D11_USAGE_DEFAULT; texDesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+
+    ID3D11Texture2D* rtTex = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateTexture2D(&texDesc, nullptr, &rtTex)));
+    ID3D11RenderTargetView* rtv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateRenderTargetView(rtTex, nullptr, &rtv)));
+
+    float vertices[] = {
+        -1.f,  3.f, 0.5f,
+         3.f, -1.f, 0.5f,
+        -1.f, -1.f, 0.5f,
+    };
+    D3D11_BUFFER_DESC vbDesc{}; vbDesc.ByteWidth = sizeof(vertices);
+    vbDesc.Usage = D3D11_USAGE_DEFAULT; vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA vbInit{}; vbInit.pSysMem = vertices;
+    ID3D11Buffer* vb = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &vb)));
+
+    D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    auto vsBytecode = ReadFile(D3D11SW_SHADER_DIR "/vs_passthrough.o");
+    ASSERT_FALSE(vsBytecode.empty());
+    ID3D11InputLayout* layout = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateInputLayout(layoutDesc, 1, vsBytecode.data(), vsBytecode.size(), &layout)));
+    ID3D11VertexShader* vs = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateVertexShader(vsBytecode.data(), vsBytecode.size(), nullptr, &vs)));
+    auto psBytecode = ReadFile(D3D11SW_SHADER_DIR "/ps_solid_red.o");
+    ASSERT_FALSE(psBytecode.empty());
+    ID3D11PixelShader* ps = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreatePixelShader(psBytecode.data(), psBytecode.size(), nullptr, &ps)));
+
+    context->IASetInputLayout(layout);
+    UINT stride = 12, offset = 0;
+    context->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    context->VSSetShader(vs, nullptr, 0);
+    context->PSSetShader(ps, nullptr, 0);
+    context->OMSetRenderTargets(1, &rtv, nullptr);
+    D3D11_VIEWPORT vp{}; vp.Width = (FLOAT)W; vp.Height = (FLOAT)H; vp.MaxDepth = 1.f;
+    context->RSSetViewports(1, &vp);
+
+    context->Begin(query);
+    context->Draw(3, 0);
+    context->End(query);
+
+    UINT64 count = 0;
+    ASSERT_EQ(context->GetData(query, &count, sizeof(count), 0), S_OK);
+    EXPECT_EQ(count, (UINT64)(W * H)) << "Full-screen triangle should pass all " << W*H << " samples";
+
+    query->Release();
+    ps->Release(); vs->Release(); layout->Release();
+    vb->Release(); rtv->Release(); rtTex->Release();
+}
+
+TEST_F(QueryTests, OcclusionPredicateVisible)
+{
+    D3D11_QUERY_DESC desc{};
+    desc.Query = D3D11_QUERY_OCCLUSION_PREDICATE;
+
+    ID3D11Query* query = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateQuery(&desc, &query)));
+
+    const UINT W = 8, H = 8;
+    D3D11_TEXTURE2D_DESC texDesc{};
+    texDesc.Width = W; texDesc.Height = H; texDesc.MipLevels = 1; texDesc.ArraySize = 1;
+    texDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; texDesc.SampleDesc.Count = 1;
+    texDesc.Usage = D3D11_USAGE_DEFAULT; texDesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+
+    ID3D11Texture2D* rtTex = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateTexture2D(&texDesc, nullptr, &rtTex)));
+    ID3D11RenderTargetView* rtv = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateRenderTargetView(rtTex, nullptr, &rtv)));
+
+    float vertices[] = {
+        -1.f,  3.f, 0.5f,
+         3.f, -1.f, 0.5f,
+        -1.f, -1.f, 0.5f,
+    };
+    D3D11_BUFFER_DESC vbDesc{}; vbDesc.ByteWidth = sizeof(vertices);
+    vbDesc.Usage = D3D11_USAGE_DEFAULT; vbDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA vbInit{}; vbInit.pSysMem = vertices;
+    ID3D11Buffer* vb = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateBuffer(&vbDesc, &vbInit, &vb)));
+
+    D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
+        {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+    };
+    auto vsBytecode = ReadFile(D3D11SW_SHADER_DIR "/vs_passthrough.o");
+    ASSERT_FALSE(vsBytecode.empty());
+    ID3D11InputLayout* layout = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateInputLayout(layoutDesc, 1, vsBytecode.data(), vsBytecode.size(), &layout)));
+    ID3D11VertexShader* vs = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateVertexShader(vsBytecode.data(), vsBytecode.size(), nullptr, &vs)));
+    auto psBytecode = ReadFile(D3D11SW_SHADER_DIR "/ps_solid_red.o");
+    ASSERT_FALSE(psBytecode.empty());
+    ID3D11PixelShader* ps = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreatePixelShader(psBytecode.data(), psBytecode.size(), nullptr, &ps)));
+
+    context->IASetInputLayout(layout);
+    UINT stride = 12, offset = 0;
+    context->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    context->VSSetShader(vs, nullptr, 0);
+    context->PSSetShader(ps, nullptr, 0);
+    context->OMSetRenderTargets(1, &rtv, nullptr);
+    D3D11_VIEWPORT vp{}; vp.Width = (FLOAT)W; vp.Height = (FLOAT)H; vp.MaxDepth = 1.f;
+    context->RSSetViewports(1, &vp);
+
+    context->Begin(query);
+    context->Draw(3, 0);
+    context->End(query);
+
+    BOOL visible = FALSE;
+    ASSERT_EQ(context->GetData(query, &visible, sizeof(visible), 0), S_OK);
+    EXPECT_EQ(visible, TRUE);
+
+    query->Release();
+    ps->Release(); vs->Release(); layout->Release();
+    vb->Release(); rtv->Release(); rtTex->Release();
+}
+
+TEST_F(QueryTests, OcclusionNoDraw)
+{
+    D3D11_QUERY_DESC desc{};
+    desc.Query = D3D11_QUERY_OCCLUSION;
+
+    ID3D11Query* query = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateQuery(&desc, &query)));
+
+    context->Begin(query);
+    context->End(query);
+
+    UINT64 count = 99;
+    ASSERT_EQ(context->GetData(query, &count, sizeof(count), 0), S_OK);
+    EXPECT_EQ(count, 0u);
+
+    query->Release();
+}
+
+TEST_F(QueryTests, OcclusionPredicateNoDraw)
+{
+    D3D11_QUERY_DESC desc{};
+    desc.Query = D3D11_QUERY_OCCLUSION_PREDICATE;
+
+    ID3D11Query* query = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateQuery(&desc, &query)));
+
+    context->Begin(query);
+    context->End(query);
+
+    BOOL visible = TRUE;
+    ASSERT_EQ(context->GetData(query, &visible, sizeof(visible), 0), S_OK);
+    EXPECT_EQ(visible, FALSE);
 
     query->Release();
 }
