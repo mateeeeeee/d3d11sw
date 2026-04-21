@@ -2260,6 +2260,7 @@ void EmitHS(CodeWriter& w, const D3D11SW_ParsedShader& shader)
             if (e.svType == D3D_NAME_POSITION)
             {
                 w.Line("out_ptr->controlPoints[_cpID].pos = out_v[{}];", e.reg);
+                w.Line("out_ptr->controlPoints[_cpID].o[{}] = out_v[{}];", e.reg, e.reg);
             }
             else
             {
