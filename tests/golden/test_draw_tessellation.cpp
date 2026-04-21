@@ -346,6 +346,90 @@ TEST_F(DrawGoldenTests, TessTriColorGS)
     layout->Release(); vb->Release(); rtv->Release(); rtTex->Release();
 }
 
+TEST_F(DrawGoldenTests, TessQuadWireframe)
+{
+    const UINT W = 128, H = 128;
+    ID3D11RenderTargetView* rtv = nullptr;
+    ID3D11Texture2D* rtTex = CreateRT(device, W, H, &rtv);
+    FLOAT clear[4] = {0,0,0,1};
+    context->ClearRenderTargetView(rtv, clear);
+    context->OMSetRenderTargets(1, &rtv, nullptr);
+    SetViewport(context, W, H);
+
+    float verts[] = {
+        -0.8f,  0.8f, 0.5f,
+         0.8f,  0.8f, 0.5f,
+         0.8f, -0.8f, 0.5f,
+        -0.8f, -0.8f, 0.5f,
+    };
+
+    D3D11_BUFFER_DESC bd{}; bd.ByteWidth = sizeof(verts); bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    D3D11_SUBRESOURCE_DATA sd{}; sd.pSysMem = verts;
+    ID3D11Buffer* vb = nullptr; device->CreateBuffer(&bd, &sd, &vb);
+    UINT stride = 12, offset = 0;
+    context->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+    context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_4_CONTROL_POINT_PATCHLIST);
+
+    D3D11_INPUT_ELEMENT_DESC il[] = { {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0} };
+    auto vsBC = ReadBytecode(D3D11SW_SHADER_DIR "/vs_passthrough.o");
+    ID3D11InputLayout* layout = nullptr; device->CreateInputLayout(il, 1, vsBC.data(), vsBC.size(), &layout);
+    context->IASetInputLayout(layout);
+
+    ID3D11VertexShader* vs = nullptr; device->CreateVertexShader(vsBC.data(), vsBC.size(), nullptr, &vs);
+    context->VSSetShader(vs, nullptr, 0);
+
+    auto hsBC = ReadBytecode(D3D11SW_SHADER_DIR "/hs_simple_quad.o");
+    ASSERT_FALSE(hsBC.empty());
+    ID3D11HullShader* hs = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateHullShader(hsBC.data(), hsBC.size(), nullptr, &hs)));
+    context->HSSetShader(hs, nullptr, 0);
+
+    auto dsBC = ReadBytecode(D3D11SW_SHADER_DIR "/ds_simple_quad.o");
+    ASSERT_FALSE(dsBC.empty());
+    ID3D11DomainShader* ds = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateDomainShader(dsBC.data(), dsBC.size(), nullptr, &ds)));
+    context->DSSetShader(ds, nullptr, 0);
+
+    auto psBC = ReadBytecode(D3D11SW_SHADER_DIR "/ps_solid_red.o");
+    ID3D11PixelShader* ps = nullptr; device->CreatePixelShader(psBC.data(), psBC.size(), nullptr, &ps);
+    context->PSSetShader(ps, nullptr, 0);
+
+    D3D11_RASTERIZER_DESC rsDesc{};
+    rsDesc.FillMode        = D3D11_FILL_WIREFRAME;
+    rsDesc.CullMode        = D3D11_CULL_NONE;
+    rsDesc.DepthClipEnable = TRUE;
+    ID3D11RasterizerState* rs = nullptr;
+    ASSERT_TRUE(SUCCEEDED(device->CreateRasterizerState(&rsDesc, &rs)));
+    context->RSSetState(rs);
+
+    context->Draw(4, 0);
+
+    auto px = Readback(device, context, rtTex, W, H);
+    auto result = CheckGolden("draw_tess_quad_wireframe", px.data(), W, H, 0.0f);
+    EXPECT_TRUE(result.passed) << result.message;
+
+    int redPixels = 0;
+    for (UINT i = 0; i < W * H; ++i)
+    {
+        if (px[i*4+0] > 0.9f && px[i*4+1] < 0.1f && px[i*4+2] < 0.1f) { ++redPixels; }
+    }
+    EXPECT_GT(redPixels, 100) << "Expected wireframe edges from tessellated quad";
+
+    int blackInterior = 0;
+    for (UINT y = H/4; y < 3*H/4; ++y)
+    {
+        for (UINT x = W/4; x < 3*W/4; ++x)
+        {
+            UINT i = y * W + x;
+            if (px[i*4+0] < 0.1f && px[i*4+1] < 0.1f && px[i*4+2] < 0.1f) { ++blackInterior; }
+        }
+    }
+    EXPECT_GT(blackInterior, 100) << "Expected black gaps between wireframe edges (proves tessellation subdivision is visible)";
+
+    rs->Release(); ps->Release(); ds->Release(); hs->Release(); vs->Release();
+    layout->Release(); vb->Release(); rtv->Release(); rtTex->Release();
+}
+
 TEST_F(DrawGoldenTests, TessTriSVPosition)
 {
     const UINT W = 128, H = 128;
