@@ -141,6 +141,10 @@ inline void PackColor(DXGI_FORMAT fmt, const Float rgba[4], Uint8 out[16])
             out[0]=u8(rgba[2]); out[1]=u8(rgba[1]); out[2]=u8(rgba[0]); out[3]=u8(rgba[3]); break;
         case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
             out[0]=u8(LinearToSrgb(rgba[2])); out[1]=u8(LinearToSrgb(rgba[1])); out[2]=u8(LinearToSrgb(rgba[0])); out[3]=u8(rgba[3]); break;
+		case DXGI_FORMAT_B8G8R8X8_UNORM:
+			out[0] = u8(rgba[2]); out[1] = u8(rgba[1]); out[2] = u8(rgba[0]); out[3] = 0xff; break;
+        case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
+			out[0] = u8(LinearToSrgb(rgba[2])); out[1] = u8(LinearToSrgb(rgba[1])); out[2] = u8(LinearToSrgb(rgba[0])); out[3] = 0xff; break;
         case DXGI_FORMAT_R8G8_UNORM:
             out[0]=u8(rgba[0]); out[1]=u8(rgba[1]); break;
         case DXGI_FORMAT_R8_UNORM:
@@ -253,6 +257,18 @@ inline void UnpackColor(DXGI_FORMAT fmt, const Uint8* src, FLOAT rgba[4])
             rgba[2] = SrgbToLinear(src[0] / 255.f);
             rgba[3] = src[3] / 255.f;
             break;
+		case DXGI_FORMAT_B8G8R8X8_UNORM:
+			rgba[0] = src[2] / 255.f;
+			rgba[1] = src[1] / 255.f;
+			rgba[2] = src[0] / 255.f;
+			rgba[3] = 1.f;
+			break;
+		case DXGI_FORMAT_B8G8R8X8_UNORM_SRGB:
+			rgba[0] = SrgbToLinear(src[2] / 255.f);
+			rgba[1] = SrgbToLinear(src[1] / 255.f);
+			rgba[2] = SrgbToLinear(src[0] / 255.f);
+			rgba[3] = 1.f;
+			break;
         case DXGI_FORMAT_R8G8B8A8_SNORM:
         {
             rgba[0] = std::fmax((Int8)src[0] / 127.f, -1.f);

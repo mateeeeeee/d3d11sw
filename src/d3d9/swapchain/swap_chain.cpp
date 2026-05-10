@@ -1,9 +1,9 @@
+#include <cstring>
 #include "d3d9/swapchain/swap_chain.h"
 #include "d3d9/device/device.h"
 #include "d3d9/resources/surface.h"
 #include "d3d9/translate/d3dformat_bridge.h"
 #include "presenter/presenter.h"
-#include <cstring>
 
 namespace d3dsw {
 

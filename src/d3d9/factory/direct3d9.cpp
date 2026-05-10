@@ -139,15 +139,27 @@ HRESULT STDMETHODCALLTYPE D3D9SW::GetDeviceCaps(UINT Adapter, D3DDEVTYPE, D3DCAP
     pCaps->PixelShader1xMaxValue = 8.f;
     return S_OK;
 }
-HMONITOR STDMETHODCALLTYPE D3D9SW::GetAdapterMonitor(UINT) { return nullptr; }
-HRESULT STDMETHODCALLTYPE D3D9SW::CreateDevice(UINT /*Adapter*/, D3DDEVTYPE /*DeviceType*/,
-                                               HWND hFocusWindow, DWORD /*BehaviorFlags*/,
+HMONITOR STDMETHODCALLTYPE D3D9SW::GetAdapterMonitor(UINT) 
+{ 
+    return MonitorFromPoint({ 0,0 }, MONITOR_DEFAULTTOPRIMARY);
+}
+HRESULT STDMETHODCALLTYPE D3D9SW::CreateDevice(UINT, D3DDEVTYPE,
+                                               HWND hFocusWindow, DWORD,
                                                D3DPRESENT_PARAMETERS* pPresentationParameters,
                                                IDirect3DDevice9** ppReturnedDeviceInterface)
 {
     if (!ppReturnedDeviceInterface || !pPresentationParameters)
     {
         return D3DERR_INVALIDCALL;
+    }
+
+    D3D9DeviceSW* dev = new D3D9DeviceSW(this, *pPresentationParameters, hFocusWindow);
+    dev->GetSwapChain(0, nullptr);
+    IDirect3DSwapChain9* sc = nullptr;
+    if (SUCCEEDED(dev->GetSwapChain(0, &sc)) && sc)
+    {
+        sc->GetPresentParameters(pPresentationParameters);
+        sc->Release();
     }
     *ppReturnedDeviceInterface = new D3D9DeviceSW(this, *pPresentationParameters, hFocusWindow);
     return S_OK;

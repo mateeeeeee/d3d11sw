@@ -270,6 +270,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Reset(D3DPRESENT_PARAMETERS* pPresentati
     }
 
     _implicitSwapChain = new D3D9SwapChainSW(this, *pPresentationParameters, _focusWindow);
+    _implicitSwapChain->GetPresentParameters(pPresentationParameters);
     _renderTargets[0] = _implicitSwapChain->BackBuffer();
     if (_renderTargets[0])
     {
