@@ -271,7 +271,7 @@ foreach(target d3dsw_core d3dsw_d3d11 d3dsw_d3d9)
         D3DSW_CXX_COMPILER="${CMAKE_CXX_COMPILER}"
         D3DSW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
         D3DSW_BC_DECOMP_LIB="$<TARGET_FILE:bc_decomp>"
-        $<$<BOOL:${WIN32}>:D3DSW_BUILDING_DLL>
+        $<$<BOOL:${WIN32}>:D3DSW_BUILDING_DLL NOMINMAX>
     )
 endforeach()
 
@@ -383,6 +383,10 @@ else()
 endif()
 
 target_link_libraries(d3d9 PRIVATE bc_decomp tessellator)
+
+if(WIN32)
+    target_link_libraries(d3d9 PRIVATE dxguid)
+endif()
 
 if(APPLE)
     target_link_libraries(d3d9 PRIVATE "-framework AppKit" "-framework QuartzCore")
