@@ -28,7 +28,7 @@
 namespace d3dsw {
 
 D3D9DeviceSW::D3D9DeviceSW(D3D9SW* parent, const D3DPRESENT_PARAMETERS& params, HWND focusWindow, Bool isEx)
-    : _parent(parent), _isEx(isEx)
+    : _parent(parent), _isEx(isEx), _focusWindow(focusWindow)
 {
     if (_parent) 
     { 
@@ -243,7 +243,59 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetSwapChain(UINT iSwapChain, IDirect3DS
     return S_OK;
 }
 UINT    STDMETHODCALLTYPE D3D9DeviceSW::GetNumberOfSwapChains() { return _implicitSwapChain ? 1 : 0; }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Reset(D3DPRESENT_PARAMETERS*) { return D3DERR_NOTAVAILABLE; }
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Reset(D3DPRESENT_PARAMETERS* pPresentationParameters)
+{
+    if (!pPresentationParameters) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
+
+    for (auto& rt : _renderTargets)
+    {
+        if (rt) 
+        { 
+            rt->Release(); 
+            rt = nullptr; 
+        }
+    }
+    if (_currentDSV) 
+    { 
+        _currentDSV->Release(); 
+        _currentDSV = nullptr;
+    }
+    if (_implicitSwapChain) 
+    { 
+        _implicitSwapChain->Release(); 
+        _implicitSwapChain = nullptr; 
+    }
+
+    _implicitSwapChain = new D3D9SwapChainSW(this, *pPresentationParameters, _focusWindow);
+    _renderTargets[0] = _implicitSwapChain->BackBuffer();
+    if (_renderTargets[0])
+    {
+        _renderTargets[0]->AddRef();
+        _viewport.X      = 0;
+        _viewport.Y      = 0;
+        _viewport.Width  = _renderTargets[0]->Width();
+        _viewport.Height = _renderTargets[0]->Height();
+        _viewport.MinZ   = 0.f;
+        _viewport.MaxZ   = 1.f;
+        _scissor.left    = 0;
+        _scissor.top     = 0;
+        _scissor.right   = static_cast<LONG>(_renderTargets[0]->Width());
+        _scissor.bottom  = static_cast<LONG>(_renderTargets[0]->Height());
+    }
+
+    if (pPresentationParameters->EnableAutoDepthStencil && _renderTargets[0])
+    {
+        DXGI_FORMAT dxgiFmt = D3DFormatToDXGI(pPresentationParameters->AutoDepthStencilFormat);
+        _currentDSV = new D3D9SurfaceSW(this,
+            _renderTargets[0]->Width(), _renderTargets[0]->Height(),
+            pPresentationParameters->AutoDepthStencilFormat, dxgiFmt, D3DRTYPE_SURFACE);
+    }
+
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Present(const RECT* src, const RECT* dst, HWND wnd, const RGNDATA* dirty)
 {
     if (!_implicitSwapChain)

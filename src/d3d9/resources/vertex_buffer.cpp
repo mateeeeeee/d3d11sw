@@ -35,7 +35,7 @@ D3DRESOURCETYPE STDMETHODCALLTYPE D3D9VertexBufferSW::GetType() { return D3DRTYP
 
 HRESULT STDMETHODCALLTYPE D3D9VertexBufferSW::Lock(UINT OffsetToLock, UINT SizeToLock, void** ppbData, DWORD /*Flags*/)
 {
-    if (!ppbData || _locked)
+    if (!ppbData)
     {
         return D3DERR_INVALIDCALL;
     }

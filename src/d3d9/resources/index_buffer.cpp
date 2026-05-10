@@ -35,7 +35,7 @@ D3DRESOURCETYPE STDMETHODCALLTYPE D3D9IndexBufferSW::GetType() { return D3DRTYPE
 
 HRESULT STDMETHODCALLTYPE D3D9IndexBufferSW::Lock(UINT OffsetToLock, UINT SizeToLock, void** ppbData, DWORD /*Flags*/)
 {
-    if (!ppbData || _locked)
+    if (!ppbData)
     {
         return D3DERR_INVALIDCALL;
     }

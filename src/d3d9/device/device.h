@@ -178,6 +178,7 @@ private:
 
     D3D9SW*                    _parent            = nullptr;
     Bool                       _isEx              = false;
+    HWND                       _focusWindow       = nullptr;
     D3D9SwapChainSW*           _implicitSwapChain = nullptr;
     D3D9SurfaceSW*             _renderTargets[SW_D3D9_MAX_RTS] = {};
     D3D9SurfaceSW*             _currentDSV        = nullptr;
