@@ -24,6 +24,24 @@ if(APPLE)
     add_example(floor        macos/floor.mm        floor_render.cpp)
     add_example(lighting     macos/lighting.mm     lighting_render.cpp)
     add_example(tessellation macos/tessellation.mm tessellation_render.cpp)
+
+    # D3D9 examples link against d3d9 instead of d3d11
+    macro(add_d3d9_example name)
+        set(EXAMPLE_SOURCES ${ARGN})
+        add_executable(${name} ${EXAMPLE_SOURCES})
+        target_link_libraries(${name} PRIVATE d3d9 "-framework AppKit")
+        target_include_directories(${name} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_SOURCE_DIR}/src
+            ${CMAKE_SOURCE_DIR}/third_party
+            ${CMAKE_SOURCE_DIR}/third_party/native-windows
+        )
+        target_include_directories(${name} SYSTEM PRIVATE
+            ${CMAKE_SOURCE_DIR}/third_party/directx-headers
+        )
+    endmacro()
+
+    add_d3d9_example(d3d9_scene  macos/d3d9_scene.mm  d3d9_scene_render.cpp)
 elseif(WIN32)
     macro(add_example name)
         set(EXAMPLE_SOURCES ${ARGN})

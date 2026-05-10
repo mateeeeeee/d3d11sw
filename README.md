@@ -147,7 +147,6 @@ The following return `E_NOTIMPL` or produce no-op results:
 - Clip plane enable in FF VS/PS
 - `DOTPRODUCT3`, `BLENDDIFFUSEALPHA`, `BUMPENVMAP*` TSS ops
 - `ProcessVertices`
-- macOS/Win32 interactive example
 
 </details>
 
@@ -189,6 +188,15 @@ The following return `E_NOTIMPL` or produce no-op results:
     <img width="49%" src="examples/screenshots/DirectX-SDK-Samples-DecalTesselation11_Tiger.png" alt="Tiger"/>
 &nbsp;
     <img width="49%" src="examples/screenshots/DirectX-SDK-Samples-DecalTesselation11_Tiger2.png" alt="Wireframe Tiger"/>
+</p>
+
+</details>
+
+<details><summary><b>D3D9</b></summary>
+
+**Scene — Lighting, Texturing, Fog**
+<p align="center">
+    <img width="49%" src="examples/screenshots/fog_scene.png" alt="D3D9 Scene with Fog"/>
 </p>
 
 </details>

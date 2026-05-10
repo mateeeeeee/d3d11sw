@@ -136,6 +136,14 @@ D3D9DeviceSW::D3D9DeviceSW(D3D9SW* parent, const D3DPRESENT_PARAMETERS& params, 
         _scissor.right   = static_cast<LONG>(_renderTargets[0]->Width());
         _scissor.bottom  = static_cast<LONG>(_renderTargets[0]->Height());
     }
+
+    if (params.EnableAutoDepthStencil && _renderTargets[0])
+    {
+        DXGI_FORMAT dxgiFmt = D3DFormatToDXGI(params.AutoDepthStencilFormat);
+        _currentDSV = new D3D9SurfaceSW(this,
+            _renderTargets[0]->Width(), _renderTargets[0]->Height(),
+            params.AutoDepthStencilFormat, dxgiFmt, D3DRTYPE_SURFACE);
+    }
 }
 
 D3D9DeviceSW::~D3D9DeviceSW()
@@ -1356,12 +1364,12 @@ void D3D9DeviceSW::SnapshotDrawState(D3D9SW_DRAW_STATE& out, D3DPRIMITIVETYPE pr
 
         if (lightingOn)
         {
-            for (Int row = 0; row < 3; ++row)
+            for (Int col = 0; col < 3; ++col)
             {
-                cb[8 + row][0] = worldView.m[row][0];
-                cb[8 + row][1] = worldView.m[row][1];
-                cb[8 + row][2] = worldView.m[row][2];
-                cb[8 + row][3] = 0.f;
+                cb[8 + col][0] = worldView.m[0][col];
+                cb[8 + col][1] = worldView.m[1][col];
+                cb[8 + col][2] = worldView.m[2][col];
+                cb[8 + col][3] = 0.f;
             }
 
             {

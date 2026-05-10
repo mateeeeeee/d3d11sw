@@ -586,7 +586,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         else
                         {
                             Float fogPW = ctx.fog0pw * quadB0[q] + ctx.fog1pw * quadB1[q] + ctx.fog2pw * quadB2[q];
-                            fogF = fogPW * quadPerspW[q];
+                            fogF = fogPW * quadInvPerspW[q];
                         }
                         ApplyFogBlend(om.fogDesc, qout.pixels[q], fogF, om.activeRTCount);
                     }
@@ -820,7 +820,7 @@ void ProcessOneTile(const TileContext& ctx, Uint32 tileIdx,
                         else
                         {
                             Float fogPW = ctx.fog0pw * quadB0[q] + ctx.fog1pw * quadB1[q] + ctx.fog2pw * quadB2[q];
-                            fogF = fogPW * quadPerspW[q];
+                            fogF = fogPW * quadInvPerspW[q];
                         }
                         ApplyFogBlend(om.fogDesc, qout.pixels[q], fogF, om.activeRTCount);
                     }
