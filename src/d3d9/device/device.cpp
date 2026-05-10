@@ -27,8 +27,8 @@
 
 namespace d3dsw {
 
-D3D9DeviceSW::D3D9DeviceSW(D3D9SW* parent, const D3DPRESENT_PARAMETERS& params, HWND focusWindow)
-    : _parent(parent)
+D3D9DeviceSW::D3D9DeviceSW(D3D9SW* parent, const D3DPRESENT_PARAMETERS& params, HWND focusWindow, Bool isEx)
+    : _parent(parent), _isEx(isEx)
 {
     if (_parent) 
     { 
@@ -172,15 +172,15 @@ D3D9DeviceSW::~D3D9DeviceSW()
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::QueryInterface(REFIID riid, void** ppv)
 {
     if (!ppv) { return E_POINTER; }
-    if (riid == IID_IUnknown || riid == IID_IDirect3DDevice9Ex)
+    if (riid == IID_IUnknown || riid == IID_IDirect3DDevice9)
     {
-        *ppv = static_cast<IDirect3DDevice9Ex*>(this);
+        *ppv = static_cast<IDirect3DDevice9*>(this);
         AddRef();
         return S_OK;
     }
-    if (riid == IID_IDirect3DDevice9)
+    if (_isEx && riid == IID_IDirect3DDevice9Ex)
     {
-        *ppv = static_cast<IDirect3DDevice9*>(this);
+        *ppv = static_cast<IDirect3DDevice9Ex*>(this);
         AddRef();
         return S_OK;
     }

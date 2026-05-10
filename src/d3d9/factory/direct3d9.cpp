@@ -181,11 +181,22 @@ HRESULT STDMETHODCALLTYPE D3D9SW::EnumAdapterModesEx(UINT Adapter, const D3DDISP
 
 HRESULT STDMETHODCALLTYPE D3D9SW::GetAdapterDisplayModeEx(UINT Adapter, D3DDISPLAYMODEEX* pMode, D3DDISPLAYROTATION* pRotation)
 {
-    if (pRotation) { *pRotation = D3DDISPLAYROTATION_IDENTITY; }
-    if (!pMode)    { return S_OK; }
+    if (pRotation) 
+    { 
+        *pRotation = D3DDISPLAYROTATION_IDENTITY; 
+    }
+
+    if (!pMode)    
+    { 
+        return S_OK; 
+    }
+
     D3DDISPLAYMODE base{};
     HRESULT hr = GetAdapterDisplayMode(Adapter, &base);
-    if (FAILED(hr)) { return hr; }
+    if (FAILED(hr)) 
+    { 
+        return hr; 
+    }
     pMode->Size             = sizeof(D3DDISPLAYMODEEX);
     pMode->Width            = base.Width;
     pMode->Height           = base.Height;
@@ -195,18 +206,19 @@ HRESULT STDMETHODCALLTYPE D3D9SW::GetAdapterDisplayModeEx(UINT Adapter, D3DDISPL
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE D3D9SW::CreateDeviceEx(UINT Adapter, D3DDEVTYPE DeviceType, HWND hFocusWindow,
-                                                  DWORD BehaviorFlags, D3DPRESENT_PARAMETERS* pPresentationParameters,
-                                                  D3DDISPLAYMODEEX* /*pFullscreenDisplayMode*/,
+HRESULT STDMETHODCALLTYPE D3D9SW::CreateDeviceEx(UINT, D3DDEVTYPE, HWND hFocusWindow,
+                                                  DWORD, D3DPRESENT_PARAMETERS* pPresentationParameters,
+                                                  D3DDISPLAYMODEEX*,
                                                   IDirect3DDevice9Ex** ppReturnedDeviceInterface)
 {
-    if (!ppReturnedDeviceInterface || !pPresentationParameters) { return D3DERR_INVALIDCALL; }
-    IDirect3DDevice9* dev = nullptr;
-    HRESULT hr = CreateDevice(Adapter, DeviceType, hFocusWindow, BehaviorFlags, pPresentationParameters, &dev);
-    if (FAILED(hr)) { return hr; }
-    hr = dev->QueryInterface(IID_IDirect3DDevice9Ex, reinterpret_cast<void**>(ppReturnedDeviceInterface));
-    dev->Release();
-    return hr;
+    if (!ppReturnedDeviceInterface || !pPresentationParameters) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
+
+    D3D9DeviceSW* dev = new D3D9DeviceSW(this, *pPresentationParameters, hFocusWindow, true);
+    *ppReturnedDeviceInterface = dev;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE D3D9SW::GetAdapterLUID(UINT Adapter, LUID* pLUID)

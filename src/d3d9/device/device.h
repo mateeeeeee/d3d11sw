@@ -23,7 +23,7 @@ class D3D9StateBlockSW;
 class D3D9DeviceSW final : public IDirect3DDevice9Ex, private UnknownBase
 {
 public:
-    D3D9DeviceSW(D3D9SW* parent, const D3DPRESENT_PARAMETERS& params, HWND focusWindow);
+    D3D9DeviceSW(D3D9SW* parent, const D3DPRESENT_PARAMETERS& params, HWND focusWindow, Bool isEx = false);
     ~D3D9DeviceSW() override;
 
     void SnapshotDrawState(D3D9SW_DRAW_STATE& out, D3DPRIMITIVETYPE primitiveType) const;
@@ -177,6 +177,7 @@ private:
     };
 
     D3D9SW*                    _parent            = nullptr;
+    Bool                       _isEx              = false;
     D3D9SwapChainSW*           _implicitSwapChain = nullptr;
     D3D9SurfaceSW*             _renderTargets[SW_D3D9_MAX_RTS] = {};
     D3D9SurfaceSW*             _currentDSV        = nullptr;
