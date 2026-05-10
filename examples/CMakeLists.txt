@@ -13,7 +13,7 @@ if(APPLE)
             ${CMAKE_SOURCE_DIR}/third_party/directx-headers
         )
         target_compile_definitions(${name} PRIVATE
-            D3D11SW_SHADER_DIR="${CMAKE_SOURCE_DIR}/tests/shaders"
+            D3DSW_SHADER_DIR="${CMAKE_SOURCE_DIR}/tests/d3d11/shaders"
         )
     endmacro()
 
@@ -36,7 +36,7 @@ elseif(WIN32)
             ${CMAKE_SOURCE_DIR}/src
         )
         target_compile_definitions(${name} PRIVATE
-            D3D11SW_SHADER_DIR="${CMAKE_SOURCE_DIR}/tests/shaders"
+            D3DSW_SHADER_DIR="${CMAKE_SOURCE_DIR}/tests/d3d11/shaders"
         )
     endmacro()
 

@@ -6,7 +6,7 @@
 int main()
 {
     const uint32_t W = 800, H = 600;
-    HWND hwnd = Win32CreateWindow("d3d11sw postprocess", W, H);
+    HWND hwnd = Win32CreateWindow("d3dsw postprocess", W, H);
 
     PostProcessApp app;
     memset(&app, 0, sizeof(app));

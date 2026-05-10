@@ -1,0 +1,104 @@
+#include "d3d11/dxgi/adapter.h"
+#include "d3d11/dxgi/factory.h"
+#include "d3d11/dxgi/output.h"
+#include <cstring>
+
+namespace d3dsw {
+
+
+DXGIAdapterSW::DXGIAdapterSW() {}
+DXGIAdapterSW::~DXGIAdapterSW()
+{
+    if (_factory)
+    {
+        _factory->Release();
+    }
+    if (_output)
+    {
+        _output->Release();
+    }
+}
+
+
+HRESULT STDMETHODCALLTYPE DXGIAdapterSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+        return E_POINTER;
+
+    *ppv = nullptr;
+
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(IDXGIAdapter1))
+        *ppv = static_cast<IDXGIAdapter1*>(this);
+    else if (riid == __uuidof(IDXGIAdapter))
+        *ppv = static_cast<IDXGIAdapter*>(this);
+    else if (riid == __uuidof(IDXGIObject))
+        *ppv = static_cast<IDXGIObject*>(this);
+    else
+        return E_NOINTERFACE;
+
+    AddRef();
+    return S_OK;
+}
+
+
+HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetParent(REFIID riid, void** ppParent)
+{
+    if (!ppParent)
+    {
+        return E_POINTER;
+    }
+    if (!_factory)
+    {
+        _factory = new DXGIFactorySW();
+    }
+    return _factory->QueryInterface(riid, ppParent);
+}
+
+HRESULT STDMETHODCALLTYPE DXGIAdapterSW::EnumOutputs(UINT Output, IDXGIOutput** ppOutput)
+{
+    if (!ppOutput)
+    {
+        return E_INVALIDARG;
+    }
+    if (Output > 0)
+    {
+        return DXGI_ERROR_NOT_FOUND;
+    }
+    if (!_output)
+    {
+        _output = new DXGIOutputSW();
+    }
+    _output->AddRef();
+    *ppOutput = _output;
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetDesc(DXGI_ADAPTER_DESC* pDesc)
+{
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+    memset(pDesc, 0, sizeof(*pDesc));
+    wcscpy(pDesc->Description, L"d3dsw Software Adapter");
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE DXGIAdapterSW::CheckInterfaceSupport(REFGUID InterfaceName, LARGE_INTEGER* pUMDVersion)
+{
+    return E_NOTIMPL;
+}
+
+
+HRESULT STDMETHODCALLTYPE DXGIAdapterSW::GetDesc1(DXGI_ADAPTER_DESC1* pDesc)
+{
+    if (!pDesc)
+    {
+        return E_INVALIDARG;
+    }
+    memset(pDesc, 0, sizeof(*pDesc));
+    wcscpy(pDesc->Description, L"d3dsw Software Adapter");
+    return S_OK;
+}
+
+}

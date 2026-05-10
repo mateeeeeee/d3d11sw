@@ -1,0 +1,93 @@
+#include "d3d11/views/depth_stencil_view.h"
+#include "d3d11/views/view_util.h"
+#include "core/util/format.h"
+
+namespace d3dsw {
+
+
+HRESULT STDMETHODCALLTYPE D3D11DepthStencilViewSW::QueryInterface(REFIID riid, void** ppv)
+{
+    if (!ppv)
+    {
+        return E_POINTER;
+    }
+
+    *ppv = nullptr;
+    if (riid == __uuidof(IUnknown) || riid == __uuidof(ID3D11DepthStencilView))
+    {
+        *ppv = static_cast<ID3D11DepthStencilView*>(this);
+    }
+    else if (riid == __uuidof(ID3D11View))
+    {
+        *ppv = static_cast<ID3D11View*>(this);
+    }
+    else if (riid == __uuidof(ID3D11DeviceChild))
+    {
+        *ppv = static_cast<ID3D11DeviceChild*>(this);
+    }
+    else
+    {
+        return E_NOINTERFACE;
+    }
+
+    AddRef();
+    return S_OK;
+}
+
+D3D11DepthStencilViewSW::D3D11DepthStencilViewSW(ID3D11Device* device)
+    : DeviceChildImpl(device) {}
+
+D3D11DepthStencilViewSW::~D3D11DepthStencilViewSW()
+{
+    if (_resource)
+    {
+        _resource->Release();
+    }
+}
+
+HRESULT D3D11DepthStencilViewSW::Init(ID3D11Resource* pResource, const D3D11_DEPTH_STENCIL_VIEW_DESC* pDesc)
+{
+    if (!pResource)
+    {
+        return E_INVALIDARG;
+    }
+
+    _resource = pResource;
+    _resource->AddRef();
+
+    D3DSW_RESOURCE_INFO info = GetSWResourceInfo(pResource);
+    _desc    = pDesc ? *pDesc : MakeDefaultDSVDesc(info);
+    _sampleCount = info.SampleCount;
+    _sampleQuality = info.SampleQuality;
+
+    Uint subresource = CalcDSVSubresource(_desc, info.MipLevels);
+    _dataPtr = GetSwDataPtr(pResource, subresource);
+    _layout  = GetSwSubresourceLayout(pResource, subresource);
+    if (_desc.Format != DXGI_FORMAT_UNKNOWN)
+    {
+        _layout.PixelStride = GetFormatStride(_desc.Format);
+    }
+    return S_OK;
+}
+
+void STDMETHODCALLTYPE D3D11DepthStencilViewSW::GetResource(ID3D11Resource** ppResource)
+{
+    if (ppResource)
+    {
+        *ppResource = _resource;
+        if (_resource)
+        {
+            _resource->AddRef();
+        }
+    }
+}
+
+void STDMETHODCALLTYPE D3D11DepthStencilViewSW::GetDesc(D3D11_DEPTH_STENCIL_VIEW_DESC* pDesc)
+{
+    if (pDesc)
+    {
+        *pDesc = _desc;
+    }
+}
+
+}

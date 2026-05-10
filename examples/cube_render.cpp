@@ -269,8 +269,8 @@ bool CubeInit(CubeApp& app, void* nsWindow, uint32_t width, uint32_t height)
     device->CreateBuffer(&cbDesc, nullptr, &cb);
     app.cb = cb;
 
-    auto vsBlob = ReadFile(D3D11SW_SHADER_DIR "/vs_transform_texcoord.o");
-    auto psBlob = ReadFile(D3D11SW_SHADER_DIR "/ps_textured_normal.o");
+    auto vsBlob = ReadFile(D3DSW_SHADER_DIR "/vs_transform_texcoord.o");
+    auto psBlob = ReadFile(D3DSW_SHADER_DIR "/ps_textured_normal.o");
 
     ID3D11VertexShader* vs = nullptr;
     device->CreateVertexShader(vsBlob.data(), vsBlob.size(), nullptr, &vs);

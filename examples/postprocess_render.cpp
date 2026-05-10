@@ -277,10 +277,10 @@ bool PostProcessInit(PostProcessApp& app, void* nsWindow, uint32_t width, uint32
     app.cbPost = cbPost;
 
     // Shaders
-    auto vsBlob = ReadFile(D3D11SW_SHADER_DIR "/vs_transform_texcoord.o");
-    auto psBlob = ReadFile(D3D11SW_SHADER_DIR "/ps_textured_normal.o");
-    auto csProcBlob = ReadFile(D3D11SW_SHADER_DIR "/cs_procedural.o");
-    auto csPostBlob = ReadFile(D3D11SW_SHADER_DIR "/cs_postprocess.o");
+    auto vsBlob = ReadFile(D3DSW_SHADER_DIR "/vs_transform_texcoord.o");
+    auto psBlob = ReadFile(D3DSW_SHADER_DIR "/ps_textured_normal.o");
+    auto csProcBlob = ReadFile(D3DSW_SHADER_DIR "/cs_procedural.o");
+    auto csPostBlob = ReadFile(D3DSW_SHADER_DIR "/cs_postprocess.o");
 
     ID3D11VertexShader* vs = nullptr;
     dev->CreateVertexShader(vsBlob.data(), vsBlob.size(), nullptr, &vs);

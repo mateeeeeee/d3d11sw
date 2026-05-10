@@ -59,8 +59,8 @@ void RunTriangle(void* nsWindow, uint32_t width, uint32_t height)
     ID3D11RenderTargetView* rtv = nullptr;
     device->CreateRenderTargetView(backbuffer, nullptr, &rtv);
 
-    auto vsBlob = ReadFile(D3D11SW_SHADER_DIR "/vs_passthrough.o");
-    auto psBlob = ReadFile(D3D11SW_SHADER_DIR "/ps_solid_red.o");
+    auto vsBlob = ReadFile(D3DSW_SHADER_DIR "/vs_passthrough.o");
+    auto psBlob = ReadFile(D3DSW_SHADER_DIR "/ps_solid_red.o");
 
     ID3D11VertexShader* vs = nullptr;
     ID3D11PixelShader* ps = nullptr;

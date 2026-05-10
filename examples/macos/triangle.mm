@@ -17,7 +17,7 @@
         styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
         backing:NSBackingStoreBuffered
         defer:NO];
-    [_window setTitle:@"d3d11sw triangle"];
+    [_window setTitle:@"d3dsw triangle"];
     [_window makeKeyAndOrderFront:nil];
 
     RunTriangle((__bridge void*)_window, 640, 480);

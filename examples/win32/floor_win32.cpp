@@ -6,7 +6,7 @@
 int main()
 {
     const uint32_t W = 800, H = 600;
-    HWND hwnd = Win32CreateWindow("d3d11sw floor", W, H);
+    HWND hwnd = Win32CreateWindow("d3dsw floor", W, H);
 
     FloorApp app;
     memset(&app, 0, sizeof(app));

@@ -30,14 +30,14 @@ inline HWND Win32CreateWindow(const char* title, uint32_t width, uint32_t height
     wc.lpfnWndProc   = Win32WndProc;
     wc.hInstance      = GetModuleHandleA(nullptr);
     wc.hCursor       = LoadCursorA(nullptr, IDC_ARROW);
-    wc.lpszClassName  = "d3d11sw";
+    wc.lpszClassName  = "d3dsw";
     RegisterClassExA(&wc);
 
     RECT rc = {0, 0, (LONG)width, (LONG)height};
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
 
     HWND hwnd = CreateWindowExA(
-        0, "d3d11sw", title, WS_OVERLAPPEDWINDOW,
+        0, "d3dsw", title, WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
         rc.right - rc.left, rc.bottom - rc.top,
         nullptr, nullptr, wc.hInstance, nullptr);

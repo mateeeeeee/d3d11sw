@@ -197,10 +197,10 @@ bool TessInit(TessApp& app, void* nsWindow, uint32_t width, uint32_t height)
     app.cb = cb;
 
     // Shaders
-    auto vsBC = ReadFile(D3D11SW_SHADER_DIR "/vs_tess_grid.o");
-    auto hsBC = ReadFile(D3D11SW_SHADER_DIR "/hs_adaptive.o");
-    auto dsBC = ReadFile(D3D11SW_SHADER_DIR "/ds_grid_mvp.o");
-    auto psBC = ReadFile(D3D11SW_SHADER_DIR "/ps_white.o");
+    auto vsBC = ReadFile(D3DSW_SHADER_DIR "/vs_tess_grid.o");
+    auto hsBC = ReadFile(D3DSW_SHADER_DIR "/hs_adaptive.o");
+    auto dsBC = ReadFile(D3DSW_SHADER_DIR "/ds_grid_mvp.o");
+    auto psBC = ReadFile(D3DSW_SHADER_DIR "/ps_white.o");
 
     D3D11_INPUT_ELEMENT_DESC layoutDesc[] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},

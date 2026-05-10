@@ -44,7 +44,7 @@
         styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
         backing:NSBackingStoreBuffered
         defer:NO];
-    [_window setTitle:@"d3d11sw floor — Space to toggle LOD"];
+    [_window setTitle:@"d3dsw floor — Space to toggle LOD"];
 
     _view = [[FloorView alloc] initWithFrame:frame];
     [_window setContentView:_view];

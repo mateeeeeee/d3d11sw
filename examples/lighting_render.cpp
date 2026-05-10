@@ -266,9 +266,9 @@ bool LightingInit(LightingApp& app, void* nsWindow, uint32_t width, uint32_t hei
     device->CreateBuffer(&cbDesc, nullptr, &cb);
     app.cb = cb;
 
-    auto vsBlob = ReadFile(D3D11SW_SHADER_DIR "/vs_lighting.o");
-    auto psLitBlob = ReadFile(D3D11SW_SHADER_DIR "/ps_lighting.o");
-    auto psSolidBlob = ReadFile(D3D11SW_SHADER_DIR "/ps_solid_color.o");
+    auto vsBlob = ReadFile(D3DSW_SHADER_DIR "/vs_lighting.o");
+    auto psLitBlob = ReadFile(D3DSW_SHADER_DIR "/ps_lighting.o");
+    auto psSolidBlob = ReadFile(D3DSW_SHADER_DIR "/ps_solid_color.o");
 
     ID3D11VertexShader* vs = nullptr;
     device->CreateVertexShader(vsBlob.data(), vsBlob.size(), nullptr, &vs);

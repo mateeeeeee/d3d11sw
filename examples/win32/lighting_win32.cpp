@@ -6,7 +6,7 @@
 int main()
 {
     const uint32_t W = 800, H = 600;
-    HWND hwnd = Win32CreateWindow("d3d11sw lighting", W, H);
+    HWND hwnd = Win32CreateWindow("d3dsw lighting", W, H);
 
     LightingApp app;
     memset(&app, 0, sizeof(app));

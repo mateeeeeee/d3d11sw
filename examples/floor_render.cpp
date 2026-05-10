@@ -140,9 +140,9 @@ bool FloorInit(FloorApp& app, void* nsWindow, uint32_t width, uint32_t height)
     dev->CreateDepthStencilView(dsTex, nullptr, &dsv);
     app.depthDSV = dsv;
 
-    auto vsData = ReadFile(D3D11SW_SHADER_DIR "/vs_floor.o");
-    auto psAutoData = ReadFile(D3D11SW_SHADER_DIR "/ps_floor_autolod.o");
-    auto psLod0Data = ReadFile(D3D11SW_SHADER_DIR "/ps_floor_lod0.o");
+    auto vsData = ReadFile(D3DSW_SHADER_DIR "/vs_floor.o");
+    auto psAutoData = ReadFile(D3DSW_SHADER_DIR "/ps_floor_autolod.o");
+    auto psLod0Data = ReadFile(D3DSW_SHADER_DIR "/ps_floor_lod0.o");
 
     ID3D11VertexShader* vs = nullptr;
     dev->CreateVertexShader(vsData.data(), vsData.size(), nullptr, &vs);

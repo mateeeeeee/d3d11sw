@@ -31,7 +31,7 @@
         styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
         backing:NSBackingStoreBuffered
         defer:NO];
-    [_window setTitle:@"d3d11sw tessellation  [WASD orbit, QE zoom]"];
+    [_window setTitle:@"d3dsw tessellation  [WASD orbit, QE zoom]"];
 
     TessView* view = [[TessView alloc] initWithFrame:frame];
     [_window setContentView:view];
@@ -90,7 +90,7 @@
     TessRenderFrame(_app, dt);
 
     NSString* mode = _app.wireframe ? @"wireframe" : @"solid";
-    [_window setTitle:[NSString stringWithFormat:@"d3d11sw tessellation [%@]  WASD: orbit  QE: zoom  Tab: toggle", mode]];
+    [_window setTitle:[NSString stringWithFormat:@"d3dsw tessellation [%@]  WASD: orbit  QE: zoom  Tab: toggle", mode]];
 }
 
 - (void)applicationWillTerminate:(NSNotification*)notification

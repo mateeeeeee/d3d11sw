@@ -22,7 +22,7 @@
         styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
         backing:NSBackingStoreBuffered
         defer:NO];
-    [_window setTitle:@"d3d11sw instanced cubes"];
+    [_window setTitle:@"d3dsw instanced cubes"];
     [_window makeKeyAndOrderFront:nil];
 
     memset(&_app, 0, sizeof(_app));
