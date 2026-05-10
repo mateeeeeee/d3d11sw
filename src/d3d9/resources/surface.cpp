@@ -147,6 +147,17 @@ HRESULT STDMETHODCALLTYPE D3D9SurfaceSW::LockRect(D3DLOCKED_RECT* pLockedRect, c
         pLockedRect->pBits = _shadowBuf + byteOffset;
         return S_OK;
     }
+    if (_d3dFormat == D3DFMT_R3G3B2)
+    {
+        if (!_shadowBuf)
+        {
+            _shadowBuf = new Uint8[_width * _height]();
+        }
+        Uint byteOffset = pRect ? (pRect->top * _width + pRect->left) : 0;
+        pLockedRect->Pitch = static_cast<Int>(_width);
+        pLockedRect->pBits = _shadowBuf + byteOffset;
+        return S_OK;
+    }
 
     Uint8* base = _data;
     if (pRect)
@@ -177,6 +188,26 @@ HRESULT STDMETHODCALLTYPE D3D9SurfaceSW::UnlockRect()
                 dst[x * 4 + 0] = src[x * 3 + 0];  // B
                 dst[x * 4 + 1] = src[x * 3 + 1];  // G
                 dst[x * 4 + 2] = src[x * 3 + 2];  // R
+                dst[x * 4 + 3] = 0xFF;
+            }
+        }
+    }
+    if (_d3dFormat == D3DFMT_R3G3B2 && _shadowBuf)
+    {
+        for (Uint y = 0; y < _height; ++y)
+        {
+            const Uint8* src = _shadowBuf + y * _width;
+            Uint8* dst = _data + y * _rowPitch;
+            for (Uint x = 0; x < _width; ++x)
+            {
+                Uint8 p = src[x];
+                Uint8 r3 = (p >> 5) & 0x7;
+                Uint8 g3 = (p >> 2) & 0x7;
+                Uint8 b2 = (p >> 0) & 0x3;
+                // Expand to 8-bit: replicate high bits into low bits
+                dst[x * 4 + 0] = static_cast<Uint8>((b2 << 6) | (b2 << 4) | (b2 << 2) | b2);  // B
+                dst[x * 4 + 1] = static_cast<Uint8>((g3 << 5) | (g3 << 2) | (g3 >> 1));         // G
+                dst[x * 4 + 2] = static_cast<Uint8>((r3 << 5) | (r3 << 2) | (r3 >> 1));         // R
                 dst[x * 4 + 3] = 0xFF;
             }
         }

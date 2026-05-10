@@ -19,6 +19,7 @@ struct FFVSKey
     Uint8 ambientSrc       = 0;
     Uint8 emissiveSrc      = 0;
     Uint8 fogVertexMode    = 0;   //D3DFOG_NONE=0, D3DFOG_LINEAR=1, D3DFOG_EXP=2, D3DFOG_EXP2=3
+    Uint8 texTransformFlags[8] = {}; //D3DTTFF_* per texcoord stage; 0 = disable
 
     Bool operator==(const FFVSKey& o) const { return std::memcmp(this, &o, sizeof(*this)) == 0; }
     Bool operator< (const FFVSKey& o) const { return std::memcmp(this, &o, sizeof(*this)) <  0; }

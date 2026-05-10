@@ -1065,19 +1065,64 @@ void EmitInstr(CodeWriter& w, const SM4Instruction& instr,
 
                 if (qdim == D3D_SRV_DIMENSION_TEXTURE3D)
                 {
-                    // 3D: use z component of UV, no gradients needed
+                    // 3D: compute 3D gradients for LOD, then call sw_sample_3d_grad
+                    std::string uvBase = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q]", src0->indices[0]);
+                    std::string qn1 = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q|1].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q|1]", src0->indices[0]);
+                    std::string qn1i = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q&~1].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q&~1]", src0->indices[0]);
+                    std::string qn2 = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q|2].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q|2]", src0->indices[0]);
+                    std::string qn2i = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q&~2].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q&~2]", src0->indices[0]);
+                    w.Line("{{ float _ddx_u={}.{}-{}.{}, _ddx_v={}.{}-{}.{}, _ddx_w={}.{}-{}.{};",
+                           qn1, Comp(su), qn1i, Comp(su),
+                           qn1, Comp(sv), qn1i, Comp(sv),
+                           qn1, Comp(sw_), qn1i, Comp(sw_));
+                    w.Line("  float _ddy_u={}.{}-{}.{}, _ddy_v={}.{}-{}.{}, _ddy_w={}.{}-{}.{};",
+                           qn2, Comp(su), qn2i, Comp(su),
+                           qn2, Comp(sv), qn2i, Comp(sv),
+                           qn2, Comp(sw_), qn2i, Comp(sw_));
                     EmitWrite<Type>(w, dstBase, mask,
-                        std::format("sw_sample_3d(res->srv[{}],res->smp[{}],({}).{},({}).{},({}).{})",
+                        std::format("sw_sample_3d_grad(res->srv[{}],res->smp[{}],({}).{},({}).{},({}).{},_ddx_u,_ddx_v,_ddx_w,_ddy_u,_ddy_v,_ddy_w)",
                                     src1->indices[0], src2->indices[0],
                                     uv, Comp(su), uv, Comp(sv), uv, Comp(sw_)), sat);
+                    w.Line("}}");
                 }
                 else if (qdim == D3D_SRV_DIMENSION_TEXTURECUBE || qdim == D3D_SRV_DIMENSION_TEXTURECUBEARRAY)
                 {
-                    // Cube: use xyz components, no gradients
+                    // Cube: compute 3D direction gradients for LOD
+                    std::string qn1 = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q|1].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q|1]", src0->indices[0]);
+                    std::string qn1i = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q&~1].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q&~1]", src0->indices[0]);
+                    std::string qn2 = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q|2].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q|2]", src0->indices[0]);
+                    std::string qn2i = (src0->type == D3D10_SB_OPERAND_TYPE_INPUT)
+                        ? std::format("qin->pixels[_q&~2].v[{}]", src0->indices[0])
+                        : std::format("r[{}][_q&~2]", src0->indices[0]);
+                    w.Line("{{ float _ddx_x={}.{}-{}.{}, _ddx_y={}.{}-{}.{}, _ddx_z={}.{}-{}.{};",
+                           qn1, Comp(su), qn1i, Comp(su),
+                           qn1, Comp(sv), qn1i, Comp(sv),
+                           qn1, Comp(sw_), qn1i, Comp(sw_));
+                    w.Line("  float _ddy_x={}.{}-{}.{}, _ddy_y={}.{}-{}.{}, _ddy_z={}.{}-{}.{};",
+                           qn2, Comp(su), qn2i, Comp(su),
+                           qn2, Comp(sv), qn2i, Comp(sv),
+                           qn2, Comp(sw_), qn2i, Comp(sw_));
                     EmitWrite<Type>(w, dstBase, mask,
-                        std::format("sw_sample_cube(res->srv[{}],res->smp[{}],({}).{},({}).{},({}).{})",
+                        std::format("sw_sample_cube_grad(res->srv[{}],res->smp[{}],({}).{},({}).{},({}).{},_ddx_x,_ddx_y,_ddx_z,_ddy_x,_ddy_y,_ddy_z)",
                                     src1->indices[0], src2->indices[0],
                                     uv, Comp(su), uv, Comp(sv), uv, Comp(sw_)), sat);
+                    w.Line("}}");
                 }
                 else
                 {

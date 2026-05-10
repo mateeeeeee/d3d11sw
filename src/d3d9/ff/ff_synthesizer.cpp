@@ -39,6 +39,7 @@ static constexpr Uint32 CB_MAT_POWER  = 17;
 static constexpr Uint32 CB_LIGHT_BASE = 18;
 static constexpr Uint32 CB_LIGHT_ROWS = 8;
 static constexpr Uint32 CB_FOG_PARAMS = 100;  //.x=start .y=end .z=density_packed .w=1/(end-start)
+static constexpr Uint32 CB_TEX_XFORM_BASE = 104; // 4 CB rows per stage × 8 stages = rows 104-135
 //Per-light row offsets:
 static constexpr Uint32 LR_POSITION   = 0;
 static constexpr Uint32 LR_DIRECTION  = 1;
@@ -282,7 +283,18 @@ void SynthesizeFFVS(const FFVSKey& key, D3DSW_ParsedShader& out)
         {
             cbuf.sizeVec4s = std::max(cbuf.sizeVec4s, CB_FOG_PARAMS + 1u);
         }
-        if (cbuf.sizeVec4s > 0) { out.cbufs.push_back(cbuf); }
+
+        for (Uint t = 0; t < 8; ++t)
+        {
+            if (key.texTransformFlags[t] & 0xFF)
+            {
+                cbuf.sizeVec4s = std::max(cbuf.sizeVec4s, CB_TEX_XFORM_BASE + (t + 1) * 4u);
+            }
+        }
+        if (cbuf.sizeVec4s > 0) 
+        { 
+            out.cbufs.push_back(cbuf); 
+        }
     }
 
     //Temp register plan (for lit path):
@@ -298,6 +310,23 @@ void SynthesizeFFVS(const FFVSKey& key, D3DSW_ParsedShader& out)
     if (!preTransformed && key.fogVertexMode != 0)
     {
         out.numTemps = std::max(out.numTemps, lightingOn ? 8u : 1u);
+    }
+
+    // Texture transforms need a scratch temp (r8 for lit; reuse r0 for non-lit if fog not active,
+    // otherwise r1). Use r8 uniformly to avoid conflicts.
+    Bool anyTexTransform = false;
+    for (Uint t = 0; t < 8; ++t) 
+    { 
+        if (key.texTransformFlags[t] & 0xFF) 
+        { 
+            anyTexTransform = true; 
+            break; 
+        } 
+    }
+    const Uint32 tcXformScratch = 8u;   
+    if (!preTransformed && anyTexTransform)
+    {
+        out.numTemps = std::max(out.numTemps, tcXformScratch + 1u);
     }
 
     if (preTransformed)
@@ -677,13 +706,43 @@ void SynthesizeFFVS(const FFVSKey& key, D3DSW_ParsedShader& out)
 
     for (Uint t = 0; t < numTex && t < 8; ++t)
     {
-        if (tcIn[t] == 0xFFu) 
-        { 
-            continue; 
+        if (tcIn[t] == 0xFFu)
+        {
+            continue;
         }
-        auto mv = Instr(D3D10_SB_OPCODE_MOV);
-        mv.operands = { OutputOp(tcOut[t], 0x3), InputOp(tcIn[t]) };
-        out.instrs.push_back(mv);
+        DWORD ttf = key.texTransformFlags[t];
+        DWORD count = ttf & 0xF;          
+        Bool projected = (ttf & 0x80) != 0; 
+        if (count == 0 || count > 4)
+        {
+            auto mv = Instr(D3D10_SB_OPCODE_MOV);
+            mv.operands = { OutputOp(tcOut[t], 0x3), InputOp(tcIn[t]) };
+            out.instrs.push_back(mv);
+        }
+        else
+        {
+            const Uint32 scr = tcXformScratch;
+            const Uint32 matBase = CB_TEX_XFORM_BASE + t * 4u;
+
+            { auto mv = Instr(D3D10_SB_OPCODE_MOV); mv.operands = { TempOp(scr, 0x3), InputOp(tcIn[t]) }; out.instrs.push_back(mv); }
+            { auto mv = Instr(D3D10_SB_OPCODE_MOV); mv.operands = { TempOp(scr, 0x4), ImmF(0,0,0,0) };    out.instrs.push_back(mv); }
+            { auto mv = Instr(D3D10_SB_OPCODE_MOV); mv.operands = { TempOp(scr, 0x8), ImmF(1,1,1,1) };    out.instrs.push_back(mv); }
+
+            for (Uint col = 0; col < count; ++col)
+            {
+                EmitDP4Col(out, OutputOp(tcOut[t], 1u << col), TempOp(scr), matBase + col);
+            }
+
+            if ((ttf & D3DTTFF_PROJECTED) && count >= 2)
+            {
+                Uint8 wComp = static_cast<Uint8>(count - 1);  // index of divisor component
+                SM4Operand divisor = Swz(OutputOp(tcOut[t]), wComp);
+                SM4Operand xyDst = OutputOp(tcOut[t], 0x3);
+                auto div = Instr(D3D10_SB_OPCODE_DIV);
+                div.operands = { xyDst, OutputOp(tcOut[t]), divisor };
+                out.instrs.push_back(div);
+            }
+        }
     }
 
     if (fogOut != 0xFFu)

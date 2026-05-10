@@ -87,15 +87,15 @@ The following return `E_NOTIMPL` or produce no-op results:
 
 ### Shaders
 - **SM2 and SM3** (vs_2_0 / ps_2_0 / vs_3_0 / ps_3_0): same JIT pipeline as D3D11 — token stream → SM4-shaped IR → C++20 → native code
-- Broad SM3 opcode coverage: MOV/ADD/MUL/MAD/DP3/DP4/MIN/MAX, NRM, POW, SINCOS, ABS, LRP, CMP, SLT/SGE, LIT, DST, SGN, CRS, DP2ADD, TEXLD/TEXLDL/TEXLDB/TEXLDP/TEXLDD, TEXKILL, REP/ENDREP, LOOP/ENDLOOP, MOVA, matrix macros (M3x2–M4x4), all source/dest modifiers
+- Broad SM3 opcode coverage: MOV/ADD/MUL/MAD/DP3/DP4/MIN/MAX, NRM, POW, SINCOS, ABS, LRP, CMP, SLT/SGE, LIT, DST, SGN, CRS, DP2ADD, TEXLD/TEXLDL/TEXLDB/TEXLDP/TEXLDD, TEXKILL, REP/ENDREP, LOOP/ENDLOOP, CALL/CALLNZ/LABEL (subroutine inlining), MOVA, matrix macros (M3x2–M4x4), all source/dest modifiers
 - Predicated flow control: SETP, IFC, BREAKC/BREAKP (predicate register p0 mapped to temp)
 - SM2 output registers: `oPos` (RASTOUT[0]) → SV_Position, `oD0/oD1` (ATTROUT) → COLOR, `oT0–oT7` (TEXCRDOUT) → TEXCOORD — inferred from write scan when no DCL is present
 - `D3DSPR_MISCTYPE`: vPos (→ SV_Position screen-space) and vFace (→ ±1.0 front/back via MOVC)
 - Compile-time DEF/DEFI constant folding; sampler/texture binding reconstruction from DCL
-- Implicit-LOD SAMPLE correctly dispatches to `sw_sample_3d` / `sw_sample_cube` / `sw_sample_2d` based on texture dimension, including when UV arrives directly from a PS input register
+- Implicit-LOD SAMPLE dispatches to `sw_sample_3d_grad` / `sw_sample_cube_grad` / `sw_sample_2d_grad` per texture type; screen-space derivatives computed from all UV components across the 2×2 quad
 
 ### Fixed-Function Pipeline
-- **VS**: WVP transform; normal transform + normalize; full Blinn-Phong lighting (ambient, diffuse, specular) for up to 8 directional/point/spot lights; full material colour source routing (`D3DRS_COLORVERTEX`, `D3DMCS_COLOR1/2/MATERIAL` per component); vertex fog (LINEAR/EXP/EXP2)
+- **VS**: WVP transform; normal transform + normalize; full Blinn-Phong lighting (ambient, diffuse, specular) for up to 8 directional/point/spot lights; full material colour source routing (`D3DRS_COLORVERTEX`, `D3DMCS_COLOR1/2/MATERIAL` per component); vertex fog (LINEAR/EXP/EXP2); `D3DTS_TEXTURE[i]` transform (COUNT1–4, PROJECTED)
 - **PS**: all 8 TSS stages chained; color/alpha ops: SELECTARG1/2, MODULATE, MODULATE2X, ADD, ADDSIGNED, SUBTRACT, LERP; args: D3DTA_TEXTURE (white fallback), D3DTA_DIFFUSE, D3DTA_CURRENT, D3DTA_COMPLEMENT, D3DTA_ALPHAREPLICATE
 - Custom VS + FF PS and FF VS + custom PS correctly coexist
 
@@ -131,7 +131,7 @@ The following return `E_NOTIMPL` or produce no-op results:
 - `IDirect3DVertexBuffer9`, `IDirect3DIndexBuffer9`
 - `IDirect3DSurface9` (render target, depth-stencil, offscreen)
 - Private data (`SetPrivateData` / `GetPrivateData` / `FreePrivateData`) on all resources
-- Broad `D3DFORMAT` coverage: BGRA/RGBA families, depth formats, DXT/BC compressed, float HDR, signed bump-map formats, luminance formats
+- Broad `D3DFORMAT` coverage: BGRA/RGBA families, depth formats, DXT/BC compressed, float HDR, signed bump-map formats, luminance formats, `D3DFMT_R3G3B2` (3+3+2-bit packed, expanded on upload)
 
 ### Factory and Device
 - `Direct3DCreate9` and `Direct3DCreate9Ex` — both return a full `IDirect3D9Ex` implementation
@@ -144,9 +144,8 @@ The following return `E_NOTIMPL` or produce no-op results:
 - `CreateQuery`: EVENT (always ready), OCCLUSION (returns 0), TIMESTAMP (returns 0)
 
 ### Missing / deferred
-- `D3DTS_TEXTURE[i]` transform, clip plane enable in FF VS/PS
+- Clip plane enable in FF VS/PS
 - `DOTPRODUCT3`, `BLENDDIFFUSEALPHA`, `BUMPENVMAP*` TSS ops
-- SM3 subroutines (`CALL` / `CALLNZ` / `LABEL`)
 - `ProcessVertices`
 - macOS/Win32 interactive example
 

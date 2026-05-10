@@ -1511,8 +1511,93 @@ Bool SM3Translate(const SM3DecodedShader& in, D3DSW_ParsedShader& out)
     }
 
     std::vector<Uint32> repStack;
+    //Collect subroutine bodies: instructions between LABEL n and its matching RET
+    //Key = label register number, value = instruction list for that subroutine
+    std::unordered_map<Uint32, std::vector<SM3Instruction>> subroutines;
+    {
+        Uint32 curLabel = 0xFFFFFFFFu;
+        for (const auto& ins : instrs)
+        {
+            if (ins.op == D3DSIO_LABEL && !ins.operands.empty())
+            {
+                curLabel = ins.operands[0].regNum;
+                subroutines[curLabel] = {};
+            }
+            else if (ins.op == D3DSIO_RET && curLabel != 0xFFFFFFFFu)
+            {
+                curLabel = 0xFFFFFFFFu;  
+            }
+            else if (curLabel != 0xFFFFFFFFu)
+            {
+                subroutines[curLabel].push_back(ins);
+            }
+        }
+    }
+
     for (const auto& ins : instrs)
     {
+        if (ins.op == D3DSIO_LABEL) 
+        { 
+            continue; 
+        }
+
+        if (ins.op == D3DSIO_RET)
+        {
+            out.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_RET));
+            break;
+        }
+
+        // CALL label_n: inline the subroutine body
+        if (ins.op == D3DSIO_CALL)
+        {
+            if (ins.operands.empty()) 
+            { 
+                return false; 
+            }
+            Uint32 labelId = ins.operands[0].regNum;
+            auto it = subroutines.find(labelId);
+            if (it != subroutines.end())
+            {
+                for (const auto& subIns : it->second)
+                {
+                    if (!TranslateOne(subIns, defs, defInts, numTemps, predBase, repStack, out))
+                        return false;
+                }
+            }
+            continue;
+        }
+
+        // CALLNZ src, label_n: conditional inline wrapped in IF/ENDIF
+        if (ins.op == D3DSIO_CALLNZ)
+        {
+            if (ins.operands.size() < 2) 
+            { 
+                return false; 
+            }
+
+            SM4Operand cond{};
+            if (!ConvertSrc(ins.operands[0], defs, cond)) 
+            { 
+                return false; 
+            }
+            Uint32 labelId = ins.operands[1].regNum;
+            SM4Instruction ifIns = MakeInstr(D3D10_SB_OPCODE_IF);
+            ifIns.testNonZero = true;
+            ifIns.operands = { cond };
+            out.instrs.push_back(std::move(ifIns));
+            auto it = subroutines.find(labelId);
+            if (it != subroutines.end())
+            {
+                for (const auto& subIns : it->second)
+                {
+                    if (!TranslateOne(subIns, defs, defInts, numTemps, predBase, repStack, out))
+                        return false;
+                }
+            }
+            out.instrs.push_back(MakeInstr(D3D10_SB_OPCODE_ENDIF));
+            continue;
+        }
+
         if (!TranslateOne(ins, defs, defInts, numTemps, predBase, repStack, out))
         {
             return false;

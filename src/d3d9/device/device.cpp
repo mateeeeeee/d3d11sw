@@ -906,20 +906,34 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawIndexedPrimitiveUP(D3DPRIMITIVETYPE 
                                                                 const void* index_data, D3DFORMAT index_format,
                                                                 const void* data, UINT stride)
 {
-    if (!data || !index_data || primitive_count == 0 || stride == 0) { return D3DERR_INVALIDCALL; }
-    UINT indexCount = VerticesForPrimitives(primitive_type, primitive_count);
-    if (indexCount == 0) { return D3DERR_INVALIDCALL; }
+    if (!data || !index_data || primitive_count == 0 || stride == 0) 
+    { 
+        return D3DERR_INVALIDCALL;
+    }
+    Uint indexCount = VerticesForPrimitives(primitive_type, primitive_count);
+    if (indexCount == 0) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
 
-    Uint const ibStride  = (index_format == D3DFMT_INDEX32) ? 4 : 2;
-    Uint const vbBytes   = vertex_count * stride;
-    Uint const ibBytes   = indexCount   * ibStride;
+    const Uint ibStride  = (index_format == D3DFMT_INDEX32) ? 4 : 2;
+    const Uint vbBytes   = vertex_count * stride;
+    const Uint ibBytes   = indexCount   * ibStride;
 
     IDirect3DVertexBuffer9* scratchVB = nullptr;
     IDirect3DIndexBuffer9*  scratchIB = nullptr;
     HRESULT hr = CreateVertexBuffer(vbBytes, 0, 0, D3DPOOL_DEFAULT, &scratchVB, nullptr);
-    if (FAILED(hr)) { return hr; }
+    if (FAILED(hr)) 
+    { 
+        return hr; 
+    }
+
     hr = CreateIndexBuffer(ibBytes, 0, index_format, D3DPOOL_DEFAULT, &scratchIB, nullptr);
-    if (FAILED(hr)) { scratchVB->Release(); return hr; }
+    if (FAILED(hr)) 
+    { 
+        scratchVB->Release(); 
+        return hr; 
+    }
 
     void* mv = nullptr; scratchVB->Lock(0, vbBytes, &mv, 0); std::memcpy(mv, data, vbBytes);       scratchVB->Unlock();
     void* mi = nullptr; scratchIB->Lock(0, ibBytes, &mi, 0); std::memcpy(mi, index_data, ibBytes); scratchIB->Unlock();
@@ -932,7 +946,6 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawIndexedPrimitiveUP(D3DPRIMITIVETYPE 
 
     SetStreamSource(0, scratchVB, 0, stride);
     SetIndices(scratchIB);
-
     hr = DrawIndexedPrimitive(primitive_type, -static_cast<INT>(min_vertex_idx),
                               min_vertex_idx, vertex_count, 0, primitive_count);
 
@@ -957,9 +970,16 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVertexDeclaration(const D3DVERTEXE
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexDeclaration(IDirect3DVertexDeclaration9* pDecl)
 {
-    auto* decl = static_cast<D3D9VertexDeclarationSW*>(pDecl);
-    if (decl) { decl->AddRef(); }
-    if (_vertexDecl) { _vertexDecl->Release(); }
+    D3D9VertexDeclarationSW* decl = static_cast<D3D9VertexDeclarationSW*>(pDecl);
+    if (decl) 
+    { 
+        decl->AddRef(); 
+    }
+
+    if (_vertexDecl) 
+    { 
+        _vertexDecl->Release(); 
+    }
     _vertexDecl = decl;
     return S_OK;
 }
@@ -970,7 +990,10 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexDeclaration(IDirect3DVertexDecl
         return D3DERR_INVALIDCALL;
     }
     *ppDecl = _vertexDecl;
-    if (_vertexDecl) { _vertexDecl->AddRef(); }
+    if (_vertexDecl) 
+    { 
+        _vertexDecl->AddRef(); 
+    }
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetFVF(DWORD FVF) { _fvf = FVF; return S_OK; }
@@ -987,7 +1010,10 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVertexShader(const DWORD* byte_cod
 {
     if (!byte_code || !shader)
     {
-        if (shader) { *shader = nullptr; }
+        if (shader) 
+        { 
+            *shader = nullptr; 
+        }
         return D3DERR_INVALIDCALL;
     }
     //D3D9 CreateVertexShader does not pass a length, the caller passes a
@@ -1032,21 +1058,21 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantF(UINT reg_idx, c
     {
         return D3DERR_INVALIDCALL;
     }
-    std::memcpy(&_vsConstF[reg_idx][0], data, count * 4 * sizeof(float));
+    std::memcpy(&_vsConstF[reg_idx][0], data, count * 4 * sizeof(Float));
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantF(UINT StartRegister, float* pConstantData, UINT Vector4fCount)
 {
-    if (!pConstantData || StartRegister + Vector4fCount > 256)
+    if (!pConstantData || StartRegister + Vector4fCount > D3DSW_ARRAYSIZE(_vsConstF))
     {
         return D3DERR_INVALIDCALL;
     }
-    std::memcpy(pConstantData, &_vsConstF[StartRegister][0], Vector4fCount * 4 * sizeof(float));
+    std::memcpy(pConstantData, &_vsConstF[StartRegister][0], Vector4fCount * 4 * sizeof(Float));
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantI(UINT reg_idx, const int* data, UINT count)
 {
-    if (!data || reg_idx + count > 16)
+    if (!data || reg_idx + count > D3DSW_ARRAYSIZE(_vsConstI))
     {
         return D3DERR_INVALIDCALL;
     }
@@ -1055,7 +1081,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantI(UINT reg_idx, c
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantI(UINT StartRegister, int* pConstantData, UINT Vector4iCount)
 {
-    if (!pConstantData || StartRegister + Vector4iCount > 16)
+    if (!pConstantData || StartRegister + Vector4iCount > D3DSW_ARRAYSIZE(_vsConstI))
     {
         return D3DERR_INVALIDCALL;
     }
@@ -1064,7 +1090,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantI(UINT StartRegis
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantB(UINT reg_idx, const WINBOOL* data, UINT count)
 {
-    if (!data || reg_idx + count > 16)
+    if (!data || reg_idx + count > D3DSW_ARRAYSIZE(_vsConstB))
     {
         return D3DERR_INVALIDCALL;
     }
@@ -1076,7 +1102,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantB(UINT reg_idx, c
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantB(UINT StartRegister, WINBOOL* pConstantData, UINT BoolCount)
 {
-    if (!pConstantData || StartRegister + BoolCount > 16)
+    if (!pConstantData || StartRegister + BoolCount > D3DSW_ARRAYSIZE(_vsConstB))
     {
         return D3DERR_INVALIDCALL;
     }
@@ -1690,7 +1716,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetDisplayModeEx(UINT iSwapChain, D3DDIS
     { 
         return hr; 
     }
-    
+
     pMode->Size             = sizeof(D3DDISPLAYMODEEX);
     pMode->Width            = base.Width;
     pMode->Height           = base.Height;

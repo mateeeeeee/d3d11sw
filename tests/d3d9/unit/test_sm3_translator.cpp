@@ -366,15 +366,47 @@ TEST(SM3Translator, IF_ELSE_ENDIF_Map_OneToOne)
 
 TEST(SM3Translator, UnsupportedOpcode_RejectsGracefully)
 {
-    // CALL: valid SM3 opcode, not yet translated.
+    // D3DSIO_BEM: SM2 bump-env-map opcode — explicitly out of scope.
     const DWORD prog[] = {
-        D3DVS_VERSION(3, 0),
-        Opcode(D3DSIO_CALL, 1), Src(D3DSPR_LABEL, 0),
-        D3DVS_END()
+        D3DPS_VERSION(2, 0),
+        Opcode(D3DSIO_BEM, 3), Dst(D3DSPR_TEMP, 0), Src(D3DSPR_TEMP, 0), Src(D3DSPR_TEMP, 1),
+        D3DPS_END()
     };
     D3DSW_ParsedShader ps;
     EXPECT_FALSE(SM3Parse(prog, sizeof(prog), ps));
 }
+
+TEST(SM3Translator, CALL_InlinesSubroutineBody)
+{
+    // vs_3_0 with a subroutine:
+    //   mov r0, v0      ← main body
+    //   call l0         ← inline subroutine
+    //   ret             ← end of main
+    //   label l0:
+    //   add r0, r0, r0  ← subroutine body
+    //   ret             ← end of subroutine
+    const DWORD prog[] = {
+        D3DVS_VERSION(3, 0),
+        Opcode(D3DSIO_DCL, 2), DclUsage(D3DDECLUSAGE_POSITION,0), Dst(D3DSPR_INPUT,0),
+        Opcode(D3DSIO_DCL, 2), DclUsage(D3DDECLUSAGE_POSITION,0), Dst(D3DSPR_OUTPUT,0),
+        Opcode(D3DSIO_MOV, 2), Dst(D3DSPR_TEMP, 0), Src(D3DSPR_INPUT, 0),
+        Opcode(D3DSIO_CALL, 1), Src(D3DSPR_LABEL, 0),
+        Opcode(D3DSIO_RET, 0),
+        Opcode(D3DSIO_LABEL, 1), Src(D3DSPR_LABEL, 0),
+        Opcode(D3DSIO_ADD, 3), Dst(D3DSPR_TEMP, 0), Src(D3DSPR_TEMP, 0), Src(D3DSPR_TEMP, 0),
+        Opcode(D3DSIO_RET, 0),
+        D3DVS_END()
+    };
+    D3DSW_ParsedShader ps;
+    ASSERT_TRUE(SM3Parse(prog, sizeof(prog), ps));
+
+    // Should have: MOV, ADD (inlined), RET — subroutine body was inlined at call site
+    ASSERT_GE(ps.instrs.size(), 3u);
+    EXPECT_EQ(ps.instrs[0].op, D3D10_SB_OPCODE_MOV);
+    EXPECT_EQ(ps.instrs[1].op, D3D10_SB_OPCODE_ADD);   // inlined subroutine
+    EXPECT_EQ(ps.instrs[2].op, D3D10_SB_OPCODE_RET);
+}
+
 
 TEST(SM3Translator, NumTemps_TracksMaxReg)
 {

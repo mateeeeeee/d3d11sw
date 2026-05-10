@@ -39,6 +39,7 @@
 #define D3DSW_DEBUGZONE_END
 #endif
 
+#define D3DSW_ARRAYSIZE(arr)     (sizeof(arr) / sizeof(arr[0]))
 #define D3DSW_ALIGN(x, align)    ((x) & ~((align) - 1))
 #define D3DSW_ALIGN_UP(x, align) (((x) + (align) - 1) & ~((align) - 1))
 

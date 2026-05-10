@@ -1070,8 +1070,7 @@ static inline SW_float4 sw_sample_1d_lod(const SW_SRV& t, const SW_Sampler& s,
 }
 
 static inline SW_float4 sw_sample_3d_lod(const SW_SRV& t, const SW_Sampler& s,
-                                           float u, float v, float w, float lod)
-{
+                                           float u, float v, float w, float lod){
     lod += s.mipLODBias;
     lod = std::fmax(lod, s.minLOD);
     lod = std::fmin(lod, s.maxLOD);
@@ -1127,6 +1126,64 @@ static inline SW_float4 sw_fetch_texel_mip(const SW_SRV& t, unsigned x, unsigned
     const unsigned char* data = sw_mip_data(t, mip);
     return sw_fetch_texel_at(data, t.format,
                              t.mips[mip].width, t.mips[mip].height, t.mips[mip].rowPitch, x, y);
+}
+
+//3D texture sampling with explicit screen-space gradients for LOD.
+//LOD is derived from the 3D footprint: rho = max(|ddx_uvw * dims|, |ddy_uvw * dims|).
+static inline SW_float4 sw_sample_3d_grad(const SW_SRV& t, const SW_Sampler& s,
+                                           float u, float v, float w,
+                                           float ddx_u, float ddx_v, float ddx_w,
+                                           float ddy_u, float ddy_v, float ddy_w)
+{
+    float fw = (float)t.mips[0].width;
+    float fh = (float)t.mips[0].height;
+    float fd = (float)t.mips[0].depth;
+    float rho_x = std::sqrt(ddx_u*ddx_u*fw*fw + ddx_v*ddx_v*fh*fh + ddx_w*ddx_w*fd*fd);
+    float rho_y = std::sqrt(ddy_u*ddy_u*fw*fw + ddy_v*ddy_v*fh*fh + ddy_w*ddy_w*fd*fd);
+    float rho   = std::fmax(rho_x, rho_y);
+    float lod   = rho > 0.f ? std::log2(rho) : 0.f;
+    return sw_sample_3d_lod(t, s, u, v, w, lod);
+}
+
+//Cube-map sampling with explicit screen-space gradients for LOD.
+//LOD is approximated from the magnitude of the 3D direction gradients scaled by face size.
+static inline SW_float4 sw_sample_cube_grad(const SW_SRV& t, const SW_Sampler& s,
+                                             float x, float y, float z,
+                                             float ddx_x, float ddx_y, float ddx_z,
+                                             float ddy_x, float ddy_y, float ddy_z)
+{
+    float ax = std::fabs(x), ay = std::fabs(y), az = std::fabs(z);
+    int face;
+    float sc, tc, ma;
+    if (ax >= ay && ax >= az) { face = x>0.f?0:1; ma=ax; sc=x>0.f?-z:z; tc=-y; }
+    else if (ay >= ax && ay >= az) { face = y>0.f?2:3; ma=ay; sc=x; tc=y>0.f?z:-z; }
+    else { face = z>0.f?4:5; ma=az; sc=z>0.f?x:-x; tc=-y; }
+    float fu = 0.5f * (sc / ma + 1.f);
+    float fv = 0.5f * (tc / ma + 1.f);
+
+    float faceSize = (float)t.mips[0].width;
+    float rho_x = std::sqrt(ddx_x*ddx_x + ddx_y*ddx_y + ddx_z*ddx_z) * faceSize;
+    float rho_y = std::sqrt(ddy_x*ddy_x + ddy_y*ddy_y + ddy_z*ddy_z) * faceSize;
+    float rho   = std::fmax(rho_x, rho_y);
+    float lod   = rho > 0.f ? std::log2(rho) : 0.f;
+    lod += s.mipLODBias;
+    lod = std::clamp(lod, s.minLOD, s.maxLOD);
+    lod = std::clamp(lod, 0.f, t.mipLevels > 0 ? (float)(t.mipLevels-1) : 0.f);
+
+    unsigned sp = t.mips[0].slicePitch;
+    unsigned rp = t.mips[0].rowPitch;
+    const unsigned char* faceData = static_cast<const unsigned char*>(t.data)
+                                    + (unsigned long long)face * sp;
+    unsigned mip = (unsigned)(lod + 0.5f);
+    mip = std::min(mip, t.mipLevels ? t.mipLevels - 1 : 0u);
+    if (mip > 0 && mip < SW_MAX_MIP_LEVELS)
+    {
+        sp = t.mips[mip].slicePitch;
+        rp = t.mips[mip].rowPitch;
+        faceData = sw_mip_data(t, mip) + (unsigned long long)face * sp;
+    }
+    return sw_apply_srv_swizzle(t,
+        sw_sample_2d_at(faceData, t.format, t.mips[mip].width, t.mips[mip].height, rp, s, fu, fv));
 }
 
 static inline SW_float4 sw_resinfo_float_mip(const SW_SRV& t, unsigned mip)

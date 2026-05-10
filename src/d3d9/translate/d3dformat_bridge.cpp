@@ -46,8 +46,8 @@ DXGI_FORMAT D3DFormatToDXGI(D3DFORMAT fmt)
         case D3DFMT_INDEX32:          return DXGI_FORMAT_R32_UINT;
 
         case D3DFMT_R8G8B8:           return DXGI_FORMAT_B8G8R8X8_UNORM;
+        case D3DFMT_R3G3B2:           return DXGI_FORMAT_B8G8R8X8_UNORM;
 
-        case D3DFMT_R3G3B2:           
         case D3DFMT_P8:               
         case D3DFMT_UNKNOWN:
         default:
