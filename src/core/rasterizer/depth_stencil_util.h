@@ -8,7 +8,7 @@
 
 namespace d3dsw {
 
-inline UINT DepthPixelStride(DXGI_FORMAT fmt)
+inline Uint DepthPixelStride(DXGI_FORMAT fmt)
 {
     switch (fmt)
     {

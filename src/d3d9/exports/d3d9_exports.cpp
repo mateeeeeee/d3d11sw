@@ -25,7 +25,7 @@ int WINAPI D3DPERF_BeginEvent(D3DCOLOR, LPCWSTR)    { return 0; }
 int WINAPI D3DPERF_EndEvent(void)                   { return 0; }
 void WINAPI D3DPERF_SetMarker(D3DCOLOR, LPCWSTR)    {}
 void WINAPI D3DPERF_SetRegion(D3DCOLOR, LPCWSTR)    {}
-WINBOOL WINAPI D3DPERF_QueryRepeatFrame(void)       { return FALSE; }
+BOOL WINAPI D3DPERF_QueryRepeatFrame(void)       { return FALSE; }
 void WINAPI D3DPERF_SetOptions(DWORD)               {}
 DWORD WINAPI D3DPERF_GetStatus(void)                { return 0; }
 

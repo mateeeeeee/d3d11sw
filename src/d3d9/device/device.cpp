@@ -204,7 +204,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetDirect3D(IDirect3D9** ppD3D9)
     }
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetDeviceCaps(D3DCAPS9*) { return D3DERR_NOTAVAILABLE; }
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetDeviceCaps(D3DCAPS9* pCaps) { return _parent->GetDeviceCaps(0, D3DDEVTYPE_HAL, pCaps); }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetDisplayMode(UINT iSwapChain, D3DDISPLAYMODE* pMode)
 {
     if (iSwapChain != 0 || !pMode) { return D3DERR_INVALIDCALL; }
@@ -225,7 +225,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetCreationParameters(D3DDEVICE_CREATION
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetCursorProperties(UINT, UINT, IDirect3DSurface9*) { return D3DERR_NOTAVAILABLE; }
 void    STDMETHODCALLTYPE D3D9DeviceSW::SetCursorPosition(int, int, DWORD) {}
-WINBOOL STDMETHODCALLTYPE D3D9DeviceSW::ShowCursor(WINBOOL) { return FALSE; }
+BOOL    STDMETHODCALLTYPE D3D9DeviceSW::ShowCursor(BOOL) { return FALSE; }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateAdditionalSwapChain(D3DPRESENT_PARAMETERS*, IDirect3DSwapChain9**) { return D3DERR_NOTAVAILABLE; }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetSwapChain(UINT iSwapChain, IDirect3DSwapChain9** pSwapChain)
 {
@@ -268,7 +268,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetRasterStatus(UINT iSwapChain, D3DRAST
     pRasterStatus->ScanLine = 0;
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetDialogBoxMode(WINBOOL) { return D3DERR_NOTAVAILABLE; }
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetDialogBoxMode(BOOL) { return D3DERR_NOTAVAILABLE; }
 void    STDMETHODCALLTYPE D3D9DeviceSW::SetGammaRamp(UINT, DWORD, const D3DGAMMARAMP*) {}
 void    STDMETHODCALLTYPE D3D9DeviceSW::GetGammaRamp(UINT, D3DGAMMARAMP*) {}
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateTexture(UINT Width, UINT Height, UINT Levels, DWORD Usage,
@@ -335,7 +335,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateIndexBuffer(UINT Length, DWORD Usa
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateRenderTarget(UINT Width, UINT Height, D3DFORMAT Format,
                                                            D3DMULTISAMPLE_TYPE /*MultiSample*/, DWORD /*MultisampleQuality*/,
-                                                           WINBOOL /*Lockable*/, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/)
+                                                           BOOL /*Lockable*/, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/)
 {
     if (!ppSurface || Width == 0 || Height == 0)
     {
@@ -353,7 +353,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateRenderTarget(UINT Width, UINT Heig
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateDepthStencilSurface(UINT Width, UINT Height, D3DFORMAT Format,
                                                                   D3DMULTISAMPLE_TYPE /*MultiSample*/, DWORD /*MultisampleQuality*/,
-                                                                  WINBOOL /*Discard*/, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/)
+                                                                  BOOL /*Discard*/, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/)
 {
     if (!ppSurface || Width == 0 || Height == 0)
     {
@@ -643,13 +643,13 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetLight(DWORD Index, D3DLIGHT9* pLight)
     *pLight = _lights[Index];
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::LightEnable(DWORD Index, WINBOOL Enable)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::LightEnable(DWORD Index, BOOL Enable)
 {
     if (Index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
     _lightEnabled[Index] = Enable;
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetLightEnable(DWORD Index, WINBOOL* pEnable)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetLightEnable(DWORD Index, BOOL* pEnable)
 {
     if (!pEnable || Index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
     *pEnable = _lightEnabled[Index];
@@ -795,8 +795,8 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetScissorRect(RECT* pRect)
     *pRect = _scissor;
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetSoftwareVertexProcessing(WINBOOL) { return D3DERR_NOTAVAILABLE; }
-WINBOOL STDMETHODCALLTYPE D3D9DeviceSW::GetSoftwareVertexProcessing() { return FALSE; }
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetSoftwareVertexProcessing(BOOL) { return D3DERR_NOTAVAILABLE; }
+BOOL STDMETHODCALLTYPE D3D9DeviceSW::GetSoftwareVertexProcessing() { return FALSE; }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetNPatchMode(float) { return D3DERR_NOTAVAILABLE; }
 float   STDMETHODCALLTYPE D3D9DeviceSW::GetNPatchMode() { return 0.f; }
 
@@ -1096,7 +1096,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantI(UINT StartRegis
     std::memcpy(pConstantData, &_vsConstI[StartRegister][0], Vector4iCount * 4 * sizeof(Int32));
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantB(UINT reg_idx, const WINBOOL* data, UINT count)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantB(UINT reg_idx, const BOOL* data, UINT count)
 {
     if (!data || reg_idx + count > D3DSW_ARRAYSIZE(_vsConstB))
     {
@@ -1108,7 +1108,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantB(UINT reg_idx, c
     }
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantB(UINT StartRegister, WINBOOL* pConstantData, UINT BoolCount)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantB(UINT StartRegister, BOOL* pConstantData, UINT BoolCount)
 {
     if (!pConstantData || StartRegister + BoolCount > D3DSW_ARRAYSIZE(_vsConstB))
     {
@@ -1257,7 +1257,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetPixelShaderConstantI(UINT StartRegist
     std::memcpy(pConstantData, &_psConstI[StartRegister][0], Vector4iCount * 4 * sizeof(Int32));
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantB(UINT reg_idx, const WINBOOL* data, UINT count)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantB(UINT reg_idx, const BOOL* data, UINT count)
 {
     if (!data || reg_idx + count > 16)
     {
@@ -1269,7 +1269,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantB(UINT reg_idx, co
     }
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetPixelShaderConstantB(UINT StartRegister, WINBOOL* pConstantData, UINT BoolCount)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetPixelShaderConstantB(UINT StartRegister, BOOL* pConstantData, UINT BoolCount)
 {
     if (!pConstantData || StartRegister + BoolCount > 16)
     {
@@ -1686,7 +1686,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetMaximumFrameLatency(UINT) { return S_
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetMaximumFrameLatency(UINT* pMaxLatency) { if (pMaxLatency) { *pMaxLatency = 3; } return S_OK; }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CheckDeviceState(HWND) { return S_OK; }
 
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateRenderTargetEx(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, WINBOOL Lockable, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/, DWORD /*Usage*/)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateRenderTargetEx(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Lockable, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/, DWORD /*Usage*/)
 {
     return CreateRenderTarget(Width, Height, Format, MultiSample, MultisampleQuality, Lockable, ppSurface, nullptr);
 }
@@ -1696,7 +1696,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateOffscreenPlainSurfaceEx(UINT Width
     return CreateOffscreenPlainSurface(Width, Height, Format, Pool, ppSurface, nullptr);
 }
 
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateDepthStencilSurfaceEx(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, WINBOOL Discard, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/, DWORD /*Usage*/)
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateDepthStencilSurfaceEx(UINT Width, UINT Height, D3DFORMAT Format, D3DMULTISAMPLE_TYPE MultiSample, DWORD MultisampleQuality, BOOL Discard, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/, DWORD /*Usage*/)
 {
     return CreateDepthStencilSurface(Width, Height, Format, MultiSample, MultisampleQuality, Discard, ppSurface, nullptr);
 }

@@ -245,7 +245,7 @@ TEST(D3D9RenderState, Light_RoundTrip)
     EXPECT_EQ(got.Type, D3DLIGHT_DIRECTIONAL);
     EXPECT_EQ(got.Direction.y, -1.f);
 
-    WINBOOL enabled = FALSE;
+    BOOL enabled = FALSE;
     EXPECT_EQ(dev->GetLightEnable(0, &enabled), S_OK);
     EXPECT_NE(enabled, FALSE);
     dev->Release();
