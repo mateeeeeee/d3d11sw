@@ -12,37 +12,56 @@ namespace d3dsw
         Warning,
         Error
     };
-    std::string GetLogPrefix(LogLevel level);
-    std::string GetCurrentTimeString();
 
-    void LogInit();
-    void LogDestroy();
-
-    void LogOutput(const std::string& msg);
-
-    template<typename... Args>
-    void Log(LogLevel level, char const* fmt, Args&&... args)
+    class Logger
     {
-        std::string log_entry = std::vformat(fmt, std::make_format_args(args...));
-        std::string full_log_entry = std::format("{} {} {}\n", GetCurrentTimeString(), GetLogPrefix(level), log_entry);
-        LogOutput(full_log_entry);
-    }
+    public:
+        static Logger& Get()
+        {
+            static Logger instance;
+            return instance;
+        }
 
-    struct LogInitScope
-    {
-        LogInitScope()  { LogInit();    }
-        ~LogInitScope() { LogDestroy(); }
+        Bool IsEnabled(LogLevel level) const { return level >= _minLevel; }
+
+        template<typename... ArgsT>
+        void Log(LogLevel level, const Char* fmt, ArgsT&&... args)
+        {
+            if (!IsEnabled(level))
+            {
+                return;
+            }
+            std::string entry = std::vformat(fmt, std::make_format_args(args...));
+            std::string full = std::format("{} {} {}\n", GetCurrentTimeString(), GetLogPrefix(level), entry);
+            Output(full);
+        }
+
+    private:
+        LogLevel _minLevel = LogLevel::Warning;
+
+    private:
+        Logger();
+        ~Logger() = default;
+        D3DSW_NONCOPYABLE_NONMOVABLE(Logger)
+
+        static std::string GetLogPrefix(LogLevel level);
+        static std::string GetCurrentTimeString();
+        void Output(const std::string& msg);
     };
 }
-#define D3DSW_LOG_INIT() d3dsw::LogInitScope __log_init_scope{};
 
-#if defined(DEBUG)
-#define D3DSW_DEBUG(fmt, ...) d3dsw::Log(d3dsw::LogLevel::Debug,   fmt, ##__VA_ARGS__)
-#define D3DSW_INFO(fmt, ...)  d3dsw::Log(d3dsw::LogLevel::Info,    fmt, ##__VA_ARGS__)
-#define D3DSW_WARN(fmt, ...)  d3dsw::Log(d3dsw::LogLevel::Warning, fmt, ##__VA_ARGS__)
-#else
+#if defined(FINAL_D3DSW)
+
 #define D3DSW_DEBUG(fmt, ...) ((void)0)
 #define D3DSW_INFO(fmt, ...)  ((void)0)
 #define D3DSW_WARN(fmt, ...)  ((void)0)
+
+#else
+
+#define D3DSW_DEBUG(fmt, ...) do { if (d3dsw::Logger::Get().IsEnabled(d3dsw::LogLevel::Debug))   { d3dsw::Logger::Get().Log(d3dsw::LogLevel::Debug,   fmt, ##__VA_ARGS__); } } while(0)
+#define D3DSW_INFO(fmt, ...)  do { if (d3dsw::Logger::Get().IsEnabled(d3dsw::LogLevel::Info))    { d3dsw::Logger::Get().Log(d3dsw::LogLevel::Info,    fmt, ##__VA_ARGS__); } } while(0)
+#define D3DSW_WARN(fmt, ...)  do { if (d3dsw::Logger::Get().IsEnabled(d3dsw::LogLevel::Warning)) { d3dsw::Logger::Get().Log(d3dsw::LogLevel::Warning, fmt, ##__VA_ARGS__); } } while(0)
+
 #endif
-#define D3DSW_ERROR(fmt, ...) d3dsw::Log(d3dsw::LogLevel::Error, fmt, ##__VA_ARGS__)
+
+#define D3DSW_ERROR(fmt, ...) do { if (d3dsw::Logger::Get().IsEnabled(d3dsw::LogLevel::Error)) { d3dsw::Logger::Get().Log(d3dsw::LogLevel::Error, fmt, ##__VA_ARGS__); } } while(0)

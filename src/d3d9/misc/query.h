@@ -7,7 +7,6 @@ namespace d3dsw {
 
 class D3D9DeviceSW;
 
-//only EVENT and OCCLUSION for now
 class D3D9QuerySW final : public IDirect3DQuery9, private UnknownBase
 {
 public:
@@ -24,9 +23,10 @@ public:
     HRESULT STDMETHODCALLTYPE GetData(void* pData, DWORD dwSize, DWORD dwGetDataFlags) override;
 
 private:
-    D3D9DeviceSW* _device = nullptr;
+    D3D9DeviceSW* _device    = nullptr;
     D3DQUERYTYPE  _type;
-    Bool          _issued = false;
+    Bool          _issued    = false;
+    Uint64        _timestamp = 0;
 };
 
 }

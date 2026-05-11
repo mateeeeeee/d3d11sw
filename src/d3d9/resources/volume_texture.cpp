@@ -1,6 +1,7 @@
 #include "d3d9/resources/volume_texture.h"
 #include "d3d9/device/device.h"
 #include "core/util/format.h"
+#include "core/common/trace.h"
 #include <algorithm>
 #include <numeric>
 
@@ -94,12 +95,14 @@ HRESULT STDMETHODCALLTYPE D3D9VolumeTextureSW::GetVolumeLevel(UINT Level, IDirec
 HRESULT STDMETHODCALLTYPE D3D9VolumeTextureSW::LockBox(UINT Level, D3DLOCKED_BOX* pLockedVolume,
                                                        const D3DBOX* pBox, DWORD Flags)
 {
+    D3DSW_TRACE_MAP("IDirect3DVolumeTexture9::LockBox", "Level={}", Level);
     if (Level >= _volumes.size()) { return D3DERR_INVALIDCALL; }
     return _volumes[Level]->LockBox(pLockedVolume, pBox, Flags);
 }
 
 HRESULT STDMETHODCALLTYPE D3D9VolumeTextureSW::UnlockBox(UINT Level)
 {
+    D3DSW_TRACE_MAP("IDirect3DVolumeTexture9::UnlockBox", "Level={}", Level);
     if (Level >= _volumes.size()) { return D3DERR_INVALIDCALL; }
     return _volumes[Level]->UnlockBox();
 }

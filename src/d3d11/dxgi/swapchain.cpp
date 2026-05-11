@@ -1,6 +1,7 @@
 #include "d3d11/dxgi/swapchain.h"
 #include "presenter/presenter.h"
 #include "d3d11/resources/texture2d.h"
+#include "core/common/trace.h"
 
 namespace d3dsw {
 
@@ -106,6 +107,7 @@ HRESULT STDMETHODCALLTYPE DXGISwapChainSW::GetDevice(REFIID riid, void** ppDevic
 
 HRESULT STDMETHODCALLTYPE DXGISwapChainSW::Present(UINT SyncInterval, UINT Flags)
 {
+    D3DSW_TRACE_PRESENT("Present", "SyncInterval={}, Flags=0x{:X}", SyncInterval, Flags);
     if (!_presenter || !_backbuffer)
     {
         return S_OK;

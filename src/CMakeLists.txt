@@ -8,6 +8,8 @@ set(D3DSW_CORE_SOURCES
     core/common/log.h
     core/common/macros.h
     core/common/private_data.h
+    core/common/trace.cpp
+    core/common/trace.h
     core/common/types.h
     core/common/unknown_impl.h
 
@@ -272,6 +274,10 @@ foreach(target d3dsw_core d3dsw_d3d11 d3dsw_d3d9)
         D3DSW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
         D3DSW_BC_DECOMP_LIB="$<TARGET_FILE:bc_decomp>"
         $<$<BOOL:${WIN32}>:D3DSW_BUILDING_DLL NOMINMAX>
+        $<$<CONFIG:Debug>:DEBUG_D3DSW>
+        $<$<CONFIG:Release>:RELEASE_D3DSW>
+        $<$<CONFIG:RelWithDebInfo>:RELEASE_D3DSW>
+        $<$<CONFIG:Final>:FINAL_D3DSW>
     )
 endforeach()
 
@@ -357,6 +363,10 @@ target_compile_definitions(dxgi PRIVATE
     D3DSW_THIRD_PARTY_DIR="${CMAKE_SOURCE_DIR}/third_party"
     D3DSW_BC_DECOMP_LIB="$<TARGET_FILE:bc_decomp>"
     $<$<BOOL:${WIN32}>:D3DSW_BUILDING_DLL>
+    $<$<CONFIG:Debug>:DEBUG_D3DSW>
+    $<$<CONFIG:Release>:RELEASE_D3DSW>
+    $<$<CONFIG:RelWithDebInfo>:RELEASE_D3DSW>
+    $<$<CONFIG:Final>:FINAL_D3DSW>
 )
 
 # d3d9.dll

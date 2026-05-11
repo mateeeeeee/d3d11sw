@@ -1,4 +1,5 @@
 #include "d3d9/resources/vertex_buffer.h"
+#include "core/common/trace.h"
 
 namespace d3dsw {
 
@@ -35,6 +36,7 @@ D3DRESOURCETYPE STDMETHODCALLTYPE D3D9VertexBufferSW::GetType() { return D3DRTYP
 
 HRESULT STDMETHODCALLTYPE D3D9VertexBufferSW::Lock(UINT OffsetToLock, UINT SizeToLock, void** ppbData, DWORD /*Flags*/)
 {
+    D3DSW_TRACE_MAP("IDirect3DVertexBuffer9::Lock", "Offset={}, Size={}", OffsetToLock, SizeToLock);
     if (!ppbData)
     {
         return D3DERR_INVALIDCALL;
@@ -59,6 +61,7 @@ HRESULT STDMETHODCALLTYPE D3D9VertexBufferSW::Lock(UINT OffsetToLock, UINT SizeT
 
 HRESULT STDMETHODCALLTYPE D3D9VertexBufferSW::Unlock()
 {
+    D3DSW_TRACE_MAP("IDirect3DVertexBuffer9::Unlock");
     if (!_locked)
     {
         return D3DERR_INVALIDCALL;

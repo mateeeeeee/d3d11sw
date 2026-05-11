@@ -2,6 +2,7 @@
 #include "d3d9/resources/surface.h"
 #include "d3d9/device/device.h"
 #include "core/util/format.h"
+#include "core/common/trace.h"
 #include <algorithm>
 #include <cstdint>
 
@@ -107,6 +108,7 @@ HRESULT STDMETHODCALLTYPE D3D9TextureSW::GetSurfaceLevel(UINT Level, IDirect3DSu
 
 HRESULT STDMETHODCALLTYPE D3D9TextureSW::LockRect(UINT Level, D3DLOCKED_RECT* pLockedRect, const RECT* pRect, DWORD Flags)
 {
+    D3DSW_TRACE_MAP("IDirect3DTexture9::LockRect", "Level={}", Level);
     if (Level >= _surfaces.size())
     {
         return D3DERR_INVALIDCALL;
@@ -116,6 +118,7 @@ HRESULT STDMETHODCALLTYPE D3D9TextureSW::LockRect(UINT Level, D3DLOCKED_RECT* pL
 
 HRESULT STDMETHODCALLTYPE D3D9TextureSW::UnlockRect(UINT Level)
 {
+    D3DSW_TRACE_MAP("IDirect3DTexture9::UnlockRect", "Level={}", Level);
     if (Level >= _surfaces.size())
     {
         return D3DERR_INVALIDCALL;

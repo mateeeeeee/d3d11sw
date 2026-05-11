@@ -2,6 +2,7 @@
 #include "d3d9/resources/surface.h"
 #include "d3d9/device/device.h"
 #include "core/util/format.h"
+#include "core/common/trace.h"
 
 
 namespace d3dsw {
@@ -126,6 +127,7 @@ HRESULT STDMETHODCALLTYPE D3D9SurfaceSW::GetDesc(D3DSURFACE_DESC* pDesc)
 
 HRESULT STDMETHODCALLTYPE D3D9SurfaceSW::LockRect(D3DLOCKED_RECT* pLockedRect, const RECT* pRect, DWORD Flags)
 {
+    D3DSW_TRACE_MAP("IDirect3DSurface9::LockRect", "{}x{}", _width, _height);
     if (!pLockedRect)
     {
         return D3DERR_INVALIDCALL;
@@ -171,6 +173,7 @@ HRESULT STDMETHODCALLTYPE D3D9SurfaceSW::LockRect(D3DLOCKED_RECT* pLockedRect, c
 
 HRESULT STDMETHODCALLTYPE D3D9SurfaceSW::UnlockRect()
 {
+    D3DSW_TRACE_MAP("IDirect3DSurface9::UnlockRect");
     if (!_locked)
     {
         return D3DERR_INVALIDCALL;

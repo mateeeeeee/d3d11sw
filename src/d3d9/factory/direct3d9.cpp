@@ -1,13 +1,14 @@
+#include <cstring>
 #include "d3d9/factory/direct3d9.h"
 #include "d3d9/device/device.h"
 #include "core/common/log.h"
-#include <cstring>
+#include "core/common/trace.h"
 
 namespace d3dsw {
 
 namespace {
 
-struct ModeEntry { UINT width; UINT height; };
+struct ModeEntry { Uint width; Uint height; };
 static constexpr ModeEntry kModes[] = {
     {  640,  480 }, {  800,  600 }, { 1024,  768 },
     { 1280,  720 }, { 1280,  800 }, { 1280,  960 }, { 1280, 1024 },
@@ -16,10 +17,10 @@ static constexpr ModeEntry kModes[] = {
     { 1920, 1080 }, { 1920, 1200 },
     { 2560, 1440 }, { 3840, 2160 },
 };
-static constexpr UINT kNumModes    = sizeof(kModes) / sizeof(kModes[0]);
-static constexpr UINT kRefreshRate = 60;
+static constexpr Uint kNumModes    = D3DSW_ARRAYSIZE(kModes);
+static constexpr Uint kRefreshRate = 60;
 
-bool IsFormatSupported(D3DFORMAT fmt)
+Bool IsFormatSupported(D3DFORMAT fmt)
 {
     return fmt == D3DFMT_X8R8G8B8 || fmt == D3DFMT_A8R8G8B8 || fmt == D3DFMT_R5G6B5;
 }
@@ -52,7 +53,10 @@ HRESULT STDMETHODCALLTYPE D3D9SW::RegisterSoftwareDevice(void*) { return D3DERR_
 UINT    STDMETHODCALLTYPE D3D9SW::GetAdapterCount() { return 1; }
 HRESULT STDMETHODCALLTYPE D3D9SW::GetAdapterIdentifier(UINT Adapter, DWORD /*Flags*/, D3DADAPTER_IDENTIFIER9* pIdentifier)
 {
-    if (Adapter != 0 || !pIdentifier) { return D3DERR_INVALIDCALL; }
+    if (Adapter != 0 || !pIdentifier) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
     std::memset(pIdentifier, 0, sizeof(*pIdentifier));
     std::strncpy(pIdentifier->Driver,      "d3d9sw.dll",                    MAX_DEVICE_IDENTIFIER_STRING - 1);
     std::strncpy(pIdentifier->Description, "D3D9SW Software Rasterizer",    MAX_DEVICE_IDENTIFIER_STRING - 1);
@@ -62,14 +66,23 @@ HRESULT STDMETHODCALLTYPE D3D9SW::GetAdapterIdentifier(UINT Adapter, DWORD /*Fla
 }
 UINT    STDMETHODCALLTYPE D3D9SW::GetAdapterModeCount(UINT Adapter, D3DFORMAT Format)
 {
-    if (Adapter != 0 || !IsFormatSupported(Format)) { return 0; }
+    if (Adapter != 0 || !IsFormatSupported(Format)) 
+    { 
+        return 0; 
+    }
     return kNumModes;
 }
 HRESULT STDMETHODCALLTYPE D3D9SW::EnumAdapterModes(UINT Adapter, D3DFORMAT Format,
                                                     UINT Mode, D3DDISPLAYMODE* pMode)
 {
-    if (Adapter != 0 || !pMode)                    { return D3DERR_INVALIDCALL; }
-    if (!IsFormatSupported(Format) || Mode >= kNumModes) { return D3DERR_INVALIDCALL; }
+    if (Adapter != 0 || !pMode)                    
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
+    if (!IsFormatSupported(Format) || Mode >= kNumModes) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
     pMode->Width       = kModes[Mode].width;
     pMode->Height      = kModes[Mode].height;
     pMode->RefreshRate = kRefreshRate;
@@ -78,7 +91,10 @@ HRESULT STDMETHODCALLTYPE D3D9SW::EnumAdapterModes(UINT Adapter, D3DFORMAT Forma
 }
 HRESULT STDMETHODCALLTYPE D3D9SW::GetAdapterDisplayMode(UINT Adapter, D3DDISPLAYMODE* pMode)
 {
-    if (Adapter != 0 || !pMode) { return D3DERR_INVALIDCALL; }
+    if (Adapter != 0 || !pMode) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
     pMode->Width       = 1920;
     pMode->Height      = 1080;
     pMode->RefreshRate = 60;
@@ -103,7 +119,10 @@ HRESULT STDMETHODCALLTYPE D3D9SW::CheckDepthStencilMatch(UINT, D3DDEVTYPE, D3DFO
 HRESULT STDMETHODCALLTYPE D3D9SW::CheckDeviceFormatConversion(UINT, D3DDEVTYPE, D3DFORMAT, D3DFORMAT) { return S_OK; }
 HRESULT STDMETHODCALLTYPE D3D9SW::GetDeviceCaps(UINT Adapter, D3DDEVTYPE, D3DCAPS9* pCaps)
 {
-    if (Adapter != 0 || !pCaps) { return D3DERR_INVALIDCALL; }
+    if (Adapter != 0 || !pCaps) 
+    { 
+        return D3DERR_INVALIDCALL;
+    }
     std::memset(pCaps, 0, sizeof(*pCaps));
     pCaps->DeviceType            = D3DDEVTYPE_HAL;
     pCaps->AdapterOrdinal        = 0;
@@ -139,15 +158,20 @@ HRESULT STDMETHODCALLTYPE D3D9SW::GetDeviceCaps(UINT Adapter, D3DDEVTYPE, D3DCAP
     pCaps->PixelShader1xMaxValue = 8.f;
     return S_OK;
 }
-HMONITOR STDMETHODCALLTYPE D3D9SW::GetAdapterMonitor(UINT) 
-{ 
+HMONITOR STDMETHODCALLTYPE D3D9SW::GetAdapterMonitor(UINT)
+{
+#ifdef D3DSW_PLATFORM_WINDOWS
     return MonitorFromPoint({ 0,0 }, MONITOR_DEFAULTTOPRIMARY);
+#else
+    return nullptr;
+#endif
 }
 HRESULT STDMETHODCALLTYPE D3D9SW::CreateDevice(UINT, D3DDEVTYPE,
                                                HWND hFocusWindow, DWORD,
                                                D3DPRESENT_PARAMETERS* pPresentationParameters,
                                                IDirect3DDevice9** ppReturnedDeviceInterface)
 {
+    D3DSW_TRACE_CREATE("IDirect3D9::CreateDevice");
     if (!ppReturnedDeviceInterface || !pPresentationParameters)
     {
         return D3DERR_INVALIDCALL;
@@ -165,10 +189,6 @@ HRESULT STDMETHODCALLTYPE D3D9SW::CreateDevice(UINT, D3DDEVTYPE,
     return S_OK;
 }
 
-// ---------------------------------------------------------------------------
-// IDirect3D9Ex — all new methods delegate to base or stub
-// ---------------------------------------------------------------------------
-
 UINT STDMETHODCALLTYPE D3D9SW::GetAdapterModeCountEx(UINT Adapter, const D3DDISPLAYMODEFILTER* pFilter)
 {
     D3DFORMAT fmt = pFilter ? pFilter->Format : D3DFMT_X8R8G8B8;
@@ -177,11 +197,17 @@ UINT STDMETHODCALLTYPE D3D9SW::GetAdapterModeCountEx(UINT Adapter, const D3DDISP
 
 HRESULT STDMETHODCALLTYPE D3D9SW::EnumAdapterModesEx(UINT Adapter, const D3DDISPLAYMODEFILTER* pFilter, UINT Mode, D3DDISPLAYMODEEX* pMode)
 {
-    if (!pMode) { return D3DERR_INVALIDCALL; }
+    if (!pMode) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
     D3DFORMAT fmt = pFilter ? pFilter->Format : D3DFMT_X8R8G8B8;
     D3DDISPLAYMODE base{};
     HRESULT hr = EnumAdapterModes(Adapter, fmt, Mode, &base);
-    if (FAILED(hr)) { return hr; }
+    if (FAILED(hr)) 
+    { 
+        return hr; 
+    }
     pMode->Size             = sizeof(D3DDISPLAYMODEEX);
     pMode->Width            = base.Width;
     pMode->Height           = base.Height;
@@ -223,6 +249,7 @@ HRESULT STDMETHODCALLTYPE D3D9SW::CreateDeviceEx(UINT, D3DDEVTYPE, HWND hFocusWi
                                                   D3DDISPLAYMODEEX*,
                                                   IDirect3DDevice9Ex** ppReturnedDeviceInterface)
 {
+    D3DSW_TRACE_CREATE("IDirect3D9Ex::CreateDeviceEx");
     if (!ppReturnedDeviceInterface || !pPresentationParameters) 
     { 
         return D3DERR_INVALIDCALL; 
@@ -235,7 +262,10 @@ HRESULT STDMETHODCALLTYPE D3D9SW::CreateDeviceEx(UINT, D3DDEVTYPE, HWND hFocusWi
 
 HRESULT STDMETHODCALLTYPE D3D9SW::GetAdapterLUID(UINT Adapter, LUID* pLUID)
 {
-    if (!pLUID || Adapter != D3DADAPTER_DEFAULT) { return D3DERR_INVALIDCALL; }
+    if (!pLUID || Adapter != D3DADAPTER_DEFAULT) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
     pLUID->LowPart  = 0xD3D9'5700u;
     pLUID->HighPart = 0;
     return S_OK;

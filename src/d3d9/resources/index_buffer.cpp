@@ -1,4 +1,5 @@
 #include "d3d9/resources/index_buffer.h"
+#include "core/common/trace.h"
 
 namespace d3dsw {
 
@@ -35,6 +36,7 @@ D3DRESOURCETYPE STDMETHODCALLTYPE D3D9IndexBufferSW::GetType() { return D3DRTYPE
 
 HRESULT STDMETHODCALLTYPE D3D9IndexBufferSW::Lock(UINT OffsetToLock, UINT SizeToLock, void** ppbData, DWORD /*Flags*/)
 {
+    D3DSW_TRACE_MAP("IDirect3DIndexBuffer9::Lock", "Offset={}, Size={}", OffsetToLock, SizeToLock);
     if (!ppbData)
     {
         return D3DERR_INVALIDCALL;
@@ -58,6 +60,7 @@ HRESULT STDMETHODCALLTYPE D3D9IndexBufferSW::Lock(UINT OffsetToLock, UINT SizeTo
 
 HRESULT STDMETHODCALLTYPE D3D9IndexBufferSW::Unlock()
 {
+    D3DSW_TRACE_MAP("IDirect3DIndexBuffer9::Unlock");
     if (!_locked)
     {
         return D3DERR_INVALIDCALL;

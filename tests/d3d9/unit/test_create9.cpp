@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <d3d9.h>
+#include <thread>
 
 TEST(D3D9Create, Direct3DCreate9ReturnsNonNull)
 {
@@ -132,5 +133,59 @@ TEST(D3D9Create, EnumAdapterModes_AllModesWellFormed)
         EXPECT_EQ(m.Format, D3DFMT_X8R8G8B8) << "Mode " << i << " format must match query";
     }
 
+    d3d9->Release();
+}
+
+TEST(D3D9Create, TimestampQuery_ReturnsMonotonicValues)
+{
+    IDirect3D9* d3d9 = Direct3DCreate9(D3D_SDK_VERSION);
+    ASSERT_NE(d3d9, nullptr);
+
+    D3DPRESENT_PARAMETERS pp = {};
+    pp.BackBufferWidth  = 64;
+    pp.BackBufferHeight = 64;
+    pp.BackBufferFormat = D3DFMT_A8R8G8B8;
+    pp.SwapEffect       = D3DSWAPEFFECT_DISCARD;
+    pp.Windowed         = TRUE;
+
+    IDirect3DDevice9* device = nullptr;
+    ASSERT_EQ(d3d9->CreateDevice(0, D3DDEVTYPE_HAL, nullptr, 0, &pp, &device), S_OK);
+    ASSERT_NE(device, nullptr);
+
+    IDirect3DQuery9* tsFreq = nullptr;
+    ASSERT_EQ(device->CreateQuery(D3DQUERYTYPE_TIMESTAMPFREQ, &tsFreq), S_OK);
+    tsFreq->Issue(D3DISSUE_END);
+    UINT64 freq = 0;
+    ASSERT_EQ(tsFreq->GetData(&freq, sizeof(freq), 0), S_OK);
+    EXPECT_EQ(freq, 1'000'000'000u);
+    tsFreq->Release();
+
+    IDirect3DQuery9* tsDisjoint = nullptr;
+    ASSERT_EQ(device->CreateQuery(D3DQUERYTYPE_TIMESTAMPDISJOINT, &tsDisjoint), S_OK);
+    tsDisjoint->Issue(D3DISSUE_END);
+    BOOL disjoint = TRUE;
+    ASSERT_EQ(tsDisjoint->GetData(&disjoint, sizeof(disjoint), 0), S_OK);
+    EXPECT_EQ(disjoint, FALSE);
+    tsDisjoint->Release();
+
+    IDirect3DQuery9* ts1 = nullptr;
+    IDirect3DQuery9* ts2 = nullptr;
+    ASSERT_EQ(device->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &ts1), S_OK);
+    ASSERT_EQ(device->CreateQuery(D3DQUERYTYPE_TIMESTAMP, &ts2), S_OK);
+
+    ts1->Issue(D3DISSUE_END);
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    ts2->Issue(D3DISSUE_END);
+
+    UINT64 t1 = 0, t2 = 0;
+    ASSERT_EQ(ts1->GetData(&t1, sizeof(t1), 0), S_OK);
+    ASSERT_EQ(ts2->GetData(&t2, sizeof(t2), 0), S_OK);
+
+    EXPECT_GT(t1, 0u);
+    EXPECT_GT(t2, t1);
+
+    ts1->Release();
+    ts2->Release();
+    device->Release();
     d3d9->Release();
 }

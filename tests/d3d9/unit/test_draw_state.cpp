@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <d3d9.h>
 #include <cstring>
-
 #include "d3d9/device/device.h"
 #include "d3d9/context/draw_state.h"
 #include "d3d9/context/pipeline_state_builder.h"

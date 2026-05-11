@@ -1,5 +1,6 @@
 #include "d3d9/resources/volume.h"
 #include "d3d9/device/device.h"
+#include "core/common/trace.h"
 
 namespace d3dsw {
 
@@ -110,6 +111,7 @@ HRESULT STDMETHODCALLTYPE D3D9VolumeSW::GetDesc(D3DVOLUME_DESC* pDesc)
 
 HRESULT STDMETHODCALLTYPE D3D9VolumeSW::LockBox(D3DLOCKED_BOX* pLockedVolume, const D3DBOX* pBox, DWORD /*Flags*/)
 {
+    D3DSW_TRACE_MAP("IDirect3DVolume9::LockBox", "{}x{}x{}", _width, _height, _depth);
     if (!pLockedVolume) 
     { 
         return D3DERR_INVALIDCALL; 
@@ -136,6 +138,7 @@ HRESULT STDMETHODCALLTYPE D3D9VolumeSW::LockBox(D3DLOCKED_BOX* pLockedVolume, co
 
 HRESULT STDMETHODCALLTYPE D3D9VolumeSW::UnlockBox()
 {
+    D3DSW_TRACE_MAP("IDirect3DVolume9::UnlockBox");
     if (!_locked) 
     { 
         return D3DERR_INVALIDCALL; 

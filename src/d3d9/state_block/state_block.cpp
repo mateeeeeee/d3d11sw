@@ -6,6 +6,7 @@
 #include "d3d9/shaders/pixel_shader.h"
 #include "d3d9/shaders/vertex_declaration.h"
 #include "d3d9/shaders/vertex_shader.h"
+#include "core/common/trace.h"
 #include <cstring>
 
 namespace d3dsw {
@@ -108,6 +109,7 @@ HRESULT STDMETHODCALLTYPE D3D9StateBlockSW::GetDevice(IDirect3DDevice9** ppDevic
 
 HRESULT STDMETHODCALLTYPE D3D9StateBlockSW::Capture()
 {
+    D3DSW_TRACE_STATE("IDirect3DStateBlock9::Capture");
     if (!_device) { return D3DERR_INVALIDCALL; }
     this->Capture(_device);
     return S_OK;
@@ -115,6 +117,7 @@ HRESULT STDMETHODCALLTYPE D3D9StateBlockSW::Capture()
 
 HRESULT STDMETHODCALLTYPE D3D9StateBlockSW::Apply()
 {
+    D3DSW_TRACE_STATE("IDirect3DStateBlock9::Apply");
     if (!_device || !_valid) { return D3DERR_INVALIDCALL; }
 
     // Restore render states

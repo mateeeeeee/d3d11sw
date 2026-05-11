@@ -55,4 +55,9 @@ inline Float GetEnvFloat(const char* name, Float defaultValue = 0.f)
     return val;
 }
 
+inline const Char* GetEnvString(const Char* name)
+{
+    return std::getenv(name);
+}
+
 }

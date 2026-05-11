@@ -3,6 +3,7 @@
 #include "d3d9/resources/cube_texture.h"
 #include "d3d9/device/device.h"
 #include "core/util/format.h"
+#include "core/common/trace.h"
 
 namespace d3dsw {
 
@@ -132,6 +133,7 @@ HRESULT STDMETHODCALLTYPE D3D9CubeTextureSW::LockRect(D3DCUBEMAP_FACES FaceType,
                                                        D3DLOCKED_RECT* pLockedRect, const RECT* pRect,
                                                        DWORD Flags)
 {
+    D3DSW_TRACE_MAP("IDirect3DCubeTexture9::LockRect", "Face={}, Level={}", static_cast<Uint32>(FaceType), Level);
     D3D9SurfaceSW* s = GetSurface(static_cast<UINT>(FaceType), Level);
     if (!s) 
     { 
@@ -142,6 +144,7 @@ HRESULT STDMETHODCALLTYPE D3D9CubeTextureSW::LockRect(D3DCUBEMAP_FACES FaceType,
 
 HRESULT STDMETHODCALLTYPE D3D9CubeTextureSW::UnlockRect(D3DCUBEMAP_FACES FaceType, UINT Level)
 {
+    D3DSW_TRACE_MAP("IDirect3DCubeTexture9::UnlockRect", "Face={}, Level={}", static_cast<Uint32>(FaceType), Level);
     D3D9SurfaceSW* s = GetSurface(static_cast<UINT>(FaceType), Level);
     if (!s) 
     { 

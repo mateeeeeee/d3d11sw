@@ -18,6 +18,7 @@
 #include "d3d9/context/pipeline_state_builder.h"
 #include "d3d9/state_block/state_block.h"
 #include "d3d9/misc/query.h"
+#include "core/common/trace.h"
 #include "core/rasterizer/depth_stencil_util.h"
 #include "core/format/pack_util.h"
 #include "core/pipeline/sw_pipeline_state.h"
@@ -299,6 +300,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Reset(D3DPRESENT_PARAMETERS* pPresentati
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Present(const RECT* src, const RECT* dst, HWND wnd, const RGNDATA* dirty)
 {
+    D3DSW_TRACE_PRESENT("Present");
     if (!_implicitSwapChain)
     {
         return D3DERR_INVALIDCALL;
@@ -328,6 +330,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateTexture(UINT Width, UINT Height, U
                                                       D3DFORMAT Format, D3DPOOL Pool,
                                                       IDirect3DTexture9** ppTexture, HANDLE* /*pSharedHandle*/)
 {
+    D3DSW_TRACE_CREATE("CreateTexture", "{}x{}, Levels={}, Usage=0x{:X}, Format={}", Width, Height, Levels, Usage, static_cast<Uint32>(Format));
     if (!ppTexture || Width == 0 || Height == 0)
     {
         if (ppTexture) { *ppTexture = nullptr; }
@@ -347,6 +350,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVolumeTexture(UINT Width, UINT Hei
                                                             D3DPOOL Pool, IDirect3DVolumeTexture9** ppVolumeTexture,
                                                             HANDLE* /*pSharedHandle*/)
 {
+    D3DSW_TRACE_CREATE("CreateVolumeTexture", "{}x{}x{}, Levels={}, Format={}", Width, Height, Depth, Levels, static_cast<Uint32>(Format));
     if (!ppVolumeTexture || Width == 0 || Height == 0 || Depth == 0) { return D3DERR_INVALIDCALL; }
     DXGI_FORMAT dxgi = D3DFormatToDXGI(Format);
     if (dxgi == DXGI_FORMAT_UNKNOWN) { return D3DERR_INVALIDCALL; }
@@ -358,6 +362,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateCubeTexture(UINT EdgeLength, UINT 
                                                             IDirect3DCubeTexture9** ppCubeTexture,
                                                             HANDLE* pSharedHandle)
 {
+    D3DSW_TRACE_CREATE("CreateCubeTexture", "EdgeLength={}, Levels={}, Format={}", EdgeLength, Levels, static_cast<Uint32>(Format));
     if (!ppCubeTexture || EdgeLength == 0) { return D3DERR_INVALIDCALL; }
     DXGI_FORMAT dxgi = D3DFormatToDXGI(Format);
     if (dxgi == DXGI_FORMAT_UNKNOWN) { return D3DERR_INVALIDCALL; }
@@ -367,6 +372,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateCubeTexture(UINT EdgeLength, UINT 
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVertexBuffer(UINT Length, DWORD Usage, DWORD FVF, D3DPOOL Pool,
                                                            IDirect3DVertexBuffer9** ppVertexBuffer, HANDLE* /*pSharedHandle*/)
 {
+    D3DSW_TRACE_CREATE("CreateVertexBuffer", "Length={}, Usage=0x{:X}, FVF=0x{:X}", Length, Usage, FVF);
     if (!ppVertexBuffer || Length == 0)
     {
         if (ppVertexBuffer) { *ppVertexBuffer = nullptr; }
@@ -378,6 +384,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVertexBuffer(UINT Length, DWORD Us
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateIndexBuffer(UINT Length, DWORD Usage, D3DFORMAT Format, D3DPOOL Pool,
                                                           IDirect3DIndexBuffer9** ppIndexBuffer, HANDLE* /*pSharedHandle*/)
 {
+    D3DSW_TRACE_CREATE("CreateIndexBuffer", "Length={}, Usage=0x{:X}, Format={}", Length, Usage, static_cast<Uint32>(Format));
     if (!ppIndexBuffer || Length == 0)
     {
         if (ppIndexBuffer) { *ppIndexBuffer = nullptr; }
@@ -390,6 +397,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateRenderTarget(UINT Width, UINT Heig
                                                            D3DMULTISAMPLE_TYPE /*MultiSample*/, DWORD /*MultisampleQuality*/,
                                                            BOOL /*Lockable*/, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/)
 {
+    D3DSW_TRACE_CREATE("CreateRenderTarget", "{}x{}, Format={}", Width, Height, static_cast<Uint32>(Format));
     if (!ppSurface || Width == 0 || Height == 0)
     {
         if (ppSurface) { *ppSurface = nullptr; }
@@ -408,6 +416,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateDepthStencilSurface(UINT Width, UI
                                                                   D3DMULTISAMPLE_TYPE /*MultiSample*/, DWORD /*MultisampleQuality*/,
                                                                   BOOL /*Discard*/, IDirect3DSurface9** ppSurface, HANDLE* /*pSharedHandle*/)
 {
+    D3DSW_TRACE_CREATE("CreateDepthStencilSurface", "{}x{}, Format={}", Width, Height, static_cast<Uint32>(Format));
     if (!ppSurface || Width == 0 || Height == 0)
     {
         if (ppSurface) { *ppSurface = nullptr; }
@@ -486,6 +495,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateOffscreenPlainSurface(UINT Width, 
                                                                     D3DPOOL /*Pool*/, IDirect3DSurface9** ppSurface,
                                                                     HANDLE* /*pSharedHandle*/)
 {
+    D3DSW_TRACE_CREATE("CreateOffscreenPlainSurface", "{}x{}, Format={}", Width, Height, static_cast<Uint32>(Format));
     if (!ppSurface || Width == 0 || Height == 0)
     {
         if (ppSurface) { *ppSurface = nullptr; }
@@ -502,6 +512,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateOffscreenPlainSurface(UINT Width, 
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetRenderTarget(DWORD RenderTargetIndex, IDirect3DSurface9* pRenderTarget)
 {
+    D3DSW_TRACE_STATE("SetRenderTarget", "Index={}, pSurface={}", RenderTargetIndex, static_cast<void*>(pRenderTarget));
     if (RenderTargetIndex >= SW_D3D9_MAX_RTS)
     {
         return D3DERR_INVALIDCALL;
@@ -539,6 +550,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetRenderTarget(DWORD RenderTargetIndex,
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetDepthStencilSurface(IDirect3DSurface9* pNewZStencil)
 {
+    D3DSW_TRACE_STATE("SetDepthStencilSurface", "pSurface={}", static_cast<void*>(pNewZStencil));
     D3D9SurfaceSW* surf = static_cast<D3D9SurfaceSW*>(pNewZStencil);
     if (surf)
     {
@@ -569,6 +581,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::BeginScene() { _inScene = true; return S
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::EndScene() { _inScene = false; return S_OK; }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Clear(DWORD /*rect_count*/, const D3DRECT* /*rects*/, DWORD flags, D3DCOLOR color, float z, DWORD stencil)
 {
+    D3DSW_TRACE_DRAW("Clear", "flags=0x{:X}, color=0x{:08X}, z={}, stencil={}", flags, color, z, stencil);
     // D3DCOLOR is 0xAARRGGBB
     if ((flags & D3DCLEAR_TARGET) && _renderTargets[0])
     {
@@ -625,6 +638,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Clear(DWORD /*rect_count*/, const D3DREC
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetTransform(D3DTRANSFORMSTATETYPE state, const D3DMATRIX* matrix)
 {
+    D3DSW_TRACE_STATE("SetTransform", "state={}", static_cast<Uint32>(state));
     if (!matrix || static_cast<UINT>(state) >= 512) { return D3DERR_INVALIDCALL; }
     _transforms[state] = *matrix;
     return S_OK;
@@ -656,6 +670,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::MultiplyTransform(D3DTRANSFORMSTATETYPE 
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetViewport(const D3DVIEWPORT9* viewport)
 {
+    D3DSW_TRACE_STATE("SetViewport", "X={}, Y={}, W={}, H={}", viewport ? viewport->X : 0, viewport ? viewport->Y : 0, viewport ? viewport->Width : 0, viewport ? viewport->Height : 0);
     if (!viewport)
     {
         return D3DERR_INVALIDCALL;
@@ -674,6 +689,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetViewport(D3DVIEWPORT9* pViewport)
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetMaterial(const D3DMATERIAL9* material)
 {
+    D3DSW_TRACE_STATE("SetMaterial");
     if (!material) { return D3DERR_INVALIDCALL; }
     _material = *material;
     return S_OK;
@@ -686,6 +702,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetMaterial(D3DMATERIAL9* pMaterial)
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetLight(DWORD index, const D3DLIGHT9* light)
 {
+    D3DSW_TRACE_STATE("SetLight", "index={}", index);
     if (!light || index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
     _lights[index] = *light;
     return S_OK;
@@ -698,6 +715,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetLight(DWORD Index, D3DLIGHT9* pLight)
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::LightEnable(DWORD Index, BOOL Enable)
 {
+    D3DSW_TRACE_STATE("LightEnable", "Index={}, Enable={}", Index, Enable);
     if (Index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
     _lightEnabled[Index] = Enable;
     return S_OK;
@@ -722,6 +740,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetClipPlane(DWORD Index, float* pPlane)
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetRenderState(D3DRENDERSTATETYPE State, DWORD Value)
 {
+    D3DSW_TRACE_STATE("SetRenderState", "State={}, Value={}", static_cast<Uint32>(State), Value);
     if (static_cast<UINT>(State) >= std::size(_rs)) { return D3DERR_INVALIDCALL; }
     _rs[State] = Value;
     return S_OK;
@@ -775,6 +794,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetTexture(DWORD Stage, IDirect3DBaseTex
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetTexture(DWORD Stage, IDirect3DBaseTexture9* pTexture)
 {
+    D3DSW_TRACE_STATE("SetTexture", "Stage={}, pTexture={}", Stage, static_cast<void*>(pTexture));
     if (Stage >= SW_D3D9_MAX_TEXTURE_STAGES) { return D3DERR_INVALIDCALL; }
     if (pTexture) { pTexture->AddRef(); }
     if (_textures[Stage]) { _textures[Stage]->Release(); }
@@ -793,6 +813,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetTextureStageState(DWORD Stage, D3DTEX
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetTextureStageState(DWORD Stage, D3DTEXTURESTAGESTATETYPE Type, DWORD Value)
 {
+    D3DSW_TRACE_STATE("SetTextureStageState", "Stage={}, Type={}, Value={}", Stage, static_cast<Uint32>(Type), Value);
     if (Stage >= SW_D3D9_MAX_TEXTURE_STAGES ||
         Type < 1 || Type > D3DTSS_CONSTANT) 
     { 
@@ -813,6 +834,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetSamplerState(DWORD Sampler, D3DSAMPLE
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetSamplerState(DWORD Sampler, D3DSAMPLERSTATETYPE Type, DWORD Value)
 {
+    D3DSW_TRACE_STATE("SetSamplerState", "Sampler={}, Type={}, Value={}", Sampler, static_cast<Uint32>(Type), Value);
     if (Sampler >= SW_D3D9_MAX_TEXTURE_STAGES ||
         Type < 1 || Type > D3DSAMP_DMAPOFFSET) 
     { 
@@ -832,6 +854,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetCurrentTexturePalette(UINT) { return 
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetCurrentTexturePalette(UINT*) { return D3DERR_NOTAVAILABLE; }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetScissorRect(const RECT* rect)
 {
+    D3DSW_TRACE_STATE("SetScissorRect", "L={}, T={}, R={}, B={}", rect ? rect->left : 0, rect ? rect->top : 0, rect ? rect->right : 0, rect ? rect->bottom : 0);
     if (!rect)
     {
         return D3DERR_INVALIDCALL;
@@ -872,6 +895,7 @@ Uint VerticesForPrimitives(D3DPRIMITIVETYPE pt, Uint primCount)
 
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawPrimitive(D3DPRIMITIVETYPE PrimitiveType, UINT StartVertex, UINT PrimitiveCount)
 {
+    D3DSW_TRACE_DRAW("DrawPrimitive", "PrimitiveType={}, StartVertex={}, PrimitiveCount={}", static_cast<Uint32>(PrimitiveType), StartVertex, PrimitiveCount);
     Uint vertexCount = VerticesForPrimitives(PrimitiveType, PrimitiveCount);
     if (vertexCount == 0)
     {
@@ -899,6 +923,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawPrimitive(D3DPRIMITIVETYPE Primitive
 
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawIndexedPrimitive(D3DPRIMITIVETYPE PrimitiveType, INT BaseVertexIndex, UINT /*MinVertexIndex*/, UINT /*NumVertices*/, UINT startIndex, UINT primCount)
 {
+    D3DSW_TRACE_DRAW("DrawIndexedPrimitive", "PrimitiveType={}, BaseVertexIndex={}, startIndex={}, primCount={}", static_cast<Uint32>(PrimitiveType), BaseVertexIndex, startIndex, primCount);
     Uint indexCount = VerticesForPrimitives(PrimitiveType, primCount);
     if (indexCount == 0)
     {
@@ -933,6 +958,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawIndexedPrimitive(D3DPRIMITIVETYPE Pr
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawPrimitiveUP(D3DPRIMITIVETYPE primitive_type, UINT primitive_count,
                                                         const void* data, UINT stride)
 {
+    D3DSW_TRACE_DRAW("DrawPrimitiveUP", "PrimitiveType={}, PrimitiveCount={}, stride={}", static_cast<Uint32>(primitive_type), primitive_count, stride);
     if (!data || primitive_count == 0 || stride == 0) { return D3DERR_INVALIDCALL; }
     Uint vertexCount = VerticesForPrimitives(primitive_type, primitive_count);
     if (vertexCount == 0) { return D3DERR_INVALIDCALL; }
@@ -967,6 +993,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::DrawIndexedPrimitiveUP(D3DPRIMITIVETYPE 
                                                                 const void* index_data, D3DFORMAT index_format,
                                                                 const void* data, UINT stride)
 {
+    D3DSW_TRACE_DRAW("DrawIndexedPrimitiveUP", "PrimitiveType={}, PrimitiveCount={}, stride={}", static_cast<Uint32>(primitive_type), primitive_count, stride);
     if (!data || !index_data || primitive_count == 0 || stride == 0) 
     { 
         return D3DERR_INVALIDCALL;
@@ -1031,6 +1058,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVertexDeclaration(const D3DVERTEXE
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexDeclaration(IDirect3DVertexDeclaration9* pDecl)
 {
+    D3DSW_TRACE_STATE("SetVertexDeclaration", "pDecl={}", static_cast<void*>(pDecl));
     D3D9VertexDeclarationSW* decl = static_cast<D3D9VertexDeclarationSW*>(pDecl);
     if (decl) 
     { 
@@ -1057,7 +1085,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexDeclaration(IDirect3DVertexDecl
     }
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetFVF(DWORD FVF) { _fvf = FVF; return S_OK; }
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetFVF(DWORD FVF) { D3DSW_TRACE_STATE("SetFVF", "FVF=0x{:X}", FVF); _fvf = FVF; return S_OK; }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetFVF(DWORD* pFVF)
 {
     if (!pFVF)
@@ -1069,6 +1097,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetFVF(DWORD* pFVF)
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVertexShader(const DWORD* byte_code, IDirect3DVertexShader9** shader)
 {
+    D3DSW_TRACE_CREATE("CreateVertexShader");
     if (!byte_code || !shader)
     {
         if (shader) 
@@ -1097,6 +1126,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateVertexShader(const DWORD* byte_cod
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShader(IDirect3DVertexShader9* pShader)
 {
+    D3DSW_TRACE_SHADER("SetVertexShader", "pShader={}", static_cast<void*>(pShader));
     D3D9VertexShaderSW* vs = static_cast<D3D9VertexShaderSW*>(pShader);
     if (vs) { vs->AddRef(); }
     if (_vs) { _vs->Release(); }
@@ -1115,6 +1145,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShader(IDirect3DVertexShader9**
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantF(UINT reg_idx, const float* data, UINT count)
 {
+    D3DSW_TRACE_STATE("SetVertexShaderConstantF", "reg={}, count={}", reg_idx, count);
     if (!data || reg_idx + count > 256)
     {
         return D3DERR_INVALIDCALL;
@@ -1133,6 +1164,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantF(UINT StartRegis
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantI(UINT reg_idx, const int* data, UINT count)
 {
+    D3DSW_TRACE_STATE("SetVertexShaderConstantI", "reg={}, count={}", reg_idx, count);
     if (!data || reg_idx + count > D3DSW_ARRAYSIZE(_vsConstI))
     {
         return D3DERR_INVALIDCALL;
@@ -1151,6 +1183,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantI(UINT StartRegis
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantB(UINT reg_idx, const BOOL* data, UINT count)
 {
+    D3DSW_TRACE_STATE("SetVertexShaderConstantB", "reg={}, count={}", reg_idx, count);
     if (!data || reg_idx + count > D3DSW_ARRAYSIZE(_vsConstB))
     {
         return D3DERR_INVALIDCALL;
@@ -1175,6 +1208,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShaderConstantB(UINT StartRegis
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetStreamSource(UINT StreamNumber, IDirect3DVertexBuffer9* pStreamData, UINT OffsetInBytes, UINT Stride)
 {
+    D3DSW_TRACE_STATE("SetStreamSource", "Stream={}, pVB={}, Offset={}, Stride={}", StreamNumber, static_cast<void*>(pStreamData), OffsetInBytes, Stride);
     if (StreamNumber >= SW_D3D9_MAX_STREAMS)
     {
         return D3DERR_INVALIDCALL;
@@ -1217,6 +1251,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetStreamSourceFreq(UINT StreamNumber, U
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetIndices(IDirect3DIndexBuffer9* pIndexData)
 {
+    D3DSW_TRACE_STATE("SetIndices", "pIndexData={}", static_cast<void*>(pIndexData));
     D3D9IndexBufferSW* ib = static_cast<D3D9IndexBufferSW*>(pIndexData);
     if (ib) { ib->AddRef(); }
     if (_indices) { _indices->Release(); }
@@ -1235,6 +1270,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetIndices(IDirect3DIndexBuffer9** ppInd
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreatePixelShader(const DWORD* byte_code, IDirect3DPixelShader9** shader)
 {
+    D3DSW_TRACE_CREATE("CreatePixelShader");
     if (!byte_code || !shader)
     {
         if (shader) { *shader = nullptr; }
@@ -1258,6 +1294,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreatePixelShader(const DWORD* byte_code
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShader(IDirect3DPixelShader9* pShader)
 {
+    D3DSW_TRACE_SHADER("SetPixelShader", "pShader={}", static_cast<void*>(pShader));
     D3D9PixelShaderSW* ps = static_cast<D3D9PixelShaderSW*>(pShader);
     if (ps) { ps->AddRef(); }
     if (_ps) { _ps->Release(); }
@@ -1276,6 +1313,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetPixelShader(IDirect3DPixelShader9** p
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantF(UINT reg_idx, const float* data, UINT count)
 {
+    D3DSW_TRACE_STATE("SetPixelShaderConstantF", "reg={}, count={}", reg_idx, count);
     if (!data || reg_idx + count > 224)
     {
         return D3DERR_INVALIDCALL;
@@ -1294,6 +1332,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetPixelShaderConstantF(UINT StartRegist
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantI(UINT reg_idx, const int* data, UINT count)
 {
+    D3DSW_TRACE_STATE("SetPixelShaderConstantI", "reg={}, count={}", reg_idx, count);
     if (!data || reg_idx + count > 16)
     {
         return D3DERR_INVALIDCALL;
@@ -1312,6 +1351,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetPixelShaderConstantI(UINT StartRegist
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantB(UINT reg_idx, const BOOL* data, UINT count)
 {
+    D3DSW_TRACE_STATE("SetPixelShaderConstantB", "reg={}, count={}", reg_idx, count);
     if (!data || reg_idx + count > 16)
     {
         return D3DERR_INVALIDCALL;
@@ -1345,6 +1385,8 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateQuery(D3DQUERYTYPE Type, IDirect3D
     case D3DQUERYTYPE_EVENT:
     case D3DQUERYTYPE_OCCLUSION:
     case D3DQUERYTYPE_TIMESTAMP:
+    case D3DQUERYTYPE_TIMESTAMPDISJOINT:
+    case D3DQUERYTYPE_TIMESTAMPFREQ:
         *ppQuery = new D3D9QuerySW(this, Type);
         return S_OK;
     default:
@@ -1728,6 +1770,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::ComposeRects(IDirect3DSurface9*, IDirect
 
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::PresentEx(const RECT* pSourceRect, const RECT* pDestRect, HWND hDestWindowOverride, const RGNDATA* pDirtyRegion, DWORD /*dwFlags*/)
 {
+    D3DSW_TRACE_PRESENT("PresentEx");
     return Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion);
 }
 

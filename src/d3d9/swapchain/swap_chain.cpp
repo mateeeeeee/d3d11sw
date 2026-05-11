@@ -3,6 +3,7 @@
 #include "d3d9/device/device.h"
 #include "d3d9/resources/surface.h"
 #include "d3d9/translate/d3dformat_bridge.h"
+#include "core/common/trace.h"
 #include "presenter/presenter.h"
 
 namespace d3dsw {
@@ -65,6 +66,7 @@ HRESULT STDMETHODCALLTYPE D3D9SwapChainSW::QueryInterface(REFIID riid, void** pp
 
 HRESULT STDMETHODCALLTYPE D3D9SwapChainSW::Present(const RECT*, const RECT*, HWND, const RGNDATA*, DWORD)
 {
+    D3DSW_TRACE_PRESENT("IDirect3DSwapChain9::Present");
     if (!_presenter || !_backbuffer)
     {
         return S_OK;

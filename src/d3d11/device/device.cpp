@@ -2,6 +2,7 @@
 #include "device.h"
 #include "d3d11/device/format_support.h"
 #include "core/common/log.h"
+#include "core/common/trace.h"
 #include "d3d11/context/context.h"
 #include "d3d11/resources/buffer.h"
 #include "d3d11/resources/texture1d.h"
@@ -117,6 +118,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateBuffer(
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Buffer**                ppBuffer)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateBuffer", "ByteWidth={}, BindFlags={:#x}", pDesc ? pDesc->ByteWidth : 0, pDesc ? pDesc->BindFlags : 0);
     if (!pDesc)
     {
         DebugMsg("CreateBuffer: pDesc is null");
@@ -202,6 +204,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture1D(
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture1D** ppTexture1D)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateTexture1D", "Width={}, Format={}", pDesc ? pDesc->Width : 0, pDesc ? pDesc->Format : 0);
     if (!pDesc)
     {
         return E_INVALIDARG;
@@ -246,6 +249,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture2D(
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture2D**             ppTexture2D)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateTexture2D", "{}x{}, Format={}, BindFlags={:#x}", pDesc ? pDesc->Width : 0, pDesc ? pDesc->Height : 0, pDesc ? pDesc->Format : 0, pDesc ? pDesc->BindFlags : 0);
     if (!pDesc)
     {
         DebugMsg("CreateTexture2D: pDesc is null");
@@ -369,6 +373,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture3D(
     const D3D11_SUBRESOURCE_DATA* pInitialData,
     ID3D11Texture3D**             ppTexture3D)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateTexture3D", "{}x{}x{}, Format={}", pDesc ? pDesc->Width : 0, pDesc ? pDesc->Height : 0, pDesc ? pDesc->Depth : 0, pDesc ? pDesc->Format : 0);
     if (!pDesc)
     {
         DebugMsg("CreateTexture3D: pDesc is null");
@@ -463,6 +468,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateShaderResourceView(
     const D3D11_SHADER_RESOURCE_VIEW_DESC* pDesc,
     ID3D11ShaderResourceView** ppSRView)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateShaderResourceView");
     if (!pResource)
     {
         DebugMsg("CreateShaderResourceView: pResource is null");
@@ -504,6 +510,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateUnorderedAccessView(
     const D3D11_UNORDERED_ACCESS_VIEW_DESC* pDesc,
     ID3D11UnorderedAccessView** ppUAView)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateUnorderedAccessView");
     if (!pResource)
     {
         DebugMsg("CreateUnorderedAccessView: pResource is null");
@@ -545,6 +552,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRenderTargetView(
     const D3D11_RENDER_TARGET_VIEW_DESC* pDesc,
     ID3D11RenderTargetView** ppRTView)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateRenderTargetView");
     if (!pResource)
     {
         DebugMsg("CreateRenderTargetView: pResource is null");
@@ -586,6 +594,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDepthStencilView(
     const D3D11_DEPTH_STENCIL_VIEW_DESC* pDesc,
     ID3D11DepthStencilView** ppDepthStencilView)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateDepthStencilView");
     if (!pResource)
     {
         DebugMsg("CreateDepthStencilView: pResource is null");
@@ -623,6 +632,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateInputLayout(
     SIZE_T BytecodeLength,
     ID3D11InputLayout** ppInputLayout)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateInputLayout", "NumElements={}", NumElements);
     if (!pInputElementDescs || NumElements == 0)
     {
         return E_INVALIDARG;
@@ -652,6 +662,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateVertexShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11VertexShader** ppVertexShader)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateVertexShader", "BytecodeLength={}", BytecodeLength);
     D3D11VertexShaderSW* shader = nullptr;
     HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
     if (FAILED(hr))
@@ -674,6 +685,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateGeometryShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11GeometryShader** ppGeometryShader)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateGeometryShader", "BytecodeLength={}", BytecodeLength);
     D3D11GeometryShaderSW* shader = nullptr;
     HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
     if (FAILED(hr))
@@ -701,6 +713,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateGeometryShaderWithSt
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11GeometryShader** ppGeometryShader)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateGeometryShaderWithStreamOutput", "NumEntries={}, RasterizedStream={}", NumEntries, RasterizedStream);
     D3D11GeometryShaderSW* shader = new(std::nothrow) D3D11GeometryShaderSW(this);
     if (!shader)
     {
@@ -733,6 +746,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreatePixelShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11PixelShader** ppPixelShader)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreatePixelShader", "BytecodeLength={}", BytecodeLength);
     D3D11PixelShaderSW* shader = nullptr;
     HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
     if (FAILED(hr))
@@ -755,6 +769,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateHullShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11HullShader** ppHullShader)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateHullShader", "BytecodeLength={}", BytecodeLength);
     D3D11HullShaderSW* shader = nullptr;
     HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
     if (FAILED(hr))
@@ -777,6 +792,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDomainShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11DomainShader** ppDomainShader)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateDomainShader", "BytecodeLength={}", BytecodeLength);
     D3D11DomainShaderSW* shader = nullptr;
     HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
     if (FAILED(hr))
@@ -799,6 +815,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateComputeShader(
     ID3D11ClassLinkage* pClassLinkage,
     ID3D11ComputeShader** ppComputeShader)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateComputeShader", "BytecodeLength={}", BytecodeLength);
     D3D11ComputeShaderSW* shader = nullptr;
     HRESULT hr = CreateAndInit(&shader, pShaderBytecode, BytecodeLength);
     if (FAILED(hr))
@@ -826,6 +843,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateBlendState(
     const D3D11_BLEND_DESC* pBlendStateDesc,
     ID3D11BlendState** ppBlendState)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateBlendState");
     if (!pBlendStateDesc)
     {
         DebugMsg("CreateBlendState: pBlendStateDesc is null");
@@ -871,6 +889,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDepthStencilState(
     const D3D11_DEPTH_STENCIL_DESC* pDepthStencilDesc,
     ID3D11DepthStencilState** ppDepthStencilState)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateDepthStencilState");
     if (!pDepthStencilDesc)
     {
         DebugMsg("CreateDepthStencilState: pDepthStencilDesc is null");
@@ -905,6 +924,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRasterizerState(
     const D3D11_RASTERIZER_DESC* pRasterizerDesc,
     ID3D11RasterizerState** ppRasterizerState)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateRasterizerState");
     if (!pRasterizerDesc)
     {
         DebugMsg("CreateRasterizerState: pRasterizerDesc is null");
@@ -948,6 +968,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateSamplerState(
     const D3D11_SAMPLER_DESC* pSamplerDesc,
     ID3D11SamplerState** ppSamplerState)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateSamplerState");
     if (!pSamplerDesc)
     {
         return E_INVALIDARG;
@@ -975,6 +996,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateQuery(
     const D3D11_QUERY_DESC* pQueryDesc,
     ID3D11Query** ppQuery)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device::CreateQuery");
     if (!pQueryDesc)
     {
         return E_INVALIDARG;
@@ -1354,6 +1376,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateDeferredContext1(UIN
 template<Bool IsDebug>
 HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateBlendState1(const D3D11_BLEND_DESC1* pBlendStateDesc, ID3D11BlendState1** ppBlendState)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device1::CreateBlendState1");
     if (!pBlendStateDesc)
     {
         return E_INVALIDARG;
@@ -1379,6 +1402,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateBlendState1(const D3
 template<Bool IsDebug>
 HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateRasterizerState1(const D3D11_RASTERIZER_DESC1* pRasterizerDesc, ID3D11RasterizerState1** ppRasterizerState)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device1::CreateRasterizerState1");
     if (!pRasterizerDesc)
     {
         return E_INVALIDARG;
@@ -1456,6 +1480,7 @@ HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CheckMultisampleQualityLev
 template<Bool IsDebug>
 HRESULT STDMETHODCALLTYPE D3D11DeviceSWImpl<IsDebug>::CreateTexture2D1(const D3D11_TEXTURE2D_DESC1* pDesc, const D3D11_SUBRESOURCE_DATA* pInitialData, ID3D11Texture2D1** ppTexture2D)
 {
+    D3DSW_TRACE_CREATE("ID3D11Device3::CreateTexture2D1", "{}x{}, Format={}", pDesc ? pDesc->Width : 0, pDesc ? pDesc->Height : 0, pDesc ? pDesc->Format : 0);
     if (!pDesc)
     {
         return E_INVALIDARG;
