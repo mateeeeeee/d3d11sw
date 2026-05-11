@@ -639,7 +639,15 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::Clear(DWORD /*rect_count*/, const D3DREC
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetTransform(D3DTRANSFORMSTATETYPE state, const D3DMATRIX* matrix)
 {
     D3DSW_TRACE_STATE("SetTransform", "state={}", static_cast<Uint32>(state));
-    if (!matrix || static_cast<UINT>(state) >= 512) { return D3DERR_INVALIDCALL; }
+    if (!matrix || static_cast<UINT>(state) >= 512)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordTransform(state, matrix);
+        return S_OK;
+    }
     _transforms[state] = *matrix;
     return S_OK;
 }
@@ -675,6 +683,11 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetViewport(const D3DVIEWPORT9* viewport
     {
         return D3DERR_INVALIDCALL;
     }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordViewport(viewport);
+        return S_OK;
+    }
     _viewport = *viewport;
     return S_OK;
 }
@@ -690,7 +703,15 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetViewport(D3DVIEWPORT9* pViewport)
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetMaterial(const D3DMATERIAL9* material)
 {
     D3DSW_TRACE_STATE("SetMaterial");
-    if (!material) { return D3DERR_INVALIDCALL; }
+    if (!material)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordMaterial(material);
+        return S_OK;
+    }
     _material = *material;
     return S_OK;
 }
@@ -703,110 +724,189 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetMaterial(D3DMATERIAL9* pMaterial)
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetLight(DWORD index, const D3DLIGHT9* light)
 {
     D3DSW_TRACE_STATE("SetLight", "index={}", index);
-    if (!light || index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
+    if (!light || index >= SW_D3D9_MAX_LIGHTS)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordLight(index, light);
+        return S_OK;
+    }
     _lights[index] = *light;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetLight(DWORD Index, D3DLIGHT9* pLight)
 {
-    if (!pLight || Index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
+    if (!pLight || Index >= SW_D3D9_MAX_LIGHTS)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     *pLight = _lights[Index];
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::LightEnable(DWORD Index, BOOL Enable)
 {
     D3DSW_TRACE_STATE("LightEnable", "Index={}, Enable={}", Index, Enable);
-    if (Index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
+    if (Index >= SW_D3D9_MAX_LIGHTS)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordLightEnable(Index, Enable);
+        return S_OK;
+    }
     _lightEnabled[Index] = Enable;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetLightEnable(DWORD Index, BOOL* pEnable)
 {
-    if (!pEnable || Index >= SW_D3D9_MAX_LIGHTS) { return D3DERR_INVALIDCALL; }
+    if (!pEnable || Index >= SW_D3D9_MAX_LIGHTS)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     *pEnable = _lightEnabled[Index];
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetClipPlane(DWORD index, const float* plane)
 {
-    if (!plane || index >= SW_D3D9_MAX_CLIP_PLANES) { return D3DERR_INVALIDCALL; }
+    if (!plane || index >= SW_D3D9_MAX_CLIP_PLANES)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordClipPlane(index, plane);
+        return S_OK;
+    }
     std::memcpy(_clipPlanes[index], plane, 4 * sizeof(Float));
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetClipPlane(DWORD Index, float* pPlane)
 {
-    if (!pPlane || Index >= SW_D3D9_MAX_CLIP_PLANES) { return D3DERR_INVALIDCALL; }
+    if (!pPlane || Index >= SW_D3D9_MAX_CLIP_PLANES)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     std::memcpy(pPlane, _clipPlanes[Index], 4 * sizeof(Float));
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetRenderState(D3DRENDERSTATETYPE State, DWORD Value)
 {
     D3DSW_TRACE_STATE("SetRenderState", "State={}, Value={}", static_cast<Uint32>(State), Value);
-    if (static_cast<UINT>(State) >= std::size(_rs)) { return D3DERR_INVALIDCALL; }
+    if (static_cast<UINT>(State) >= std::size(_rs))
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordRenderState(State, Value);
+        return S_OK;
+    }
     _rs[State] = Value;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetRenderState(D3DRENDERSTATETYPE State, DWORD* pValue)
 {
-    if (!pValue || static_cast<UINT>(State) >= std::size(_rs)) { return D3DERR_INVALIDCALL; }
+    if (!pValue || static_cast<UINT>(State) >= std::size(_rs))
+    {
+        return D3DERR_INVALIDCALL;
+    }
     *pValue = _rs[State];
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreateStateBlock(D3DSTATEBLOCKTYPE Type, IDirect3DStateBlock9** ppSB)
 {
-    if (!ppSB) { return D3DERR_INVALIDCALL; }
+    if (!ppSB)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     D3D9StateBlockSW* sb = new D3D9StateBlockSW(this);
-    sb->Capture(this);
+    sb->CaptureAll(this);
+    sb->MarkAllChanged();
     *ppSB = sb;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::BeginStateBlock()
 {
-    if (_pendingStateBlock) { return D3DERR_INVALIDCALL; }
+    if (_pendingStateBlock)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     _pendingStateBlock = new D3D9StateBlockSW(this);
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::EndStateBlock(IDirect3DStateBlock9** ppSB)
 {
-    if (!ppSB || !_pendingStateBlock) { return D3DERR_INVALIDCALL; }
-    _pendingStateBlock->Capture(this);
+    if (!ppSB || !_pendingStateBlock)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     *ppSB = _pendingStateBlock;
     _pendingStateBlock = nullptr;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetClipStatus(const D3DCLIPSTATUS9* clip_status)
 {
-    if (!clip_status) { return D3DERR_INVALIDCALL; }
+    if (!clip_status)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     _clipStatus = *clip_status;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetClipStatus(D3DCLIPSTATUS9* pClipStatus)
 {
-    if (!pClipStatus) { return D3DERR_INVALIDCALL; }
+    if (!pClipStatus)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     *pClipStatus = _clipStatus;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetTexture(DWORD Stage, IDirect3DBaseTexture9** ppTexture)
 {
-    if (!ppTexture || Stage >= SW_D3D9_MAX_TEXTURE_STAGES) { return D3DERR_INVALIDCALL; }
+    if (!ppTexture || Stage >= SW_D3D9_MAX_TEXTURE_STAGES)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     *ppTexture = _textures[Stage];
-    if (_textures[Stage]) { _textures[Stage]->AddRef(); }
+    if (_textures[Stage])
+    {
+        _textures[Stage]->AddRef();
+    }
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetTexture(DWORD Stage, IDirect3DBaseTexture9* pTexture)
 {
     D3DSW_TRACE_STATE("SetTexture", "Stage={}, pTexture={}", Stage, static_cast<void*>(pTexture));
-    if (Stage >= SW_D3D9_MAX_TEXTURE_STAGES) { return D3DERR_INVALIDCALL; }
-    if (pTexture) { pTexture->AddRef(); }
-    if (_textures[Stage]) { _textures[Stage]->Release(); }
+    if (Stage >= SW_D3D9_MAX_TEXTURE_STAGES)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordTexture(Stage, pTexture);
+        return S_OK;
+    }
+    if (pTexture)
+    {
+        pTexture->AddRef();
+    }
+    if (_textures[Stage])
+    {
+        _textures[Stage]->Release();
+    }
     _textures[Stage] = pTexture;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetTextureStageState(DWORD Stage, D3DTEXTURESTAGESTATETYPE Type, DWORD* pValue)
 {
     if (!pValue || Stage >= SW_D3D9_MAX_TEXTURE_STAGES ||
-        Type < 1 || Type > D3DTSS_CONSTANT) 
-    { 
-        return D3DERR_INVALIDCALL; 
+        Type < 1 || Type > D3DTSS_CONSTANT)
+    {
+        return D3DERR_INVALIDCALL;
     }
     *pValue = _tss[Stage][Type];
     return S_OK;
@@ -815,9 +915,14 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetTextureStageState(DWORD Stage, D3DTEX
 {
     D3DSW_TRACE_STATE("SetTextureStageState", "Stage={}, Type={}, Value={}", Stage, static_cast<Uint32>(Type), Value);
     if (Stage >= SW_D3D9_MAX_TEXTURE_STAGES ||
-        Type < 1 || Type > D3DTSS_CONSTANT) 
-    { 
-        return D3DERR_INVALIDCALL; 
+        Type < 1 || Type > D3DTSS_CONSTANT)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordTextureStageState(Stage, Type, Value);
+        return S_OK;
     }
     _tss[Stage][Type] = Value;
     return S_OK;
@@ -825,9 +930,9 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetTextureStageState(DWORD Stage, D3DTEX
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetSamplerState(DWORD Sampler, D3DSAMPLERSTATETYPE Type, DWORD* pValue)
 {
     if (!pValue || Sampler >= SW_D3D9_MAX_TEXTURE_STAGES ||
-        Type < 1 || Type > D3DSAMP_DMAPOFFSET) 
-    { 
-        return D3DERR_INVALIDCALL; 
+        Type < 1 || Type > D3DSAMP_DMAPOFFSET)
+    {
+        return D3DERR_INVALIDCALL;
     }
     *pValue = _samplerStates[Sampler][Type];
     return S_OK;
@@ -836,9 +941,14 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetSamplerState(DWORD Sampler, D3DSAMPLE
 {
     D3DSW_TRACE_STATE("SetSamplerState", "Sampler={}, Type={}, Value={}", Sampler, static_cast<Uint32>(Type), Value);
     if (Sampler >= SW_D3D9_MAX_TEXTURE_STAGES ||
-        Type < 1 || Type > D3DSAMP_DMAPOFFSET) 
-    { 
-        return D3DERR_INVALIDCALL; 
+        Type < 1 || Type > D3DSAMP_DMAPOFFSET)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordSamplerState(Sampler, Type, Value);
+        return S_OK;
     }
     _samplerStates[Sampler][Type] = Value;
     return S_OK;
@@ -859,6 +969,7 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetScissorRect(const RECT* rect)
     {
         return D3DERR_INVALIDCALL;
     }
+    if (_pendingStateBlock) { _pendingStateBlock->RecordScissorRect(rect); return S_OK; }
     _scissor = *rect;
     return S_OK;
 }
@@ -1060,14 +1171,18 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexDeclaration(IDirect3DVertexDecl
 {
     D3DSW_TRACE_STATE("SetVertexDeclaration", "pDecl={}", static_cast<void*>(pDecl));
     D3D9VertexDeclarationSW* decl = static_cast<D3D9VertexDeclarationSW*>(pDecl);
-    if (decl) 
-    { 
-        decl->AddRef(); 
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordVertexDeclaration(decl);
+        return S_OK;
     }
-
-    if (_vertexDecl) 
-    { 
-        _vertexDecl->Release(); 
+    if (decl)
+    {
+        decl->AddRef();
+    }
+    if (_vertexDecl)
+    {
+        _vertexDecl->Release();
     }
     _vertexDecl = decl;
     return S_OK;
@@ -1079,13 +1194,23 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexDeclaration(IDirect3DVertexDecl
         return D3DERR_INVALIDCALL;
     }
     *ppDecl = _vertexDecl;
-    if (_vertexDecl) 
-    { 
-        _vertexDecl->AddRef(); 
+    if (_vertexDecl)
+    {
+        _vertexDecl->AddRef();
     }
     return S_OK;
 }
-HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetFVF(DWORD FVF) { D3DSW_TRACE_STATE("SetFVF", "FVF=0x{:X}", FVF); _fvf = FVF; return S_OK; }
+HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetFVF(DWORD FVF)
+{
+    D3DSW_TRACE_STATE("SetFVF", "FVF=0x{:X}", FVF);
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordFVF(FVF);
+        return S_OK;
+    }
+    _fvf = FVF;
+    return S_OK;
+}
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetFVF(DWORD* pFVF)
 {
     if (!pFVF)
@@ -1128,8 +1253,19 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShader(IDirect3DVertexShader9* 
 {
     D3DSW_TRACE_SHADER("SetVertexShader", "pShader={}", static_cast<void*>(pShader));
     D3D9VertexShaderSW* vs = static_cast<D3D9VertexShaderSW*>(pShader);
-    if (vs) { vs->AddRef(); }
-    if (_vs) { _vs->Release(); }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordVertexShader(vs);
+        return S_OK;
+    }
+    if (vs)
+    {
+        vs->AddRef();
+    }
+    if (_vs)
+    {
+        _vs->Release();
+    }
     _vs = vs;
     return S_OK;
 }
@@ -1140,7 +1276,10 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetVertexShader(IDirect3DVertexShader9**
         return D3DERR_INVALIDCALL;
     }
     *ppShader = _vs;
-    if (_vs) { _vs->AddRef(); }
+    if (_vs)
+    {
+        _vs->AddRef();
+    }
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantF(UINT reg_idx, const float* data, UINT count)
@@ -1149,6 +1288,11 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantF(UINT reg_idx, c
     if (!data || reg_idx + count > 256)
     {
         return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordVSConstantF(reg_idx, data, count);
+        return S_OK;
     }
     std::memcpy(&_vsConstF[reg_idx][0], data, count * 4 * sizeof(Float));
     return S_OK;
@@ -1169,6 +1313,11 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantI(UINT reg_idx, c
     {
         return D3DERR_INVALIDCALL;
     }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordVSConstantI(reg_idx, data, count);
+        return S_OK;
+    }
     std::memcpy(&_vsConstI[reg_idx][0], data, count * 4 * sizeof(Int32));
     return S_OK;
 }
@@ -1187,6 +1336,11 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetVertexShaderConstantB(UINT reg_idx, c
     if (!data || reg_idx + count > D3DSW_ARRAYSIZE(_vsConstB))
     {
         return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordVSConstantB(reg_idx, data, count);
+        return S_OK;
     }
     for (Uint i = 0; i < count; ++i)
     {
@@ -1214,8 +1368,19 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetStreamSource(UINT StreamNumber, IDire
         return D3DERR_INVALIDCALL;
     }
     D3D9VertexBufferSW* vb = static_cast<D3D9VertexBufferSW*>(pStreamData);
-    if (vb) { vb->AddRef(); }
-    if (_streams[StreamNumber].buffer) { _streams[StreamNumber].buffer->Release(); }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordStreamSource(StreamNumber, vb, OffsetInBytes, Stride);
+        return S_OK;
+    }
+    if (vb)
+    {
+        vb->AddRef();
+    }
+    if (_streams[StreamNumber].buffer)
+    {
+        _streams[StreamNumber].buffer->Release();
+    }
     _streams[StreamNumber].buffer = vb;
     _streams[StreamNumber].offset = OffsetInBytes;
     _streams[StreamNumber].stride = Stride;
@@ -1231,21 +1396,41 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetStreamSource(UINT StreamNumber, IDire
     if (ppStreamData)
     {
         *ppStreamData = s.buffer;
-        if (s.buffer) { s.buffer->AddRef(); }
+        if (s.buffer)
+        {
+            s.buffer->AddRef();
+        }
     }
-    if (OffsetInBytes) { *OffsetInBytes = s.offset; }
-    if (pStride)       { *pStride       = s.stride; }
+    if (OffsetInBytes)
+    {
+        *OffsetInBytes = s.offset;
+    }
+    if (pStride)
+    {
+        *pStride = s.stride;
+    }
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetStreamSourceFreq(UINT StreamNumber, UINT FreqDivider)
 {
-    if (StreamNumber >= SW_D3D9_MAX_STREAMS) { return D3DERR_INVALIDCALL; }
+    if (StreamNumber >= SW_D3D9_MAX_STREAMS)
+    {
+        return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordStreamSourceFreq(StreamNumber, FreqDivider);
+        return S_OK;
+    }
     _streamFreq[StreamNumber] = FreqDivider;
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetStreamSourceFreq(UINT StreamNumber, UINT* pDivider)
 {
-    if (StreamNumber >= SW_D3D9_MAX_STREAMS || !pDivider) { return D3DERR_INVALIDCALL; }
+    if (StreamNumber >= SW_D3D9_MAX_STREAMS || !pDivider)
+    {
+        return D3DERR_INVALIDCALL;
+    }
     *pDivider = _streamFreq[StreamNumber];
     return S_OK;
 }
@@ -1253,8 +1438,19 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetIndices(IDirect3DIndexBuffer9* pIndex
 {
     D3DSW_TRACE_STATE("SetIndices", "pIndexData={}", static_cast<void*>(pIndexData));
     D3D9IndexBufferSW* ib = static_cast<D3D9IndexBufferSW*>(pIndexData);
-    if (ib) { ib->AddRef(); }
-    if (_indices) { _indices->Release(); }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordIndices(ib);
+        return S_OK;
+    }
+    if (ib)
+    {
+        ib->AddRef();
+    }
+    if (_indices)
+    {
+        _indices->Release();
+    }
     _indices = ib;
     return S_OK;
 }
@@ -1265,7 +1461,10 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetIndices(IDirect3DIndexBuffer9** ppInd
         return D3DERR_INVALIDCALL;
     }
     *ppIndexData = _indices;
-    if (_indices) { _indices->AddRef(); }
+    if (_indices)
+    {
+        _indices->AddRef();
+    }
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::CreatePixelShader(const DWORD* byte_code, IDirect3DPixelShader9** shader)
@@ -1296,8 +1495,19 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShader(IDirect3DPixelShader9* pS
 {
     D3DSW_TRACE_SHADER("SetPixelShader", "pShader={}", static_cast<void*>(pShader));
     D3D9PixelShaderSW* ps = static_cast<D3D9PixelShaderSW*>(pShader);
-    if (ps) { ps->AddRef(); }
-    if (_ps) { _ps->Release(); }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordPixelShader(ps);
+        return S_OK;
+    }
+    if (ps)
+    {
+        ps->AddRef();
+    }
+    if (_ps)
+    {
+        _ps->Release();
+    }
     _ps = ps;
     return S_OK;
 }
@@ -1308,7 +1518,10 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::GetPixelShader(IDirect3DPixelShader9** p
         return D3DERR_INVALIDCALL;
     }
     *ppShader = _ps;
-    if (_ps) { _ps->AddRef(); }
+    if (_ps)
+    {
+        _ps->AddRef();
+    }
     return S_OK;
 }
 HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantF(UINT reg_idx, const float* data, UINT count)
@@ -1317,6 +1530,11 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantF(UINT reg_idx, co
     if (!data || reg_idx + count > 224)
     {
         return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordPSConstantF(reg_idx, data, count);
+        return S_OK;
     }
     std::memcpy(&_psConstF[reg_idx][0], data, count * 4 * sizeof(float));
     return S_OK;
@@ -1337,6 +1555,11 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantI(UINT reg_idx, co
     {
         return D3DERR_INVALIDCALL;
     }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordPSConstantI(reg_idx, data, count);
+        return S_OK;
+    }
     std::memcpy(&_psConstI[reg_idx][0], data, count * 4 * sizeof(Int32));
     return S_OK;
 }
@@ -1355,6 +1578,11 @@ HRESULT STDMETHODCALLTYPE D3D9DeviceSW::SetPixelShaderConstantB(UINT reg_idx, co
     if (!data || reg_idx + count > 16)
     {
         return D3DERR_INVALIDCALL;
+    }
+    if (_pendingStateBlock)
+    {
+        _pendingStateBlock->RecordPSConstantB(reg_idx, data, count);
+        return S_OK;
     }
     for (Uint i = 0; i < count; ++i)
     {

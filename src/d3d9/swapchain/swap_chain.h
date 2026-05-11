@@ -1,9 +1,10 @@
 #pragma once
+#include <memory>
+#include <vector>
 #include "d3d9/common/d3d9_headers.h"
 #include "core/common/common.h"
 #include "core/common/unknown_impl.h"
-#include <memory>
-#include <vector>
+
 
 namespace d3dsw {
 

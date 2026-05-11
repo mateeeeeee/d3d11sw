@@ -327,7 +327,7 @@ typedef enum _D3DQUERYTYPE {
 
 
 #define D3DDECL_END() {0xFF,0,D3DDECLTYPE_UNUSED,0,0,0}
-#define D3DDP_MAXTEXCOORD   8
+#define D3DDP_MAXTEXCOORD   8 
 
 
 #define D3DVSD_MAKETOKENTYPE(TokenType) \

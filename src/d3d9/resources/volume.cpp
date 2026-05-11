@@ -98,7 +98,11 @@ HRESULT STDMETHODCALLTYPE D3D9VolumeSW::GetContainer(REFIID riid, void** ppConta
 
 HRESULT STDMETHODCALLTYPE D3D9VolumeSW::GetDesc(D3DVOLUME_DESC* pDesc)
 {
-    if (!pDesc) { return D3DERR_INVALIDCALL; }
+    if (!pDesc) 
+    { 
+        return D3DERR_INVALIDCALL; 
+    }
+    
     pDesc->Format = _d3dFormat;
     pDesc->Type   = D3DRTYPE_VOLUME;
     pDesc->Usage  = 0;

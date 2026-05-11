@@ -46,6 +46,7 @@ add_d3d9_test(test_d3d9_render_state   unit/test_render_state.cpp)
 add_d3d9_test(test_d3d9_draw_triangle  unit/test_draw_triangle.cpp)
 add_d3d9_test(test_d3d9_fxc_shaders    unit/test_fxc_shaders.cpp)
 add_d3d9_test(test_d3d9_texture        unit/test_texture.cpp)
+add_d3d9_test(test_d3d9_state_block    unit/test_state_block.cpp)
 
 # Golden tests: pixel-level reference comparison via tests/d3d9/golden/reference/.
 # Sets D3D9SW_GOLDEN_DIR / D3D9SW_OUTPUT_DIR consumed by golden_test_util.h
